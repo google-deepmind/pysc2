@@ -29,7 +29,7 @@ from pysc2.lib import stopwatch
 import websocket
 
 import gflags as flags
-from s2clientproto import sc2api_pb2 as sc_pb
+from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
 flags.DEFINE_integer("sc2_verbose", 0,
@@ -125,7 +125,7 @@ class StarcraftProtocol(object):
     """
     assert len(kwargs) == 1, "Must make a single request."
     res = self.send_req(sc_pb.Request(**kwargs))
-    return getattr(res, kwargs.keys()[0])
+    return getattr(res, list(kwargs.keys())[0])
 
   def _log_packet(self, packet):
     max_lines = FLAGS.sc2_verbose

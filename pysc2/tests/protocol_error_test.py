@@ -18,15 +18,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import unittest
-
-
 from pysc2 import run_configs
 from pysc2.lib import protocol
 from pysc2.lib import remote_controller
 from pysc2.tests import utils
 
-from s2clientproto import sc2api_pb2 as sc_pb
+from pysc2.lib import basetest
+from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
 class TestProtocolError(utils.TestCase):
@@ -42,4 +40,4 @@ class TestProtocolError(utils.TestCase):
 
 
 if __name__ == "__main__":
-  unittest.main()
+  basetest.main()

@@ -22,13 +22,14 @@ import functools
 import itertools
 import logging
 import math
-import Queue
 import threading
 import time
 
 import enum
+from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy as np
 import pygame
+from six.moves import queue
 from pysc2.lib import colors
 from pysc2.lib import features
 from pysc2.lib import point
@@ -36,9 +37,9 @@ from pysc2.lib import remote_controller
 from pysc2.lib import stopwatch
 from pysc2.lib import transform
 
-from s2clientproto import data_pb2 as sc_data
-from s2clientproto import sc2api_pb2 as sc_pb
-from s2clientproto import spatial_pb2 as sc_spatial
+from s2clientprotocol import data_pb2 as sc_data
+from s2clientprotocol import sc2api_pb2 as sc_pb
+from s2clientprotocol import spatial_pb2 as sc_spatial
 
 sw = stopwatch.sw
 
@@ -149,32 +150,6 @@ def circle_mask(shape, pt, radius):
 
 class RendererHuman(object):
   """Render starcraft obs with pygame such that it's playable by humans."""
-
-  player_colors = {
-      0: colors.PLAYER_RELATIVE_PALETTE[3],   # Neutral
-      16: colors.PLAYER_RELATIVE_PALETTE[3],  # Neutral
-      1: colors.PLAYER_RELATIVE_PALETTE[1],   # self
-      2: colors.PLAYER_RELATIVE_PALETTE[4],   # enemy
-  }
-
-  base_visible = colors.white // 3
-  base_fogged = colors.white // 4
-  base_hidden = colors.white // 8
-  creep_visible = colors.purple // 3
-  creep_fogged = colors.purple // 4
-  creep_hidden = colors.purple // 8
-
-  map_colors = np.array([
-      base_hidden,
-      base_fogged,
-      base_visible,
-      base_fogged,
-      creep_hidden,
-      creep_fogged,
-      creep_visible,
-      creep_fogged,
-  ])
-
   camera_actions = {  # camera moves by 3 world units.
       pygame.K_LEFT: point.Point(-3, 0),
       pygame.K_RIGHT: point.Point(3, 0),
@@ -195,7 +170,7 @@ class RendererHuman(object):
       ("?", "This help screen"),
   ]
 
-  def __init__(self, fps=20, step_mul=1, render_sync=False):
+  def __init__(self, fps=22.4, step_mul=1, render_sync=False):
     """Create a renderer for use by humans.
 
     Make sure to call `init` with the game info, or just use `run`.
@@ -208,7 +183,7 @@ class RendererHuman(object):
     self._fps = fps
     self._step_mul = step_mul
     self._render_sync = render_sync
-    self._obs_queue = Queue.Queue()
+    self._obs_queue = queue.Queue()
     self._render_thread = threading.Thread(target=self.render_thread,
                                            name="Renderer")
     self._render_thread.start()
@@ -219,8 +194,11 @@ class RendererHuman(object):
     self._name_lengths = {}
 
   def close(self):
-    self._obs_queue.put(None)
-    self._render_thread.join()
+    if self._obs_queue:
+      self._obs_queue.put(None)
+      self._render_thread.join()
+      self._obs_queue = None
+      self._render_thread = None
 
   def init(self, game_info, static_data):
     """Take the game info and the static data needed to set up the game.
@@ -438,6 +416,11 @@ class RendererHuman(object):
     self.queued_hotkey = ""
     self.queued_action = None
 
+  def save_replay(self, run_config, controller):
+    replay_path = run_config.save_replay(
+        controller.save_replay(), "local", self._game_info.local_map_path)
+    print("Wrote replay to:", replay_path)
+
   @with_lock(obs_lock)
   @sw.decorate
   def get_actions(self, run_config, controller):
@@ -473,9 +456,7 @@ class RendererHuman(object):
           self._render_sync = not self._render_sync
           print("Rendering", self._render_sync and "Sync" or "Async")
         elif event.key == pygame.K_F9:  # Save a replay.
-          replay_path = run_config.save_replay(
-              controller.save_replay(), "local", self._game_info.local_map_path)
-          print("Wrote replay to:", replay_path)
+          self.save_replay(run_config, controller)
         elif (event.key in (pygame.K_PLUS, pygame.K_EQUALS) and
               pygame.key.get_mods() & pygame.KMOD_CTRL):  # zoom in
           self.zoom(1.1)
@@ -500,7 +481,7 @@ class RendererHuman(object):
           if cmds:
             assert len(cmds) == 1
             cmd = cmds[0]
-            assert cmd.target == sc_data.AbilityData.None
+            assert cmd.target == sc_data.AbilityData.Target.Value("None")
             controller.act(self.unit_action(cmd))
           else:
             self.clear_queued_action()
@@ -515,7 +496,7 @@ class RendererHuman(object):
               if len(cmds) == 1:
                 cmd = cmds[0]
                 if cmd.hotkey == self.queued_hotkey:
-                  if cmd.target != sc_data.AbilityData.None:
+                  if cmd.target != sc_data.AbilityData.Target.Value("None"):
                     self.clear_queued_action()
                     self.queued_action = cmd
                   else:
@@ -616,20 +597,12 @@ class RendererHuman(object):
     return [u for u, p in self._visible_units()
             if rect.intersects_circle(p, u.radius) and u.owner == player_id]
 
-  @sw.decorate
-  def draw_base_map(self, surf):
-    """Draw the base map."""
-    # World bl -> tl, tr -> br due to the game being bl-origin based.
-    tl = self._world_to_minimap.fwd_pt(self._camera.bl).floor()
-    br = self._world_to_minimap.fwd_pt(self._camera.tr).ceil()
-    surf.blit_np_array(self.map_base[tl.y:br.y, tl.x:br.x])
-
   def get_unit_name(self, surf, name, radius):
     """Get a length limited unit name for drawing units."""
     key = (name, radius)
     if key not in self._name_lengths:
       max_len = surf.world_to_surf.fwd_dist(radius * 1.6)
-      for i in xrange(len(name)):
+      for i in range(len(name)):
         if self.font_small.size(name[:i + 1])[0] > max_len:
           self._name_lengths[key] = name[:i]
           break
@@ -644,10 +617,10 @@ class RendererHuman(object):
       if self._camera.intersects_circle(p, u.radius):
         fraction_damage = clamp((u.health_max - u.health) / (u.health_max or 1),
                                 0, 1)
-        surf.draw_circle(self.player_colors[u.owner], p, u.radius)
+        surf.draw_circle(colors.PLAYER_ABSOLUTE_PALETTE[u.owner], p, u.radius)
 
         if fraction_damage > 0:
-          surf.draw_circle(self.player_colors[u.owner] // 2,
+          surf.draw_circle(colors.PLAYER_ABSOLUTE_PALETTE[u.owner] // 2,
                            p, u.radius * fraction_damage)
 
         name = self.get_unit_name(
@@ -683,7 +656,8 @@ class RendererHuman(object):
           pos = point.Point(round_half(pos.pos.x, (radius * 2) % 2),
                             round_half(pos.pos.y, (radius * 2) % 2))
           surf.draw_circle(
-              self.player_colors[self._obs.observation.player_common.player_id],
+              colors.PLAYER_ABSOLUTE_PALETTE[
+                  self._obs.observation.player_common.player_id],
               pos, radius)
 
   @sw.decorate
@@ -769,6 +743,38 @@ class RendererHuman(object):
             self.all_surfs(_Surface.draw_rect, colors.cyan, rect, 1)
 
   @sw.decorate
+  def draw_base_map(self, surf):
+    """Draw the base map."""
+    hmap_feature = features.SCREEN_FEATURES.height_map
+    hmap = hmap_feature.unpack(self._obs.observation)
+    if not hmap.any():
+      hmap += 100
+    hmap_color = hmap_feature.color(hmap)
+
+    creep_feature = features.SCREEN_FEATURES.creep
+    creep = creep_feature.unpack(self._obs.observation)
+    creep_mask = creep > 0
+    creep_color = creep_feature.color(creep)
+
+    power_feature = features.SCREEN_FEATURES.power
+    power = power_feature.unpack(self._obs.observation)
+    power_mask = power > 0
+    power_color = power_feature.color(power)
+
+    visibility = features.SCREEN_FEATURES.visibility_map.unpack(
+        self._obs.observation)
+    visibility_fade = np.array([[0.5] * 3, [0.75]*3, [1]*3])
+
+    out = hmap_color * 0.6
+    out[creep_mask, :] = (0.4 * out[creep_mask, :] +
+                          0.6 * creep_color[creep_mask, :])
+    out[power_mask, :] = (0.7 * out[power_mask, :] +
+                          0.3 * power_color[power_mask, :])
+    out *= visibility_fade[visibility]
+
+    surf.blit_np_array(out)
+
+  @sw.decorate
   def draw_mini_map(self, surf):
     """Draw the minimap."""
     if (self._obs.observation.HasField("render_data") and
@@ -776,11 +782,35 @@ class RendererHuman(object):
       # Draw the rendered version.
       surf.blit_np_array(features.Feature.unpack_rgb_image(
           self._obs.observation.render_data.minimap))
-    else:
-      # Render it manually from the raw data.
-      surf.blit_np_array(self.map_base)
-      for u, p in self._visible_units():
-        surf.draw_circle(self.player_colors[u.owner], p, u.radius)
+    else:  # Render it manually from feature layer data.
+      hmap_feature = features.MINIMAP_FEATURES.height_map
+      hmap = hmap_feature.unpack(self._obs.observation)
+      if not hmap.any():
+        hmap += 100
+      hmap_color = hmap_feature.color(hmap)
+
+      creep_feature = features.MINIMAP_FEATURES.creep
+      creep = creep_feature.unpack(self._obs.observation)
+      creep_mask = creep > 0
+      creep_color = creep_feature.color(creep)
+
+      player_feature = features.MINIMAP_FEATURES.player_relative
+      player_relative = player_feature.unpack(self._obs.observation)
+      player_mask = player_relative > 0
+      player_color = player_feature.color(player_relative)
+
+      visibility = features.MINIMAP_FEATURES.visibility_map.unpack(
+          self._obs.observation)
+      visibility_fade = np.array([[0.5] * 3, [0.75]*3, [1]*3])
+
+      out = hmap_color * 0.6
+      out[creep_mask, :] = (0.4 * out[creep_mask, :] +
+                            0.6 * creep_color[creep_mask, :])
+      out[player_mask, :] = player_color[player_mask, :]
+      out *= visibility_fade[visibility]
+
+      surf.blit_np_array(out)
+
       surf.draw_rect(colors.white * 0.8, self._camera, 1)  # Camera
       pygame.draw.rect(surf.surf, colors.red, surf.surf.get_rect(), 1)  # Border
 
@@ -792,22 +822,6 @@ class RendererHuman(object):
     if (self.queued_action and not self._abilities(
         lambda cmd: self.queued_action == cmd)):
       self.queued_action = None
-
-  @sw.decorate
-  def prepare_map(self):
-    """Prepare the map to be drawn."""
-    map_state = self._obs.observation.raw_data.map_state
-    visible = features.Feature.unpack_layer(map_state.visibility)
-    creep = features.Feature.unpack_layer(map_state.creep)
-
-    self.map_base = self.map_colors[creep * 4 + visible]
-
-    for source in self._obs.observation.raw_data.player.power_sources:
-      mask = circle_mask(
-          point.Point(*self.map_base.shape[:2]),
-          self._world_to_minimap.fwd_pt(point.Point.build(source.pos)),
-          self._world_to_minimap.fwd_dist(source.radius))
-      self.map_base[mask, ...] += colors.cyan // 8
 
   @sw.decorate
   def draw_rendered_map(self, surf):
@@ -832,10 +846,7 @@ class RendererHuman(object):
   @sw.decorate
   def draw_feature_layer(self, surf, feature):
     """Draw a feature layer."""
-    unpacked = feature.unpack(self._obs.observation)
-    with sw("color"):
-      colored = feature.palette[np.clip(unpacked, 0, feature.scale - 1)]
-    surf.blit_np_array(colored)
+    surf.blit_np_array(feature.color(feature.unpack(self._obs.observation)))
 
   def all_surfs(self, fn, *args, **kwargs):
     for surf in self.surfaces:
@@ -875,7 +886,6 @@ class RendererHuman(object):
     with obs_lock:
       self._obs = obs
     self.check_valid_queued_action()
-    self.prepare_map()
     self._update_camera(point.Point.build(
         self._obs.observation.raw_data.player.camera))
 
@@ -896,7 +906,7 @@ class RendererHuman(object):
     self._render_times.append(time.time() - start_time)
 
   def run(self, run_config, controller, max_game_steps=0,
-          game_steps_per_episode=0):
+          game_steps_per_episode=0, save_replay=False):
     """Run loop that gets observations, renders them, and sends back actions."""
     is_replay = (controller.status == remote_controller.Status.in_replay)
     total_game_steps = 0
@@ -924,6 +934,8 @@ class RendererHuman(object):
           if cmd == ActionCmd.STEP:
             pass
           elif cmd == ActionCmd.QUIT:
+            if not is_replay and save_replay:
+              self.save_replay(run_config, controller)
             return
           elif cmd == ActionCmd.RESTART:
             break
@@ -945,15 +957,18 @@ class RendererHuman(object):
         if is_replay:
           break
 
+        if save_replay:
+          self.save_replay(run_config, controller)
+
         print("Restarting")
         controller.restart()
     except KeyboardInterrupt:
       pass
     finally:
       self.close()
-      print("Quitting...")
-      controller.quit()
       elapsed_time = time.time() - start_time
       print("took %.3f seconds for %s steps: %.3f fps" %
             (elapsed_time, total_game_steps, total_game_steps / elapsed_time))
-      print(sw)
+
+  def __del__(self):
+    self.close()

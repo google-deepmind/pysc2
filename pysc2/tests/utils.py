@@ -17,13 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import unittest
-
-
 from pysc2.lib import stopwatch
 
+from pysc2.lib import basetest
 
-class TestCase(unittest.TestCase):
+
+class TestCase(basetest.TestCase):
 
   def setUp(self):
     super(TestCase, self).setUp()

@@ -42,7 +42,7 @@ class BaseEnvWrapper(environment.Base):
     return self._env.step(*args, **kwargs)
 
   def save_replay(self, *args, **kwargs):
-    return self._env.save_replay(self, *args, **kwargs)
+    return self._env.save_replay(*args, **kwargs)
 
   @property
   def state(self):

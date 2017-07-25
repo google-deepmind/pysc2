@@ -18,12 +18,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import unittest
-
+from future.builtins import range  # pylint: disable=redefined-builtin
+import six
 
 from pysc2.agents import random_agent
 from pysc2.env import sc2_env
 from pysc2.tests import utils
+
+from pysc2.lib import basetest
 
 
 class TestObservationSpec(utils.TestCase):
@@ -37,11 +39,11 @@ class TestObservationSpec(utils.TestCase):
 
       raw_obs = env.reset()[0]
       agent.reset()
-      for _ in xrange(100):
+      for _ in range(100):
         obs = raw_obs.observation
 
         self.assertItemsEqual(spec.keys(), obs.keys())
-        for k, o in obs.iteritems():
+        for k, o in six.iteritems(obs):
           descr = "%s: spec: %s != obs: %s" % (k, spec[k], o.shape)
 
           if o.shape == (0,):  # Empty tensor can't have a shape.
@@ -56,4 +58,4 @@ class TestObservationSpec(utils.TestCase):
         raw_obs = env.step([act])[0]
 
 if __name__ == "__main__":
-  unittest.main()
+  basetest.main()

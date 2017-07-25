@@ -12,45 +12,54 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Run the random agent."""
+"""Run an agent."""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import importlib
 import threading
 
+from future.builtins import range  # pylint: disable=redefined-builtin
 
-from pysc2.agents import random_agent
+from pysc2 import maps
 from pysc2.env import available_actions_printer
 from pysc2.env import run_loop
 from pysc2.env import sc2_env
-from pysc2.lib import flag_utils
 from pysc2.lib import point
 from pysc2.lib import stopwatch
 
-from google.apputils import app
+from pysc2.lib import app
 import gflags as flags
 
 
 FLAGS = flags.FLAGS
-flags.DEFINE_integer("max_agent_steps", 1000, "Total agent steps.")
+flags.DEFINE_bool("render", True, "Whether to render with pygame.")
+flags.DEFINE_string("resolution", "64,64", "Resolution for feature layers.")
+
+flags.DEFINE_integer("max_agent_steps", 2500, "Total agent steps.")
 flags.DEFINE_integer("game_steps_per_episode", 0, "Game steps per episode.")
-flags.DEFINE_integer("step_mul", 20, "Game steps per agent step.")
+flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
+
+flags.DEFINE_string("agent", "pysc2.agents.random_agent.RandomAgent",
+                    "Which agent to run")
 flags.DEFINE_enum("agent_race", None, sc2_env.races.keys(), "Agent's race.")
 flags.DEFINE_enum("bot_race", None, sc2_env.races.keys(), "Bot's race.")
 flags.DEFINE_enum("difficulty", None, sc2_env.difficulties.keys(),
                   "Bot's strength.")
-flags.DEFINE_bool("visualize", True, "Whether to show the visualization.")
-flags.DEFINE_string("resolution", "64,64", "Resolution for feature layers.")
+
 flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
 flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
+
 flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
-flags.DEFINE_string("map", None, "Name of a map/replay to use.")
+
+flags.DEFINE_string("map", None, "Name of a map to use.")
+flags.mark_flag_as_required("map")
 
 
-def run_thread(map_name, visualize):
+def run_thread(agent_cls, map_name, visualize):
   resolution = point.Point(*(int(i) for i in FLAGS.resolution.split(",")))
   with sc2_env.SC2Env(
       map_name,
@@ -63,23 +72,26 @@ def run_thread(map_name, visualize):
       screen_size_px=resolution,
       minimap_size_px=resolution) as env:
     env = available_actions_printer.AvailableActionsPrinter(env)
-    agent = random_agent.RandomAgent()
+    agent = agent_cls()
     run_loop.run_loop([agent], env, FLAGS.max_agent_steps)
     if FLAGS.save_replay:
       env.save_replay("random")
 
 
-def main(argv):
-  """Run the random agent."""
+def _main(unused_argv):
+  """Run an agent."""
   stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
   stopwatch.sw.trace = FLAGS.trace
 
-  map_name = flag_utils.positional_flag("Map name", FLAGS.map, argv)
+  maps.get(FLAGS.map)  # Assert the map exists.
+
+  agent_module, agent_name = FLAGS.agent.rsplit(".", 1)
+  agent_cls = getattr(importlib.import_module(agent_module), agent_name)
 
   threads = []
-  for i in xrange(FLAGS.parallel):
+  for i in range(FLAGS.parallel):
     t = threading.Thread(target=run_thread, args=(
-        map_name, FLAGS.visualize and i == 0))
+        agent_cls, FLAGS.map, FLAGS.render and i == 0))
     threads.append(t)
     t.start()
 
@@ -90,5 +102,9 @@ def main(argv):
     print(stopwatch.sw)
 
 
+def main():  # Needed so setup.py scripts work.
+  app.really_start(_main)
+
+
 if __name__ == "__main__":
-  app.run()
+  main()

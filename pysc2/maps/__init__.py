@@ -14,7 +14,7 @@
 """Register/import the maps, and offer a way to create one by name.
 
 Users of maps should import this module:
-  from pysc2.sc2 import maps
+  from pysc2 import maps
 and create the maps by name:
   maps.get("MapName")
 
@@ -26,7 +26,6 @@ name, as long as it is imported somewhere.
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
 
 from pysc2.maps import ladder
 from pysc2.maps import lib

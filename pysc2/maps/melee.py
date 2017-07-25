@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 from pysc2.maps import lib
 
 
@@ -27,12 +26,10 @@ class Melee(lib.Map):
   game_steps_per_episode = 16 * 60 * 30  # 30 minute limit.
 
 
-class TestEmpty(Melee):
-  directory = "test"
-  filename = "TestEmpty"
-
-
 melee_maps = [
+    "Flat32",
+    "Flat48",
+    "Flat64",
     "Simple64",
     "Simple96",
     "Simple128",

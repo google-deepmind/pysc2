@@ -18,11 +18,13 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
+import numbers
 
+import six
 from pysc2.lib import point
 
-from s2clientproto import spatial_pb2 as sc_spatial
-from s2clientproto import ui_pb2 as sc_ui
+from s2clientprotocol import spatial_pb2 as sc_spatial
+from s2clientprotocol import ui_pb2 as sc_ui
 
 
 def no_op(action):
@@ -195,7 +197,7 @@ class Arguments(collections.namedtuple("Arguments", [
   def types(cls, **kwargs):
     """Create an Arguments of the possible Types."""
     named = {name: type_._replace(id=Arguments._fields.index(name), name=name)
-             for name, type_ in kwargs.iteritems()}
+             for name, type_ in six.iteritems(kwargs)}
     return cls(**named)
 
 
@@ -318,8 +320,36 @@ class Function(collections.namedtuple(
                            "; ".join(str(a) for a in self.args))
 
 
+class Functions(object):
+  """Represents the full set of functions.
+
+  Can't use namedtuple since python3 has a limit of 255 function arguments, so
+  build something similar.
+  """
+
+  def __init__(self, functions):
+    self._func_list = functions
+    self._func_dict = {f.name: f for f in functions}
+    if len(self._func_dict) != len(self._func_list):
+      raise ValueError("Function names must be unique.")
+
+  def __getattr__(self, name):
+    return self._func_dict[name]
+
+  def __getitem__(self, key):
+    if isinstance(key, numbers.Number):
+      return self._func_list[key]
+    return self._func_dict[key]
+
+  def __iter__(self):
+    return iter(self._func_list)
+
+  def __len__(self):
+    return len(self._func_list)
+
+
 # pylint: disable=line-too-long
-FUNCTIONS = (  # Redefined below as a namedtuple.
+FUNCTIONS = Functions([
     Function.ui_func(0, "no_op", no_op),
     Function.ui_func(1, "move_camera", move_camera),
     Function.ui_func(2, "select_point", select_point),
@@ -852,31 +882,20 @@ FUNCTIONS = (  # Redefined below as a namedtuple.
     Function.ability(521, "UnloadAllAt_Overlord_minimap", cmd_minimap, 1408, 3669),
     Function.ability(522, "UnloadAllAt_WarpPrism_screen", cmd_screen, 913, 3669),
     Function.ability(523, "UnloadAllAt_WarpPrism_minimap", cmd_minimap, 913, 3669),
-)
+])
 # pylint: enable=line-too-long
-
-_function_names = [f.name for f in FUNCTIONS]
-
-
-class Functions(collections.namedtuple("Functions", _function_names)):
-  """Represents the full set of functions."""
-  __slots__ = ()
-
-
-FUNCTIONS = Functions(*FUNCTIONS)
-
 
 # Some indexes to support features.py and action conversion.
 ABILITY_IDS = collections.defaultdict(set)  # {ability_id: {funcs}}
 for func in FUNCTIONS:
   if func.ability_id >= 0:
     ABILITY_IDS[func.ability_id].add(func)
-ABILITY_IDS = {k: frozenset(v) for k, v in ABILITY_IDS.iteritems()}
+ABILITY_IDS = {k: frozenset(v) for k, v in six.iteritems(ABILITY_IDS)}
 FUNCTIONS_AVAILABLE = {f.id: f for f in FUNCTIONS if f.avail_fn}
 
 
 class FunctionCall(collections.namedtuple(
-    "FunctionCall", ["function_id", "arguments"])):
+    "FunctionCall", ["function", "arguments"])):
   """Represents a function call action.
 
   Attributes:
@@ -885,6 +904,26 @@ class FunctionCall(collections.namedtuple(
         ints. For select_point this could be: [[0], [23, 38]].
   """
   __slots__ = ()
+
+  @classmethod
+  def all_arguments(cls, function, arguments):
+    """Helper function for creating `FunctionCall`s with `Arguments`.
+
+    Args:
+      function: The value to store for the action function.
+      arguments: The values to store for the arguments of the action. Can either
+        be an `Arguments` object, a `dict`, or an iterable. If a `dict` or an
+        iterable is provided, the values will be unpacked into an `Arguments`
+        object.
+
+    Returns:
+      A new `FunctionCall` instance.
+    """
+    if isinstance(arguments, dict):
+      arguments = Arguments(**arguments)
+    elif not isinstance(arguments, Arguments):
+      arguments = Arguments(*arguments)
+    return cls(function, arguments)
 
 
 class ValidActions(collections.namedtuple(

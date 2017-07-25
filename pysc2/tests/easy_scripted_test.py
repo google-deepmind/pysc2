@@ -18,45 +18,54 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import unittest
-
-
 from pysc2.agents import scripted_agent
 from pysc2.env import run_loop
 from pysc2.env import sc2_env
 from pysc2.tests import utils
 
+from pysc2.lib import basetest
+
 
 class TestEasy(utils.TestCase):
-  steps = 100
-  step_mul = 10
+  steps = 200
+  step_mul = 16
 
-  def test_mn_easy_win(self):
+  def test_move_to_beacon(self):
     with sc2_env.SC2Env(
-        "TestMNEasy",
+        "MoveToBeacon",
         step_mul=self.step_mul,
         game_steps_per_episode=self.steps * self.step_mul) as env:
-      agent = scripted_agent.MNEasyWin()
+      agent = scripted_agent.MoveToBeacon()
       run_loop.run_loop([agent], env, self.steps)
 
-    # Win all that finish: episodes - 1 <= reward <= episodes
-    self.assertLessEqual(agent.episodes - 1, agent.reward)
-    self.assertLessEqual(agent.reward, agent.episodes)
+    # Get some points
+    self.assertLessEqual(agent.episodes, agent.reward)
     self.assertEqual(agent.steps, self.steps)
 
-  def test_mn_easy_lose(self):
+  def test_collect_mineral_shards(self):
     with sc2_env.SC2Env(
-        "TestMNEasy",
+        "CollectMineralShards",
         step_mul=self.step_mul,
         game_steps_per_episode=self.steps * self.step_mul) as env:
-      agent = scripted_agent.MNEasyLose()
+      agent = scripted_agent.CollectMineralShards()
       run_loop.run_loop([agent], env, self.steps)
 
-    # Lose all that finish: episodes - 1 <= -reward <= episodes
-    self.assertLessEqual(agent.episodes - 1, -agent.reward)
-    self.assertLessEqual(-agent.reward, agent.episodes)
+    # Get some points
+    self.assertLessEqual(agent.episodes, agent.reward)
+    self.assertEqual(agent.steps, self.steps)
+
+  def test_defeat_roaches(self):
+    with sc2_env.SC2Env(
+        "DefeatRoaches",
+        step_mul=self.step_mul,
+        game_steps_per_episode=self.steps * self.step_mul) as env:
+      agent = scripted_agent.DefeatRoaches()
+      run_loop.run_loop([agent], env, self.steps)
+
+    # Get some points
+    self.assertLessEqual(agent.episodes, agent.reward)
     self.assertEqual(agent.steps, self.steps)
 
 
 if __name__ == "__main__":
-  unittest.main()
+  basetest.main()

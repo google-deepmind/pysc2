@@ -20,13 +20,14 @@ from __future__ import print_function
 
 import itertools
 
+import six
 from pysc2 import maps
 from pysc2 import run_configs
 
-from google.apputils import app
+from pysc2.lib import app
 import gflags as flags
-from s2clientproto import data_pb2 as sc_data
-from s2clientproto import sc2api_pb2 as sc_pb
+from s2clientprotocol import data_pb2 as sc_data
+from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
 flags.DEFINE_enum("command", None, ["csv", "python"], "What to generate.")
@@ -78,7 +79,7 @@ def generate_csv(data):
       "remap_to",
       "mismatch",
   ]))
-  for ability in sorted(data.abilities.itervalues(),
+  for ability in sorted(six.itervalues(data.abilities),
                         key=lambda a: sort_key(data, a)):
     ab_id = ability.ability_id
     if ab_id in skip_abilities or (ab_id not in data.general_abilities and
@@ -130,7 +131,7 @@ def generate_py_abilities(data):
     print("    Function.ability(%s)," % ", ".join(str(v) for v in args))
 
   func_ids = itertools.count(12)  # Leave room for the ui funcs.
-  for ability in sorted(data.abilities.itervalues(),
+  for ability in sorted(six.itervalues(data.abilities),
                         key=lambda a: sort_key(data, a)):
     ab_id = ability.ability_id
     if ab_id in skip_abilities or (ab_id not in data.general_abilities and
@@ -210,4 +211,4 @@ skip_abilities = cancel_slot | unload_unit | frivolous
 
 
 if __name__ == "__main__":
-  app.run(main)
+  app.really_start(main)

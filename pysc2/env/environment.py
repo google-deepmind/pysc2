@@ -20,7 +20,6 @@ from __future__ import print_function
 import abc
 import collections
 
-
 import enum
 import six
 

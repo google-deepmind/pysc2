@@ -22,8 +22,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import unittest
-
+from future.builtins import range  # pylint: disable=redefined-builtin
+import six
 
 from pysc2 import maps
 from pysc2 import run_configs
@@ -32,7 +32,8 @@ from pysc2.lib import features
 from pysc2.lib import point
 from pysc2.tests import utils
 
-from s2clientproto import sc2api_pb2 as sc_pb
+from pysc2.lib import basetest
+from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
 class Config(object):
@@ -81,7 +82,7 @@ class Config(object):
 
     self.actions = {
         frame: self.action_to_function_call(*action)
-        for frame, action in self.action_sequence.iteritems()
+        for frame, action in six.iteritems(self.action_sequence)
     }
 
   def action_to_function_call(self, name, args):
@@ -169,7 +170,7 @@ class ReplayObsTest(utils.TestCase):
     f = features.Features(controller.game_info())
 
     observations = {}
-    for _ in xrange(config.num_observations):
+    for _ in range(config.num_observations):
       o = controller.observe().observation
       obs = f.transform_obs(o)
 
@@ -183,7 +184,7 @@ class ReplayObsTest(utils.TestCase):
 
         # Ensure action is available.
         # If a build action is available, we have managed to target an SCV.
-        self.assertIn(func.function_id, obs['available_actions'])
+        self.assertIn(func.function, obs['available_actions'])
 
         if config.action_sequence[o.game_loop][0] == 'select-point':
           # Ensure we have selected an SCV or the command center.
@@ -223,23 +224,23 @@ class ReplayObsTest(utils.TestCase):
 
       if o.actions:
         func = f.reverse_action(o.actions[0])
-        print('Action ', func.function_id)
+        print('Action ', func.function)
 
         if o.observation.game_loop == 2:
           # Center camera is initiated automatically by the game and reported
           # at frame 2.
-          self.assertEqual(1, func.function_id)
+          self.assertEqual(1, func.function)
           continue
 
         # Action is reported one frame later.
         executed = config.actions.get(o.observation.game_loop - 1, None)
         if not executed:
           self.assertEqual(
-              1, func.function_id,
+              1, func.function,
               'A camera move to center the idle worker is expected.')
           continue
 
-        self.assertEqual(func.function_id, executed.function_id)
+        self.assertEqual(func.function, executed.function)
         print('Parsed and executed funcs: ', func, executed)
         # TODO(petkoig): Check whether we want the reported unit selection
         # TODO(petkoig): to match the original or current observation.
@@ -264,4 +265,4 @@ class ReplayObsTest(utils.TestCase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  basetest.main()

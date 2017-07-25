@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Print the valid actions for a given map."""
+"""Print the valid actions."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -21,7 +21,7 @@ from __future__ import print_function
 from pysc2.lib import actions
 from pysc2.lib import features
 
-from google.apputils import app
+from pysc2.lib import app
 import gflags as flags
 
 FLAGS = flags.FLAGS
@@ -33,21 +33,24 @@ flags.DEFINE_bool("hide_specific", False, "Hide the specific actions")
 
 
 def main(unused_argv):
-  """Print the valid actions for a given map."""
+  """Print the valid actions."""
   feats = features.Features(
       screen_size_px=(int(i) for i in FLAGS.screen_resolution.split(",")),
       minimap_size_px=(int(i) for i in FLAGS.minimap_resolution.split(",")))
   action_spec = feats.action_spec()
   flattened = 0
+  count = 0
   for func in action_spec.functions:
     if FLAGS.hide_specific and actions.FUNCTIONS[func.id].general_id != 0:
       continue
+    count += 1
     act_flat = 1
     for arg in func.args:
       for size in arg.sizes:
         act_flat *= size
     flattened += act_flat
     print(func.str(True))
+  print("Total base actions:", count)
   print("Total possible actions (flattened):", flattened)
 
 if __name__ == "__main__":

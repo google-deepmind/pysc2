@@ -17,16 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import unittest
-
+from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy
-
+import six
 from pysc2.lib import actions
 from pysc2.lib import features
 from pysc2.lib import point
 
 from google.protobuf import text_format
-from s2clientproto import sc2api_pb2 as sc_pb
+from pysc2.lib import basetest
+from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
 # Heavily trimmed, so this is useful for testing actions, but not observations.
@@ -48,7 +48,7 @@ game_loop: 20
 """
 
 
-class AvailableActionsTest(unittest.TestCase):
+class AvailableActionsTest(basetest.TestCase):
 
   always_expected = {
       "no_op", "move_camera", "select_point", "select_rect",
@@ -195,14 +195,14 @@ class AvailableActionsTest(unittest.TestCase):
     ])
 
 
-class FeaturesTest(unittest.TestCase):
+class FeaturesTest(basetest.TestCase):
 
   def testFunctionsIdsAreConsistent(self):
     for i, f in enumerate(actions.FUNCTIONS):
       self.assertEqual(i, f.id, "id doesn't match for %s" % f.id)
 
   def testAllVersionsOfAnAbilityHaveTheSameGeneral(self):
-    for ability_id, funcs in actions.ABILITY_IDS.iteritems():
+    for ability_id, funcs in six.iteritems(actions.ABILITY_IDS):
       self.assertEqual(len({f.general_id for f in funcs}), 1,
                        "Multiple generals for %s" % ability_id)
 
@@ -235,7 +235,7 @@ class FeaturesTest(unittest.TestCase):
     sc2_action = sc_pb.Action()
     sc2_action.action_feature_layer.unit_command.ability_id = 6  # Cheer
     func_call = feats.reverse_action(sc2_action)
-    self.assertEqual(func_call.function_id, 0)  # No-op
+    self.assertEqual(func_call.function, 0)  # No-op
 
   def testSpecificActionsAreReversible(self):
     """Test that the `transform_action` and `reverse_action` are inverses."""
@@ -244,7 +244,7 @@ class FeaturesTest(unittest.TestCase):
     action_spec = feats.action_spec()
 
     for func_def in action_spec.functions:
-      for _ in xrange(10):
+      for _ in range(10):
         func_call = self.gen_random_function_call(action_spec, func_def.id)
 
         sc2_action = feats.transform_action(
@@ -259,7 +259,7 @@ class FeaturesTest(unittest.TestCase):
             return point.Rect(point.Point(a[0], a[1]).floor(),
                               point.Point(a[2], a[3]).floor())
 
-          self.assertEqual(func_call.function_id, func_call2.function_id)
+          self.assertEqual(func_call.function, func_call2.function)
           self.assertEqual(len(func_call.arguments), len(func_call2.arguments))
           self.assertEqual(func_call.arguments[0], func_call2.arguments[0])
           self.assertEqual(rect(func_call.arguments[1]),
@@ -270,4 +270,4 @@ class FeaturesTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-  unittest.main()
+  basetest.main()

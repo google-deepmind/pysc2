@@ -21,14 +21,15 @@ from __future__ import print_function
 import logging
 import os
 import random
-import unittest
 
+from future.builtins import range  # pylint: disable=redefined-builtin
 
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.tests import utils
 
-from s2clientproto import sc2api_pb2 as sc_pb
+from pysc2.lib import basetest
+from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
 class MapsTest(utils.TestCase):
@@ -50,7 +51,7 @@ class MapsTest(utils.TestCase):
 
     with run_config.start() as controller:
       # Test only a few random maps when run locally to minimize time.
-      count = len(all_maps) if os.environ.get("BORG_CELL") else 5
+      count = 5
       map_sample = random.sample(all_maps.items(), min(count, len(all_maps)))
       for _, map_class in sorted(map_sample):
         m = map_class()
@@ -73,10 +74,10 @@ class MapsTest(utils.TestCase):
         self.assertIn("Mods/VoidMulti.SC2Mod", info.mod_names)
 
         # Verify it can be played without making actions.
-        for _ in xrange(3):
+        for _ in range(3):
           controller.step()
           controller.observe()
 
 
 if __name__ == "__main__":
-  unittest.main()
+  basetest.main()

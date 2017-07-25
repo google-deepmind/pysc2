@@ -19,7 +19,9 @@ from __future__ import print_function
 
 import collections
 import math
+import random
 
+from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy
 
 
@@ -90,47 +92,100 @@ def smooth_hue_palette(scale):
   g = out[..., 1]
   b = out[..., 2]
 
-  mask0 = h == 0
-  mask1 = h < 1
-  mask2 = h < 2
-  mask3 = h < 3
-  mask4 = h < 4
-  mask5 = h < 5
-
-  mask = mask1 - mask0  # h in (0, 1)
+  mask = (0 < h) & (h < 1)
   r[mask] = c
   g[mask] = x[mask]
 
-  mask = mask2 - mask1  # h in [1, 2)
+  mask = (1 <= h) & (h < 2)
   r[mask] = x[mask]
   g[mask] = c
 
-  mask = mask3 - mask2  # h in [2, 3)
+  mask = (2 <= h) & (h < 3)
   g[mask] = c
   b[mask] = x[mask]
 
-  mask = mask4 - mask3  # h in [3, 4)
+  mask = (3 <= h) & (h < 4)
   g[mask] = x[mask]
   b[mask] = c
 
-  mask = mask5 - mask4  # h in [4, 5)
+  mask = (4 <= h) & (h < 5)
   r[mask] = x[mask]
   b[mask] = c
 
-  mask = ~mask5  # [5, 6)
+  mask = 5 <= h
   r[mask] = c
   b[mask] = x[mask]
 
   return out
 
 
+def shuffled_hue(scale):
+  palette = list(smooth_hue_palette(scale))
+  random.shuffle(palette, lambda: 0.5)  # Return a fixed shuffle
+  return numpy.array(palette)
+
+
+def piece_wise_linear(scale, points):
+  """Create a palette that is piece-wise linear given some colors at points."""
+  assert len(points) >= 2
+  assert points[0][0] == 0
+  assert points[-1][0] == 1
+  assert all(i < j for i, j in zip(points[:-1], points[1:]))
+  out = numpy.zeros((scale, 3))
+  p1, c1 = points[0]
+  p2, c2 = points[1]
+  next_pt = 2
+
+  for i in range(1, scale):
+    v = i / scale
+    if v > p2:
+      p1, c1 = p2, c2
+      p2, c2 = points[next_pt]
+      next_pt += 1
+    frac = (v - p1) / (p2 - p1)
+    out[i, :] = c1 * (1 - frac) + c2 * frac
+  return out
+
+
+def winter(scale):
+  return piece_wise_linear(scale, [(0, Color(0, 0.5, 0.4) * 255),
+                                   (1, Color(1, 1, 0.4) * 255)])
+
+
+def hot(scale):
+  return piece_wise_linear(scale, [(0, Color(0.5, 0, 0) * 255),
+                                   (0.2, Color(1, 0, 0) * 255),
+                                   (0.6, Color(1, 1, 0) * 255),
+                                   (1, Color(1, 1, 1) * 255)])
+
+
 # Palette used to color player_relative features.
 PLAYER_RELATIVE_PALETTE = numpy.array([
-    black,         # Background.
-    green * 0.5,   # Self.
-    yellow,        # Ally.
-    cyan,          # Neutral.
-    red * 0.8,     # Enemy.
+    black,                 # Background.
+    Color(0, 142, 0),      # Self. (Green).
+    yellow,                # Ally.
+    Color(129, 166, 196),  # Neutral. (Cyan.)
+    Color(113, 25, 34),    # Enemy. (Red).
+])
+
+PLAYER_ABSOLUTE_PALETTE = numpy.array([
+    black,                 # Background
+    Color(0, 142, 0),      # 1: Green
+    Color(113, 25, 34),    # 2: Red
+    Color(223, 215, 67),   # 3: Yellow
+    Color(66, 26, 121),    # 4: Purple
+    Color(222, 144, 50),   # 5: Orange
+    Color(46, 72, 237),    # 6: Blue
+    Color(207, 111, 176),  # 7: Pink
+    Color(189, 251, 157),  # 8: Light green
+    white * 0.1,           # 9: Does the game ever have more than 8 players?
+    white * 0.1,           # 10: Does the game ever have more than 8 players?
+    white * 0.1,           # 11: Does the game ever have more than 8 players?
+    white * 0.1,           # 12: Does the game ever have more than 8 players?
+    white * 0.1,           # 13: Does the game ever have more than 8 players?
+    white * 0.1,           # 14: Does the game ever have more than 8 players?
+    white * 0.1,           # 15: Does the game ever have more than 8 players?
+    Color(129, 166, 196),  # 16 Neutral: Cyan
 ])
 
 VISIBILITY_PALETTE = numpy.array([
@@ -139,5 +194,7 @@ VISIBILITY_PALETTE = numpy.array([
     white * 0.6,   # Visible
 ])
 
+CAMERA_PALETTE = numpy.array([black, white * 0.6])
 CREEP_PALETTE = numpy.array([black, purple * 0.4])
-POWER_PALETTE = numpy.array([black, cyan])
+POWER_PALETTE = numpy.array([black, cyan * 0.7])
+SELECTED_PALETTE = numpy.array([black, green * 0.7])

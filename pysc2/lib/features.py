@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Render feature layers from Starcraft Observation protos into numpy arrays."""
+"""Render feature layers from SC2 Observation protos into numpy arrays."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -22,12 +22,13 @@ import logging
 
 import enum
 import numpy as np
+import six
 from pysc2.lib import actions
 from pysc2.lib import colors
 from pysc2.lib import point
 from pysc2.lib import stopwatch
 
-from s2clientproto import sc2api_pb2 as sc_pb
+from s2clientprotocol import sc2api_pb2 as sc_pb
 
 sw = stopwatch.sw
 
@@ -39,8 +40,8 @@ class FeatureType(enum.Enum):
 
 class Feature(collections.namedtuple(
     "Feature", ["index", "name", "layer_set", "full_name", "scale", "type",
-                "palette"])):
-  """Define properties of feature layer.
+                "palette", "clip"])):
+  """Define properties of a feature layer.
 
   Attributes:
     index: Index of this layer into the set of layers.
@@ -50,6 +51,7 @@ class Feature(collections.namedtuple(
     scale: Max value (+1) of this layer, used to scale the values.
     type: A FeatureType for scalar vs categorical.
     palette: A color palette for rendering.
+    clip: Whether to clip the values for coloring.
   """
   __slots__ = ()
 
@@ -85,6 +87,12 @@ class Feature(collections.namedtuple(
     data = np.fromstring(plane.data, dtype=np.uint8)
     return data.reshape(size.y, size.x, 3)
 
+  @sw.decorate
+  def color(self, plane):
+    if self.clip:
+      plane = np.clip(plane, 0, self.scale - 1)
+    return self.palette[plane]
+
 
 class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
     "height_map", "visibility_map", "creep", "power", "player_id",
@@ -95,7 +103,7 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
 
   def __new__(cls, **kwargs):
     feats = {}
-    for name, (scale, type_, palette) in kwargs.iteritems():
+    for name, (scale, type_, palette, clip) in six.iteritems(kwargs):
       feats[name] = Feature(
           index=ScreenFeatures._fields.index(name),
           name=name,
@@ -103,11 +111,12 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
           full_name="screen " + name,
           scale=scale,
           type=type_,
-          palette=palette(scale) if callable(palette) else palette)
+          palette=palette(scale) if callable(palette) else palette,
+          clip=clip)
     return super(ScreenFeatures, cls).__new__(cls, **feats)
 
 
-class MinimapFeatures(collections.namedtuple("ScreenFeatures", [
+class MinimapFeatures(collections.namedtuple("MinimapFeatures", [
     "height_map", "visibility_map", "creep", "camera", "player_id",
     "player_relative", "selected"])):
   """The set of minimap feature layers."""
@@ -115,7 +124,7 @@ class MinimapFeatures(collections.namedtuple("ScreenFeatures", [
 
   def __new__(cls, **kwargs):
     feats = {}
-    for name, (scale, type_, palette) in kwargs.iteritems():
+    for name, (scale, type_, palette) in six.iteritems(kwargs):
       feats[name] = Feature(
           index=MinimapFeatures._fields.index(name),
           name=name,
@@ -123,41 +132,44 @@ class MinimapFeatures(collections.namedtuple("ScreenFeatures", [
           full_name="minimap " + name,
           scale=scale,
           type=type_,
-          palette=palette(scale) if callable(palette) else palette)
+          palette=palette(scale) if callable(palette) else palette,
+          clip=False)
     return super(MinimapFeatures, cls).__new__(cls, **feats)
 
 
 SCREEN_FEATURES = ScreenFeatures(
-    height_map=(256, FeatureType.SCALAR, colors.smooth_hue_palette),
-    visibility_map=(4, FeatureType.CATEGORICAL, colors.VISIBILITY_PALETTE),
-    creep=(2, FeatureType.CATEGORICAL, colors.CREEP_PALETTE),
-    power=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE),
-    player_id=(17, FeatureType.CATEGORICAL, colors.smooth_hue_palette),
+    height_map=(256, FeatureType.SCALAR, colors.winter, False),
+    visibility_map=(4, FeatureType.CATEGORICAL,
+                    colors.VISIBILITY_PALETTE, False),
+    creep=(2, FeatureType.CATEGORICAL, colors.CREEP_PALETTE, False),
+    power=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE, False),
+    player_id=(17, FeatureType.CATEGORICAL,
+               colors.PLAYER_ABSOLUTE_PALETTE, False),
     player_relative=(5, FeatureType.CATEGORICAL,
-                     colors.PLAYER_RELATIVE_PALETTE),
-    unit_type=(1850, FeatureType.CATEGORICAL, colors.smooth_hue_palette),
-    selected=(2, FeatureType.CATEGORICAL, colors.smooth_hue_palette),
-    unit_hit_points=(2000, FeatureType.SCALAR, colors.smooth_hue_palette),
-    unit_energy=(1000, FeatureType.SCALAR, colors.smooth_hue_palette),
-    unit_shields=(1000, FeatureType.SCALAR, colors.smooth_hue_palette),
-    unit_density=(10, FeatureType.SCALAR, colors.smooth_hue_palette),
-    unit_density_aa=(256, FeatureType.SCALAR, colors.smooth_hue_palette),
+                     colors.PLAYER_RELATIVE_PALETTE, False),
+    unit_type=(1850, FeatureType.CATEGORICAL, colors.shuffled_hue, False),
+    selected=(2, FeatureType.CATEGORICAL, colors.SELECTED_PALETTE, False),
+    unit_hit_points=(1600, FeatureType.SCALAR, colors.hot, True),
+    unit_energy=(1000, FeatureType.SCALAR, colors.hot, True),
+    unit_shields=(1000, FeatureType.SCALAR, colors.hot, True),
+    unit_density=(16, FeatureType.SCALAR, colors.hot, False),
+    unit_density_aa=(256, FeatureType.SCALAR, colors.hot, False),
 )
 
 MINIMAP_FEATURES = MinimapFeatures(
-    height_map=(256, FeatureType.SCALAR, colors.smooth_hue_palette),
+    height_map=(256, FeatureType.SCALAR, colors.winter),
     visibility_map=(4, FeatureType.CATEGORICAL, colors.VISIBILITY_PALETTE),
     creep=(2, FeatureType.CATEGORICAL, colors.CREEP_PALETTE),
-    camera=(2, FeatureType.CATEGORICAL, colors.smooth_hue_palette),
-    player_id=(17, FeatureType.CATEGORICAL, colors.smooth_hue_palette),
+    camera=(2, FeatureType.CATEGORICAL, colors.CAMERA_PALETTE),
+    player_id=(17, FeatureType.CATEGORICAL, colors.PLAYER_ABSOLUTE_PALETTE),
     player_relative=(5, FeatureType.CATEGORICAL,
                      colors.PLAYER_RELATIVE_PALETTE),
-    selected=(2, FeatureType.CATEGORICAL, colors.smooth_hue_palette),
+    selected=(2, FeatureType.CATEGORICAL, colors.winter),
 )
 
 
 class Features(object):
-  """Render feature layers from Starcraft Observation protos into numpy arrays.
+  """Render feature layers from SC2 Observation protos into numpy arrays.
 
   This has the implementation details of how to render a starcraft environment.
   It translates between agent action/observation formats and starcraft
@@ -204,52 +216,12 @@ class Features(object):
     self._valid_functions = self._init_valid_functions()
 
   def observation_spec(self):
-    """The observation spec for the Starcraft environments.
-
-    The screen has several layers:
-      0:  height map (int)
-      1:  visibility map (int)
-      2:  creep (bool)
-      3:  power (bool)
-      4:  player id for unit (int)
-      5:  player relation (int) [none, controlled, friendly, neutral, hostile]
-      6:  unit type (int)
-      7:  selected (bool)
-      8:  unit hit points (int)
-      9:  unit energy (int)
-      10: unit shields (int)
-      11: unit density (int) how many units are in this pixel
-      12: unit density anti-aliased (int), a full unit=16, partial unit < 16
-      pathable? buildable?
-
-    The minimap has several layers:
-      0: height map (int)
-      1: visibility map (int) (0 hidden, 1 fogged, 2 visible)
-      2: creep (bool)
-      3: camera (bool), 1s where the camera sees, 0 elsewhere
-      4: player id for unit (int)
-      5: player relation (int) [none, controlled, friendly, neutral, hostile]
-      6: selected (bool)
-
-    The player is 10 numbers:
-      0: player_id
-      1: minerals
-      2: vespene
-      3: food used
-      4: food cap
-      5: food army
-      6: food workers
-      7: id worker count
-      8: army count
-      9: warp gate count
-
-    Valid actions is a list of all the valid action ids (ie the values for the
-    first discrete action). Point actions is a subset of valid actions for the
-    action ids that use a point. You should still supply one, but a default 0,0
-    is great.
+    """The observation spec for the SC2 environment.
 
     Returns:
-      The dict of observation names to their tensor shapes.
+      The dict of observation names to their tensor shapes. Shapes with a 0 can
+      vary in length, for example the number of valid actions depends on which
+      units you have selected.
     """
     return {
         "screen": (len(SCREEN_FEATURES),
@@ -268,10 +240,6 @@ class Features(object):
         "cargo_slots_available": (1,),
         "build_queue": (0, 7),
         "control_groups": (10, 2),
-        # race?
-        # notifications?
-        # map name?
-        # pixels?
     }
 
   def action_spec(self):
@@ -280,7 +248,7 @@ class Features(object):
 
   @sw.decorate
   def transform_obs(self, obs):
-    """Render some sc2 observations into something an agent can handle."""
+    """Render some SC2 observations into something an agent can handle."""
     empty = np.array([], dtype=np.int32).reshape((0, 7))
     out = {  # Fill out some that are sometimes empty.
         "single_select": empty,
@@ -371,7 +339,7 @@ class Features(object):
   def available_actions(self, obs):
     """Return the list of available action ids."""
     available_actions = set()
-    for i, func in actions.FUNCTIONS_AVAILABLE.iteritems():
+    for i, func in six.iteritems(actions.FUNCTIONS_AVAILABLE):
       if func.avail_fn(obs):
         available_actions.add(i)
     for a in obs.abilities:
@@ -399,7 +367,8 @@ class Features(object):
       obs: a `sc_pb.Observation` from the previous frame.
       func_call: a `FunctionCall` to be turned into a `sc_pb.Action`.
       skip_available: If True, assume the action is available. This should only
-          be used for testing.
+          be used for testing or if you expect to make actions that weren't
+          valid at the last observation.
 
     Returns:
       a corresponding `sc_pb.Action`.
@@ -407,7 +376,7 @@ class Features(object):
     Raises:
       ValueError: if the action doesn't pass validation.
     """
-    func_id = func_call.function_id
+    func_id = func_call.function
     try:
       func = actions.FUNCTIONS[func_id]
     except KeyError:
@@ -495,7 +464,7 @@ class Features(object):
           ability_id, cmd_type.__name__))
 
     def func_call_name(name, args):
-      return func_call(getattr(actions.FUNCTIONS, name).id, args)
+      return func_call(actions.FUNCTIONS[name].id, args)
 
     if action.HasField("action_ui"):
       act_ui = action.action_ui
@@ -578,7 +547,7 @@ class Features(object):
         actions.ArgumentType.spec(t.id, t.name, sizes.get(t.name, t.sizes))
         for t in actions.TYPES])
 
-    functions = actions.Functions(*[
+    functions = actions.Functions([
         actions.Function.spec(f.id, f.name, tuple(types[t.id] for t in f.args))
         for f in actions.FUNCTIONS])
 

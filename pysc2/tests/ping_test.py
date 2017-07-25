@@ -18,12 +18,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import unittest
-
+from future.builtins import range  # pylint: disable=redefined-builtin
 
 from pysc2 import run_configs
 from pysc2.lib import stopwatch
 from pysc2.tests import utils
+
+from pysc2.lib import basetest
 
 
 class TestPing(utils.TestCase):
@@ -35,11 +36,11 @@ class TestPing(utils.TestCase):
       with stopwatch.sw("first"):
         controller.ping()
 
-      for _ in xrange(count):
+      for _ in range(count):
         controller.ping()
 
     self.assertEqual(stopwatch.sw["ping"].num, count)
 
 
 if __name__ == "__main__":
-  unittest.main()
+  basetest.main()

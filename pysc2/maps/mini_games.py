@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 from pysc2.maps import lib
 
 
@@ -29,29 +28,14 @@ class MiniGame(lib.Map):
   step_mul = 8
 
 
-class TestMNEasy(MiniGame):
-  directory = "test"
-  filename = "mn_easy"
-  score_index = None
-
-
 mini_games = [
-    "CombatFocus",  # 120s
-    "CombatFocusNoMarinePenalty",  # 120s
-    "CombatFocusRestoreMarines",  # 120s
-    "CombatFocusUnselected",  # 120s
-    "CombatFocusUnselectedNoMarinePenalty",  # 120s
-    "CombatFocusUnselectedRestoreMarines",  # 120s
-    "CombatGroup",  # 180s
-    "CombatGroupUnselected",  # 180s
-    "MacroEconomy",  # 180s
-    "MacroEconomyRandomSpawn",  # 180s
-    "MovementBeaconSparseReward",  # 120s
-    "MovementBeaconSparseRewardRandomSpawn",  # 120s
-    "MovementBeaconSparseRewardUnselected",  # 120s
-    "MovementBeaconSparseRewardUnselectedRandomSpawn",  # 120s
-    "MovementTSPunselected2marinesRandomSpawn",  # 120s
-    "MovementTSPunselected2marinesRandomSpawnUniformSpread",  # 120s
+    "BuildMarines",  # 900s
+    "CollectMineralsAndGas",  # 420s
+    "CollectMineralShards",  # 120s
+    "DefeatRoaches",  # 120s
+    "DefeatZerglingsAndBanelings",  # 120s
+    "FindAndDefeatZerglings",  # 180s
+    "MoveToBeacon",  # 120s
 ]
 
 

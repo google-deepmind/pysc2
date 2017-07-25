@@ -52,7 +52,7 @@ class RunConfig(object):
 
   def map_data(self, map_name):
     """Return the map data for a map by name or path."""
-    with open(os.path.join(self.data_dir, "maps", map_name), "rb") as f:
+    with open(os.path.join(self.data_dir, "Maps", map_name), "rb") as f:
       return f.read()
 
   def abs_replay_path(self, replay_path):
@@ -90,9 +90,10 @@ class RunConfig(object):
         os.path.splitext(os.path.basename(map_name))[0],
         now.isoformat("-").replace(":", "-"))
     replay_dir = self.abs_replay_path(replay_dir)
-    os.makedirs(replay_dir)
+    if not os.path.exists(replay_dir):
+      os.makedirs(replay_dir)
     replay_path = os.path.join(replay_dir, replay_filename)
-    with open(replay_path, "w") as f:
+    with open(replay_path, "wb") as f:
       f.write(replay_data)
     return replay_path
 

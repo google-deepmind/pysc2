@@ -19,7 +19,6 @@ from __future__ import print_function
 
 import logging
 
-
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.env import environment
@@ -28,7 +27,7 @@ from pysc2.lib import point
 from pysc2.lib import renderer_human
 from pysc2.lib import stopwatch
 
-from s2clientproto import sc2api_pb2 as sc_pb
+from s2clientprotocol import sc2api_pb2 as sc_pb
 
 sw = stopwatch.sw
 
@@ -118,6 +117,11 @@ class SC2Env(environment.Base):
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
     """
+    # Make the destructor happy.
+    self._renderer_human = None
+    self._controller = None
+    self._sc2_proc = None
+
     if save_replay_steps and not replay_dir:
       raise ValueError("Missing replay_dir")
     if agent_race and agent_race not in races:
@@ -177,7 +181,6 @@ class SC2Env(environment.Base):
     static_data = self._controller.data()
 
     self._features = features.Features(game_info)
-    self._renderer_human = None
     if visualize:
       self._renderer_human = renderer_human.RendererHuman()
       self._renderer_human.init(game_info, static_data)
@@ -190,12 +193,6 @@ class SC2Env(environment.Base):
   def observation_spec(self):
     """Look at Features for full specs."""
     return self._features.observation_spec()
-
-  def observation_spec_dtypes(self):
-    """Look at Features for full specs dtypes."""
-    # This isn't part of the EnvV2 specification,
-    # but used in the SC2Env wrapper.
-    return self._features.observation_spec_dtypes()
 
   def action_spec(self):
     """Look at Features for full specs."""
@@ -264,7 +261,7 @@ class SC2Env(environment.Base):
 
     self._total_steps += self._step_mul
     if (self._save_replay_steps > 0 and
-        self._total_steps % self._save_replay_steps == 0):
+        self._total_steps % self._save_replay_steps < self._step_mul):
       self.save_replay(self._replay_dir)
 
     return (environment.TimeStep(

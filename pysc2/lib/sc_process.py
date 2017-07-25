@@ -26,6 +26,8 @@ import sys
 import tempfile
 import time
 
+from future.builtins import range  # pylint: disable=redefined-builtin
+
 import portpicker
 from pysc2.lib import protocol
 from pysc2.lib import remote_controller
@@ -51,7 +53,7 @@ class StarcraftProcess(object):
       controller.ping()
   """
 
-  def __init__(self, run_config, **kwargs):
+  def __init__(self, run_config, full_screen=False, **kwargs):
     self._proc = None
     self._sock = None
     self._controller = None
@@ -63,9 +65,9 @@ class StarcraftProcess(object):
         run_config.exec_path,
         "-listen", "127.0.0.1",
         "-port", str(self._port),
-        "-dataDir", run_config.data_dir + "/",
-        "-tempDir", self._tmp_dir + "/",
-        "-displayMode", "0",  # On windows/mac run in a window, not fullscreen.
+        "-dataDir", os.path.join(run_config.data_dir, ""),
+        "-tempDir", os.path.join(self._tmp_dir, ""),
+        "-displayMode", "1" if full_screen else "0",
     ]
     try:
       self._proc = self._launch(run_config, args, **kwargs)
@@ -103,10 +105,11 @@ class StarcraftProcess(object):
     self.close()
 
   def _check_exists(self, exec_path):
-    if not os.path.isfile(exec_path) or not os.access(exec_path, os.X_OK):
+    if not os.path.isfile(exec_path):
+      raise RuntimeError("Trying to run '%s', but it doesn't exist" % exec_path)
+    if not os.access(exec_path, os.X_OK):
       raise RuntimeError(
-          "Trying to run '%s', but it doesn't exist or isn't executable." %
-          exec_path)
+          "Trying to run '%s', but it isn't executable." % exec_path)
 
   def _launch(self, run_config, args, **kwargs):
     """Launch the process and return the process object."""
@@ -121,12 +124,13 @@ class StarcraftProcess(object):
   @sw.decorate
   def _connect(self, port):
     """Connect to the websocket, retrying as needed. Returns the socket."""
-    was_running = self.running
-    for i in xrange(120):
-      was_running = was_running or self.running
-      if (i >= 30 or was_running) and not self.running:
-        logging.warning("SC2 isn't even running, so bailing early on the "
-                        "websocket connection.")
+    was_running = False
+    for i in range(120):
+      is_running = self.running
+      was_running = was_running or is_running
+      if (i >= 30 or was_running) and not is_running:
+        logging.warning(
+            "SC2 isn't running, so bailing early on the websocket connection.")
         break
       logging.info("Connection attempt %s", i)
       time.sleep(1)
@@ -157,17 +161,17 @@ class StarcraftProcess(object):
 def _shutdown_proc(p, timeout):
   """Wait for a proc to shut down, then terminate or kill it after `timeout`."""
   freq = 10  # how often to check per second
-  for _ in xrange(1 + timeout * freq):
+  for _ in range(1 + timeout * freq):
     ret = p.poll()
     if ret is not None:
       logging.info("Shutdown gracefully.")
       return ret
     time.sleep(1 / freq)
-  for attempt in xrange(3):
+  for attempt in range(3):
     # We would like SC2 to shut down cleanly, but become forceful if needed.
     logging.warning("Terminating attempt %s...", attempt)
     p.terminate()
-    for _ in xrange(1 + timeout * freq):
+    for _ in range(1 + timeout * freq):
       ret = p.poll()
       if ret is not None:
         logging.warning("Terminated.")

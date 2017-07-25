@@ -27,6 +27,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numbers
+
 from pysc2.lib import point
 
 
@@ -52,7 +54,7 @@ class Linear(Transform):
   def __init__(self, scale=None, offset=None):
     if scale is None:
       self.scale = point.Point(1, 1)
-    elif isinstance(scale, (int, long, float)):
+    elif isinstance(scale, numbers.Number):
       self.scale = point.Point(scale, scale)
     else:
       self.scale = scale

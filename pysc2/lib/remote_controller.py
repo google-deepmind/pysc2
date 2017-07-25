@@ -23,7 +23,7 @@ from pysc2.lib import protocol
 from pysc2.lib import static_data
 from pysc2.lib import stopwatch
 
-from s2clientproto import sc2api_pb2 as sc_pb
+from s2clientprotocol import sc2api_pb2 as sc_pb
 
 sw = stopwatch.sw
 

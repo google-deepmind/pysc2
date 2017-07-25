@@ -27,21 +27,24 @@ import sys
 import threading
 import time
 
+from future.builtins import range  # pylint: disable=redefined-builtin
+import six
+
 from pysc2 import run_configs
 from pysc2.lib import features
-from pysc2.lib import flag_utils
 from pysc2.lib import point
 from pysc2.lib import protocol
 from pysc2.lib import remote_controller
 
-from google.apputils import app
+from pysc2.lib import app
 import gflags as flags
-from s2clientproto import sc2api_pb2 as sc_pb
+from s2clientprotocol import sc2api_pb2 as sc_pb
 
 FLAGS = flags.FLAGS
-flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel")
-flags.DEFINE_integer("step_mul", 20, "How many game steps per step")
-flags.DEFINE_string("replay_dir", None, "Path to a directory of replays")
+flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
+flags.DEFINE_integer("step_mul", 8, "How many game steps per observation.")
+flags.DEFINE_string("replays", None, "Path to a directory of replays.")
+flags.mark_flag_as_required("replays")
 
 
 size = point.Point(16, 16)
@@ -80,7 +83,7 @@ class ReplayStats(object):
   def merge(self, other):
     """Merge another ReplayStats into this one."""
     def merge_dict(a, b):
-      for k, v in b.iteritems():
+      for k, v in six.iteritems(b):
         a[k] += v
 
     self.replays += other.replays
@@ -179,7 +182,7 @@ class ReplayProcessor(multiprocessing.Process):
         with self.run_config.start() as controller:
           self._print("SC2 Started successfully.")
           ping = controller.ping()
-          for _ in xrange(300):
+          for _ in range(300):
             try:
               replay_path = self.replay_queue.get()
             except Queue.Empty:
@@ -265,7 +268,7 @@ class ReplayProcessor(multiprocessing.Process):
           self.stats.replay_stats.control_group += 1
 
         try:
-          func = feat.reverse_action(action).function_id
+          func = feat.reverse_action(action).function
         except ValueError:
           func = -1
         self.stats.replay_stats.made_actions[func] += 1
@@ -288,7 +291,7 @@ class ReplayProcessor(multiprocessing.Process):
 
 def stats_printer(stats_queue):
   """A thread that consumes stats_queue and prints them every 10 seconds."""
-  proc_stats = [ProcessStats(i) for i in xrange(FLAGS.parallel)]
+  proc_stats = [ProcessStats(i) for i in range(FLAGS.parallel)]
   print_time = start_time = time.time()
   width = 107
 
@@ -323,10 +326,13 @@ def replay_queue_filler(replay_queue, replay_list):
     replay_queue.put(replay_path)
 
 
-def main(argv):
+def main(unused_argv):
   """Dump stats about all the actions that are in use in a set of replays."""
-  replay_dir = flag_utils.positional_flag("Replay dir", FLAGS.replay_dir, argv)
   run_config = run_configs.get()
+
+  if not os.path.exists(FLAGS.replays):
+    sys.exit("{} doesn't exist.".format(FLAGS.replays))
+
   stats_queue = multiprocessing.Queue()
   stats_thread = threading.Thread(target=stats_printer, args=(stats_queue,))
   stats_thread.start()
@@ -336,8 +342,8 @@ def main(argv):
     # queue in a separate thread. Grab the list synchronously so we know there
     # is work in the queue before the SC2 processes actually run, otherwise
     # The replay_queue.join below succeeds without doing any work, and exits.
-    print("Getting replay list.")
-    replay_list = sorted(run_config.replay_paths(replay_dir))
+    print("Getting replay list:", FLAGS.replays)
+    replay_list = sorted(run_config.replay_paths(FLAGS.replays))
     print(len(replay_list), "replays found.\n")
     replay_queue = multiprocessing.JoinableQueue(FLAGS.parallel * 10)
     replay_queue_thread = threading.Thread(target=replay_queue_filler,
@@ -345,7 +351,7 @@ def main(argv):
     replay_queue_thread.daemon = True
     replay_queue_thread.start()
 
-    for i in xrange(FLAGS.parallel):
+    for i in range(FLAGS.parallel):
       p = ReplayProcessor(i, run_config, replay_queue, stats_queue)
       p.daemon = True
       p.start()

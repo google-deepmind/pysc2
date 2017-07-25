@@ -19,7 +19,6 @@ from __future__ import print_function
 
 import os
 
-
 from pysc2.maps import lib
 
 
