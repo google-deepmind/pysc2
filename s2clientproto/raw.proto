@@ -1,0 +1,167 @@
+// LINT: LEGACY_NAMES
+
+syntax = "proto2";
+
+package SC2APIProtocol;
+
+import "s2clientproto/common.proto";
+
+//
+// Start
+//
+
+message StartRaw {
+  optional Size2DI map_size = 1;            // Width and height of the map.
+  optional ImageData pathing_grid = 2;      // 1 byte bitmap of the pathing grid.
+  optional ImageData terrain_height = 3;    // 1 byte bitmap of the terrain height.
+  optional ImageData placement_grid = 4;    // 1 byte bitmap of the building placement grid.
+  optional RectangleI playable_area = 5;    // The playable cells.
+  repeated Point2D start_locations = 6;     // Possible start locations for players.
+}
+
+
+//
+// Observation
+//
+
+message ObservationRaw {
+  optional PlayerRaw player = 1;
+  repeated Unit units = 2;
+  optional MapState map_state = 3;                // Fog of war, creep and so on. Board stuff that changes per frame.
+  optional Event event = 4;
+}
+
+message PowerSource {
+  optional Point pos = 1;
+  optional float radius = 2;
+  optional uint64 tag = 3;
+}
+
+message PlayerRaw {
+  repeated PowerSource power_sources = 1;
+  optional Point camera = 2;
+  repeated uint32 upgrade_ids = 3;          // TODO: Add to UI observation?
+}
+
+message UnitOrder {
+  optional uint32 ability_id = 1;
+  oneof target {
+    Point target_world_space_pos = 2;
+    uint64 target_unit_tag = 3;
+  }
+  optional float progress = 4;              // Progress of train abilities. Range: [0.0, 1.0]
+}
+
+enum DisplayType {
+  Visible = 1;                            // Fully visible
+  Snapshot = 2;                           // Dimmed version of unit left behind after entering fog of war
+  Hidden = 3;                             // Fully hidden
+}
+
+enum Alliance {
+  Self = 1;
+  Ally = 2;
+  Neutral = 3;
+  Enemy = 4;
+}
+
+enum CloakState {
+  Cloaked = 1;
+  CloakedDetected = 2;
+  NotCloaked = 3;
+}
+
+message PassengerUnit {
+  optional uint64 tag = 1;
+  optional float health = 2;
+  optional float health_max = 3;
+  optional float shield = 4;
+  optional float energy = 5;
+  optional uint32 unit_type = 6;
+}
+
+message Unit {
+  // Fields are populated based on type/alliance
+  optional DisplayType display_type = 1;
+  optional Alliance alliance = 2;
+
+  optional uint64 tag = 3;                  // Unique identifier for a unit
+  optional uint32 unit_type = 4;
+  optional int32 owner = 5;
+
+  optional Point pos = 6;
+  optional float facing = 7;
+  optional float radius = 8;
+  optional float build_progress = 9;        // Range: [0.0, 1.0]
+  optional CloakState cloak = 10;
+
+  optional float detect_range = 31;
+  optional float radar_range = 32;
+
+  optional bool is_selected = 11;
+  optional bool is_on_screen = 12;          // Visible and within the camera frustrum.
+  optional bool is_blip = 13;               // Detected by sensor tower
+
+  // Not populated for snapshots
+  optional float health = 14;
+  optional float health_max = 15;
+  optional float shield = 16;
+  optional float energy = 17;
+  optional int32 mineral_contents = 18;
+  optional int32 vespene_contents = 19;
+  optional bool is_flying = 20;
+  optional bool is_burrowed = 21;
+
+  // Not populated for enemies
+  repeated UnitOrder orders = 22;
+  optional uint64 add_on_tag = 23;
+  repeated PassengerUnit passengers = 24;
+  optional int32 cargo_space_taken = 25;
+  optional int32 cargo_space_max = 26;
+  repeated uint32 buff_ids = 27;
+  optional int32 assigned_harvesters = 28;
+  optional int32 ideal_harvesters = 29;
+  optional float weapon_cooldown = 30;
+  optional uint64 engaged_target_tag = 34;
+}
+
+message MapState {
+  optional ImageData visibility = 1;            // 1 byte visibility layer.
+  optional ImageData creep = 2;                 // 1 byte creep layer.
+}
+
+
+//
+// Action
+//
+
+message ActionRaw {
+  oneof action {
+    ActionRawUnitCommand unit_command = 1;
+    ActionRawCameraMove camera_move = 2;
+    ActionRawToggleAutocast toggle_autocast = 3;
+  }
+}
+
+message ActionRawUnitCommand {
+  optional int32 ability_id = 1;
+  oneof target {
+    Point2D target_world_space_pos = 2;
+    uint64 target_unit_tag = 3;
+  }
+  repeated uint64 unit_tags = 4;
+  optional bool queue_command = 5;
+}
+
+message ActionRawCameraMove {
+  optional Point center_world_space = 1;
+}
+
+message ActionRawToggleAutocast {
+  optional int32 ability_id = 1;
+  repeated uint64 unit_tags = 2;
+}
+
+message Event {
+  repeated uint64 dead_units = 1;
+}

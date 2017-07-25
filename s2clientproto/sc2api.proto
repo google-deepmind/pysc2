@@ -1,0 +1,599 @@
+// LINT: LEGACY_NAMES
+
+syntax = "proto2";
+
+package SC2APIProtocol;
+
+import "s2clientproto/common.proto";
+import "s2clientproto/data.proto";
+import "s2clientproto/debug.proto";
+import "s2clientproto/error.proto";
+import "s2clientproto/query.proto";
+import "s2clientproto/raw.proto";
+import "s2clientproto/score.proto";
+import "s2clientproto/spatial.proto";
+import "s2clientproto/ui.proto";
+
+//
+// Notes:
+//  Single player flow:
+//    1) Call Request.create_game with a valid single player map (a multiplayer map will end right away).
+//    2) Call Request.join_game, wait for the response.
+//    3) Request.end will terminate the game. Observations can still be made.
+//  Multi-player flow:
+//    1) Launch two game instances with separate ports.
+//    2) Designate a host, and Request.create_game with a multiplayer map.
+//    3) Call Request.join on BOTH clients. Join will block until both clients connect.
+//    4) Wait for a response from both clients. They can now play/step.
+//    5) Steps should be syncronized. One client may time out if they are not. Multiple step sizes are ok.
+//    4) Call Request.leave at any point or when the game ends. Observations will not be valid after this.
+//
+// States:
+//
+//------------------|---------------------------------------------------|-----------------------|
+//  Request         | Valid in State                                    | Transition to State   |
+//------------------|---------------------------------------------------|-----------------------|
+// create_game      | launched                                          | init_game             |
+//                  | ended (singleplayer only)                         | init_game             |
+// join_game*       | init_game (singleplayer or multiplayer host only) | in_game               |
+//                  | launched (multiplayer client only)                | in_game               |
+// restart_game     | ended (singleplayer only)                         | in_game               |
+// start_replay     | launched                                          | in_replay             |
+//                  | ended (singleplayer only)                         |                       |
+// leave_game       | in_game (required when finishing multiplayer)     | launched              |
+// quick_save       | in_game                                           |                       |
+// quick_load       | in_game                                           |                       |
+// quit             | any                                               | quit (not sent)       |
+// game_info        | in_game                                           |                       |
+//                  | in_replay                                         |                       |
+//                  | ended                                             |                       |
+// observation      | in_game                                           |                       |
+//                  | in_replay                                         |                       |
+//                  | ended                                             |                       |
+// step*            | in_game (not available in realtime mode)          | in_game               |
+//                  | in_replay                                         | ended                 |
+// action           | in_game (not available to observers)              |                       |
+// data             | in_game                                           |                       |
+//                  | in_replay                                         |                       |
+//                  | ended                                             |                       |
+// query            | in_game                                           |                       |
+//                  | in_replay                                         |                       |
+//                  | ended                                             |                       |
+// save_replay      | in_game                                           |                       |
+//                  | ended (only after a game)                         |                       |
+// replay_info      | any                                               |                       |
+// available_maps   | any                                               |                       |
+// save_map         | any                                               |                       |
+// ping             | any                                               |                       |
+// debug            | in_game                                           | various               |
+//------------------|---------------------------------------------------|-----------------------|
+//
+// * In multiplayer, these require synchronization between clients.
+//
+// Notes:
+//      - if a request fails, the game remains in the current state.
+//
+
+//
+// Request/Response
+//
+
+message Request {
+  oneof request {
+    // Game Setup
+    RequestCreateGame create_game = 1;          // Send to host to initialize game.
+    RequestJoinGame join_game = 2;              // Send to host and all clients for game to begin.
+    RequestRestartGame restart_game = 3;        // Single player only. Reinitializes the game with the same player setup.
+    RequestStartReplay start_replay = 4;        // Start playing a replay.
+    RequestLeaveGame leave_game = 5;            // Multiplayer only. Disconnects from a multiplayer game, equivalent to surrender.
+
+    RequestQuickSave quick_save = 6;            // Not implemented. Saves game to an in-memory bookmark.
+    RequestQuickLoad quick_load = 7;            // Not implemented. Loads from an in-memory bookmark.
+
+    RequestQuit quit = 8;                       // Terminates the application.
+
+    // During Game
+    RequestGameInfo game_info = 9;              // Static data about the current game and map.
+    RequestObservation observation = 10;        // Snapshot of the current game state.
+    RequestAction action = 11;                  // Executes an action.
+    RequestStep step = 12;                      // Advances the game simulation.
+    RequestData data = 13;                      // Data about different gameplay elements. May be different for different games.
+    RequestQuery query = 14;                    // Additional methods for inspecting game state.
+    RequestSaveReplay save_replay = 15;         // Generates a replay.
+
+    // Other.
+    RequestReplayInfo replay_info = 16;         // Returns metadata about a replay file. Does not load the replay.
+    RequestAvailableMaps available_maps = 17;   // Returns directory of maps that can be played on.
+    RequestSaveMap save_map = 18;               // Saves binary map data to the local temp directory.
+
+    // Debugging
+    RequestPing ping = 19;                      // Network ping for testing connection.
+    RequestDebug debug = 20;                    // Display debug information and execute debug actions.
+  }
+}
+
+message Response {
+  oneof response {
+    ResponseCreateGame create_game = 1;
+    ResponseJoinGame join_game = 2;
+    ResponseRestartGame restart_game = 3;
+    ResponseStartReplay start_replay = 4;
+    ResponseLeaveGame leave_game = 5;
+
+    ResponseQuickSave quick_save = 6;
+    ResponseQuickLoad quick_load = 7;
+
+    ResponseQuit quit = 8;
+
+    ResponseGameInfo game_info = 9;
+    ResponseObservation observation = 10;
+    ResponseAction action = 11;
+    ResponseStep step = 12;
+    ResponseData data = 13;
+    ResponseQuery query = 14;
+    ResponseSaveReplay save_replay = 15;
+
+    ResponseReplayInfo replay_info = 16;
+    ResponseAvailableMaps available_maps = 17;
+    ResponseSaveMap save_map = 18;
+
+    // Debugging
+    ResponsePing ping = 19;
+    ResponseDebug debug = 20;
+  }
+  repeated string error = 98;                   // If command is missing, this will contain the error. Otherwise this will contain any warnings.
+  optional Status status = 99;                  // Should be sent back with all responses.
+}
+
+enum Status {
+  launched = 1;                                 // Game has been launch and is not yet doing anything.
+  init_game = 2;                                // Create game has been called, and the host is awaiting players.
+  in_game = 3;                                  // In a single or multiplayer game.
+  in_replay = 4;                                // In a replay.
+  ended = 5;                                    // Game has ended, can still request game info, but ready for a new game.
+  quit = 6;                                     // Application is shutting down.
+  unknown = 99;                                 // Should not happen, but indicates an error if it occurs.
+}
+
+//-----------------------------------------------------------------------------
+// If successful, puts the game into the status: init_game.
+// The next expected request should be RequestJoinGame. Can also quit (exit).
+message RequestCreateGame {
+  oneof Map {
+    LocalMap local_map = 1;                         // Local .SC2Map file
+    string battlenet_map_name = 2;                  // Map published the BattleNet
+  }
+
+  repeated PlayerSetup player_setup = 3;
+
+  optional bool disable_fog = 4;
+
+  optional uint32 random_seed = 5;                  // Sets the pseudo-random seed for the game.
+  optional bool realtime = 6;                       // If set, the game plays in real time.
+                                                    // Note: Valid currently only for single player.
+                                                    // TODO(blizzard): Implement for multiplayer.
+}
+
+message LocalMap {
+  // A map can be specified either by a file path or the data of the .SC2Map file.
+  // If you provide both, it will play the game using map_data and store map_path
+  // into the replay. (260 character max)
+  optional string map_path = 1;
+  optional bytes map_data = 7;
+}
+
+message ResponseCreateGame {
+  enum Error {
+    MissingMap = 1;
+    InvalidMapPath = 2;
+    InvalidMapData = 3;
+    InvalidMapName = 4;
+    InvalidMapHandle = 5;
+    MissingPlayerSetup = 6;
+    InvalidPlayerSetup = 7;
+    MultiplayerUnsupported = 8;                     // Multiplayer is not supported in the current build.
+  }
+  optional Error error = 1;
+  optional string error_details = 2;
+}
+
+//-----------------------------------------------------------------------------
+// If successful, puts the game into the status: in_game. Will be able to
+// request actions, observations and step the game.
+message RequestJoinGame {
+  oneof participation {
+    Race race = 1;                          // Join as participant
+    uint32 observed_player_id = 2;          // Join as observer
+  }
+
+  optional InterfaceOptions options = 3;    // This is limited to what is specified in RequestCreateGame, but you can request less information if you want.
+  optional PortSet server_ports = 4;        // Do not set in the single-player case. This is the port a server will use.
+  repeated PortSet client_ports = 5;        // Do not set in the single-player case. These are the ports clients will use to initialize communication.
+                                            // Currently only a singe client is supported.
+  optional int32 shared_port = 6;
+}
+
+message PortSet {
+  optional int32 game_port = 1;             // Game right now needs two internal ports to establish a multiplay game on the local host.
+  optional int32 base_port = 2;
+}
+
+message ResponseJoinGame {
+  optional uint32 player_id = 1;
+
+  enum Error {
+    MissingParticipation = 1;
+    InvalidObservedPlayerId = 2;
+    MissingOptions = 3;
+    MissingPorts = 4;
+    GameFull = 5;
+    LaunchError = 6;
+
+    // Multiplayer specific.
+    FeatureUnsupported = 7;                 // Multiplayer is not supported in the current build for the requested features.
+    NoSpaceForUser = 8;
+    MapDoesNotExist = 9;
+    CannotOpenMap = 10;
+    ChecksumError = 11;
+    NetworkError = 12;
+    OtherError = 13;
+  }
+  optional Error error = 2;
+  optional string error_details = 3;
+}
+
+//-----------------------------------------------------------------------------
+message RequestRestartGame {
+}
+
+message ResponseRestartGame {
+  enum Error {
+    LaunchError = 1;
+  }
+  optional Error error = 1;
+  optional string error_details = 2;
+}
+
+//-----------------------------------------------------------------------------
+message RequestStartReplay {
+  oneof replay {
+    string replay_path = 1;
+    bytes replay_data = 5;
+  }
+  optional bytes map_data = 6;                      // Overrides the map path stored in the replay.
+  optional int32 observed_player_id = 2;
+  optional InterfaceOptions options = 3;
+
+  optional bool disable_fog = 4;
+}
+
+message ResponseStartReplay {
+  enum Error {
+    MissingReplay = 1;
+    InvalidReplayPath = 2;
+    InvalidReplayData = 3;
+    InvalidMapData = 4;
+    InvalidObservedPlayerId = 5;
+    MissingOptions = 6;
+    LaunchError = 7;
+  }
+  optional Error error = 1;
+  optional string error_details = 2;
+}
+
+//-----------------------------------------------------------------------------
+message RequestLeaveGame {
+}
+
+message ResponseLeaveGame {
+}
+
+//-----------------------------------------------------------------------------
+message RequestQuickSave {
+}
+
+//-----------------------------------------------------------------------------
+message ResponseQuickSave {
+}
+
+//-----------------------------------------------------------------------------
+message RequestQuickLoad {
+}
+
+//-----------------------------------------------------------------------------
+message ResponseQuickLoad {
+}
+
+//-----------------------------------------------------------------------------
+message RequestQuit {
+}
+
+message ResponseQuit {
+}
+
+//-----------------------------------------------------------------------------
+message RequestGameInfo {
+}
+
+message ResponseGameInfo {
+  optional string map_name = 1;
+  repeated string mod_names = 6;
+  optional string local_map_path = 2;
+  repeated PlayerInfo player_info = 3;
+  optional StartRaw start_raw = 4;               // Populated if Raw interface is enabled.
+  optional InterfaceOptions options = 5;
+}
+
+//-----------------------------------------------------------------------------
+message RequestObservation {
+  optional bool disable_fog = 1;
+}
+
+message ResponseObservation {
+  repeated Action actions = 1;                  // Actions this player did since the last Observation.
+  repeated ActionError action_errors = 2;       // Equivalent of UI "red text" errors.
+  optional Observation observation = 3;
+  repeated PlayerResult player_result = 4;      // Only populated if the game ended during this step.
+  repeated ChatReceived chat = 5;
+}
+
+message ChatReceived {
+  optional int32 player_id = 1;
+  optional string message = 2;
+}
+
+//-----------------------------------------------------------------------------
+message RequestAction {
+   repeated Action actions = 1;
+}
+
+message ResponseAction {
+   repeated ActionResult result = 1;
+}
+
+//-----------------------------------------------------------------------------
+message RequestStep {
+  optional uint32 count = 1;                    // Number of game loops to simulate for the next frame.
+}
+
+message ResponseStep {
+}
+
+//-----------------------------------------------------------------------------
+message RequestData {
+  optional bool ability_id = 1;
+  optional bool unit_type_id = 2;
+  optional bool upgrade_id = 3;
+  optional bool buff_id = 4;
+}
+
+message ResponseData {
+  repeated AbilityData abilities = 1;
+  repeated UnitTypeData units = 2;
+  repeated UpgradeData upgrades = 3;
+  repeated BuffData buffs = 4;
+}
+
+//-----------------------------------------------------------------------------
+message RequestSaveReplay {
+}
+
+message ResponseSaveReplay {
+  optional bytes data = 1;
+}
+
+//-----------------------------------------------------------------------------
+message RequestReplayInfo {
+  oneof replay {
+    string replay_path = 1;         // Limitation: might fail if the replay file is currently loaded.
+    bytes replay_data = 2;
+  }
+}
+
+message PlayerInfoExtra {
+  optional PlayerInfo player_info = 1;
+  optional PlayerResult player_result = 2;
+  optional int32 player_mmr = 3;
+  optional int32 player_apm = 4;
+}
+
+message ResponseReplayInfo {
+  optional string map_name = 1;
+  optional string local_map_path = 2;
+  repeated PlayerInfoExtra player_info = 3;
+  optional uint32 game_duration_loops = 4;
+  optional float game_duration_seconds = 5;
+  optional string game_version = 6;
+  optional string data_version = 11;
+  optional uint32 data_build = 7;
+  optional uint32 base_build = 8;
+
+  enum Error {
+    MissingReplay = 1;
+    InvalidReplayPath = 2;
+    InvalidReplayData = 3;
+    ParsingError = 4;
+  }
+  optional Error error = 9;
+  optional string error_details = 10;
+}
+
+//-----------------------------------------------------------------------------
+message RequestAvailableMaps {
+}
+
+// This will only contain locally cached BattleNet maps.
+// To download all ladder maps, log in and queue into a ladder match.
+// To download any other map, play a custom game on that map.
+message ResponseAvailableMaps {
+  repeated string local_map_paths = 1;              // All the maps in the "Maps/" directory.
+  repeated string battlenet_map_names = 2;          // All the maps in the BattleNet cache.
+}
+
+//-----------------------------------------------------------------------------
+// Copies map data into the path specified.
+message RequestSaveMap {
+  optional string map_path = 1;                 // Path the game process will write to, relative to the temp directory. (260 character max)
+  optional bytes map_data = 2;                  // Binary map data of a .SC2Map.
+}
+
+message ResponseSaveMap {
+  enum Error {
+    InvalidMapData = 1;
+  }
+  optional Error error = 1;
+}
+
+//-----------------------------------------------------------------------------
+message RequestPing {
+}
+
+message ResponsePing {
+  optional string game_version = 1;
+  optional string data_version = 2;
+  optional uint32 data_build = 3;
+  optional uint32 base_build = 4;
+}
+
+//-----------------------------------------------------------------------------
+message RequestDebug {
+  repeated DebugCommand debug = 1;
+}
+
+message ResponseDebug {
+}
+
+
+//
+// Game Setup
+//
+
+enum Race {
+  Terran = 1;
+  Zerg = 2;
+  Protoss = 3;
+  Random = 4;
+}
+
+enum Difficulty {
+  VeryEasy = 1;
+  Easy = 2;
+  Medium = 3;
+  MediumHard = 4;
+  Hard = 5;
+  Harder = 6;
+  VeryHard = 7;
+  CheatVision = 8;
+  CheatMoney = 9;
+  CheatInsane = 10;
+}
+
+enum PlayerType {
+  Participant = 1;
+  Computer = 2;
+  Observer = 3;
+}
+
+message PlayerSetup {
+  optional PlayerType type = 1;
+
+  // Only used for a computer player.
+  optional Race race = 2;
+  optional Difficulty difficulty = 3;
+}
+
+message SpatialCameraSetup {
+  optional float width = 1;
+  optional Size2DI resolution = 2;
+  optional Size2DI minimap_resolution = 3;
+}
+
+message InterfaceOptions {
+  // Interface options
+  optional bool raw = 1;
+  optional bool score = 2;
+  optional SpatialCameraSetup feature_layer = 3;    // Omit to disable.
+  optional SpatialCameraSetup render = 4;           // Not implemented.
+}
+
+message PlayerInfo {
+  // Identifier that will be used to reference this player.
+  // SC2 will always assign playerIds starting from 1 in standard Melee maps. This may not be true in custom maps.
+  optional uint32 player_id = 1;
+  optional PlayerType type = 2;
+  optional Race race_requested = 3;
+  optional Race race_actual = 4; // Only populated for your player or when watching replay
+  optional Difficulty difficulty = 5;
+}
+
+
+//
+// During Game
+//
+
+message PlayerCommon {
+  optional uint32 player_id = 1;
+  optional uint32 minerals = 2;
+  optional uint32 vespene = 3;
+  optional uint32 food_cap = 4;
+  optional uint32 food_used = 5;
+  optional uint32 food_army = 6;
+  optional uint32 food_workers = 7;
+  optional uint32 idle_worker_count = 8;
+  optional uint32 army_count = 9;
+  optional uint32 warp_gate_count = 10;
+  optional uint32 larva_count = 11;
+}
+
+message Observation {
+  optional uint32 game_loop = 9;
+  optional PlayerCommon player_common = 1;
+  repeated Alert alerts = 10;
+  repeated AvailableAbility abilities = 3;                  // Abilities available in the selection. Enabled if in this list, disabled otherwise.
+  optional Score score = 4;
+
+  optional ObservationRaw raw_data = 5;                     // Populated if Raw interface is enabled.
+  optional ObservationFeatureLayer feature_layer_data = 6;  // Populated if Feature Layer interface is enabled.
+  optional ObservationRender render_data = 7;               // Populated if Render interface is enabled.
+  optional ObservationUI ui_data = 8;                       // Populated if Feature Layer or Render interface is enabled.
+}
+
+message Action {
+  optional ActionRaw action_raw = 1;                        // Populated if Raw interface is enabled.
+  optional ActionSpatial action_feature_layer = 2;          // Populated if Feature Layer interface is enabled.
+  optional ActionSpatial action_render = 3;                 // Not implemented. Populated if Render interface is enabled.
+  optional ActionUI action_ui = 4;                          // Populated if Feature Layer or Render interface is enabled.
+  repeated ActionChat chat = 5;                             // Chat messages as a player typing into the chat channel.
+}
+
+message ActionChat {
+  enum Channel {
+    Broadcast = 1;
+    Team = 2;
+  }
+  optional Channel channel = 1;
+  optional string message = 2;
+}
+
+message ActionError {
+  optional uint64 unit_tag = 1;                             // Only populated when using raw interface.
+  optional uint64 ability_id = 2;
+  optional ActionResult result = 3;
+}
+
+enum Alert {
+  NuclearLaunchDetected = 1;
+  NydusWormDetected = 2;
+}
+
+enum Result {
+  Victory = 1;
+  Defeat = 2;
+  Tie = 3;
+  Undecided = 4;
+}
+
+message PlayerResult {
+  optional uint32 player_id = 1;
+  optional Result result = 2;
+}

@@ -1,0 +1,74 @@
+// LINT: LEGACY_NAMES
+
+syntax = "proto2";
+
+package SC2APIProtocol;
+
+message Score {
+  enum ScoreType {
+    Curriculum = 1;                // map generated score (from curriculum maps with special scoring)
+    Melee = 2;                     // summation of in-progress and current units/buildings value + minerals + vespene
+  }
+
+  optional ScoreType score_type = 6;
+  optional int32 score = 7;                 // Note: check score_type to know whether this is a melee score or curriculum score
+  optional ScoreDetails score_details = 8;
+}
+
+message CategoryScoreDetails {
+  optional float none = 1; // Used when no other category is configured in game data
+  optional float army = 2;
+  optional float economy = 3;
+  optional float technology = 4;
+  optional float upgrade = 5;
+}
+
+message VitalScoreDetails {
+  optional float life = 1;
+  optional float shields = 2;
+  optional float energy = 3;
+}
+
+message ScoreDetails {
+  optional float idle_production_time = 1; // Interesting as a delta
+  optional float idle_worker_time = 2; // Interesting as a delta
+
+  // Note the "total_value" fields are a combination of minerals, vespene and a human designer guess. Maybe useful as a delta.
+  optional float total_value_units = 3;
+  optional float total_value_structures = 4;
+
+  // Note the "killed_value" fields are a combination of minerals, vespene and a human designer guess. Maybe useful as a delta.
+  // The weighting of the combination and the human designer guess is different (not symmetric) with the "total_value" fields!
+  optional float killed_value_units = 5;
+  optional float killed_value_structures = 6;
+
+  optional float collected_minerals = 7;
+  optional float collected_vespene = 8;
+
+  optional float collection_rate_minerals = 9;
+  optional float collection_rate_vespene = 10;
+
+  optional float spent_minerals = 11;
+  optional float spent_vespene = 12;
+
+  optional CategoryScoreDetails food_used = 13;
+
+  optional CategoryScoreDetails killed_minerals = 14;
+  optional CategoryScoreDetails killed_vespene = 15;
+
+  optional CategoryScoreDetails lost_minerals = 16;
+  optional CategoryScoreDetails lost_vespene = 17;
+
+  optional CategoryScoreDetails friendly_fire_minerals = 18;
+  optional CategoryScoreDetails friendly_fire_vespene = 19;
+
+  optional CategoryScoreDetails used_minerals = 20;
+  optional CategoryScoreDetails used_vespene = 21;
+
+  optional CategoryScoreDetails total_used_minerals = 22; // Interesting as a delta
+  optional CategoryScoreDetails total_used_vespene = 23; // Interesting as a delta
+
+  optional VitalScoreDetails total_damage_dealt = 24; // Interesting as a delta
+  optional VitalScoreDetails total_damage_taken = 25; // Interesting as a delta
+  optional VitalScoreDetails total_healed = 26; // Interesting as a delta
+}

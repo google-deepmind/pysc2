@@ -1,0 +1,131 @@
+// LINT: LEGACY_NAMES
+
+syntax = "proto2";
+
+package SC2APIProtocol;
+
+import "s2clientproto/common.proto";
+
+// Issue various useful commands to the game engine.
+message DebugCommand {
+  oneof command {
+    DebugDraw draw = 1;
+    DebugGameState game_state = 2;
+    DebugCreateUnit create_unit = 3;
+    DebugKillUnit kill_unit = 4;
+    DebugTestProcess test_process = 5;
+    DebugSetScore score = 6;                // Useful only for single-player "curriculum" maps.
+    DebugEndGame end_game = 7;
+    DebugSetUnitValue unit_value = 8;
+    DebugChat chat = 9;
+  }
+}
+
+message DebugDraw {
+  repeated DebugText text = 1;
+  repeated DebugLine lines = 2;
+  repeated DebugBox boxes = 3;
+  repeated DebugSphere spheres = 4;
+}
+
+message Line {
+  optional Point p0 = 1;
+  optional Point p1 = 2;
+}
+
+message Color {
+  optional uint32 r = 1;
+  optional uint32 g = 2;
+  optional uint32 b = 3;
+}
+
+// Display debug text on screen.
+message DebugText {
+  optional Color color = 1;
+  optional string text = 2;         // Text to display.
+  optional Point virtual_pos = 3;   // Virtualized position in 2D (the screen is 0..1, 0..1 for any resolution).
+  optional Point world_pos = 4;     // Position in the world.
+}
+
+// Display debug lines on screen.
+message DebugLine {
+  optional Color color = 1;
+  optional Line line = 2;           // World space line.
+}
+
+// Display debug boxes on screen.
+message DebugBox {
+  optional Color color = 1;
+  optional Point min = 2;
+  optional Point max = 3;
+}
+
+// Display debug spheres on screen.
+message DebugSphere {
+  optional Color color = 1;
+  optional Point p = 2;
+  optional float r = 3;
+}
+
+enum DebugGameState {
+  show_map = 1;
+  control_enemy = 2;
+  food = 3;
+  free = 4;
+  all_resources = 5;
+  god = 6;
+  minerals = 7;
+  gas = 8;
+  cooldown = 9;
+  tech_tree = 10;
+  upgrade = 11;
+  fast_build = 12;
+}
+
+message DebugCreateUnit {
+  optional uint32 unit_type = 1;
+  optional int32 owner = 2;
+  optional Point2D pos = 3;
+  optional uint32 quantity = 4;
+}
+
+message DebugKillUnit {
+  repeated uint64 tag = 1;
+}
+
+message DebugTestProcess {
+  enum Test {
+    hang = 1;
+    crash = 2;
+    exit = 3;
+  }
+  optional Test test = 1;
+  optional int32 delay_ms = 2;
+}
+
+message DebugSetScore {
+  optional float score = 1;
+}
+
+message DebugEndGame {
+  enum EndResult {
+    Surrender = 1;                  // Default if nothing is set. The current player admits defeat.
+    DeclareVictory = 2;
+  }
+  optional EndResult end_result = 1;
+}
+
+message DebugSetUnitValue {
+  enum UnitValue {
+    Energy = 1;
+    Life = 2;
+    Shields = 3;
+  }
+  optional UnitValue unit_value = 1;
+  optional float value = 2;
+  optional uint64 unit_tag = 3;
+}
+
+message DebugChat {
+    optional string message = 1;
+}

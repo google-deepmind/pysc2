@@ -1,0 +1,49 @@
+
+syntax = "proto2";
+
+package SC2APIProtocol;
+
+message AvailableAbility {
+  optional int32 ability_id = 1;
+  optional bool requires_point = 2;
+}
+
+message ImageData {
+  optional int32 bits_per_pixel = 1;    // Number of bits per pixel; 8 bits for a byte etc.
+  optional Size2DI size = 2;            // Dimension in pixels.
+  optional bytes data = 3;              // Binary data; the size of this buffer in bytes is width * height * bits_per_pixel / 8.
+}
+
+// Point on the screen/minimap (e.g., 0..64).
+// Note: bottom left of the screen is 0, 0.
+message PointI {
+  optional int32 x = 1;
+  optional int32 y = 2;
+}
+
+// Screen space rectangular area.
+message RectangleI {
+  optional PointI p0 = 1;
+  optional PointI p1 = 2;
+}
+
+// Point on the game board, 0..255.
+// Note: bottom left of the screen is 0, 0.
+message Point2D {
+  optional float x = 1;
+  optional float y = 2;
+}
+
+// Point on the game board, 0..255.
+// Note: bottom left of the screen is 0, 0.
+message Point {
+  optional float x = 1;
+  optional float y = 2;
+  optional float z = 3;
+}
+
+// Screen dimensions.
+message Size2DI {
+  optional int32 x = 1;
+  optional int32 y = 2;
+}
