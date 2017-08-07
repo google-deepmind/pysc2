@@ -1,7 +1,7 @@
 # PySC2 - A StarCraft II Machine Learning Environment
 
 PySC2 is DeepMind's python environment wrapper for Blizzard Entertainment's
-new [StarCraft II Machine Learning API](https://github.com/deepmind/pysc2).
+new [StarCraft II Machine Learning API](https://github.com/Blizzard/s2client-proto).
 We have been collaborating with Blizzard to develop StarCraft II into a flexible
 environment for RL Research. PySC2 provides an interface for RL agents to
 interact with StarCraft 2, getting observations and sending actions.
@@ -77,7 +77,7 @@ for better compatibility with other systems.
 PySC2 has many maps pre-configured, but they need to be downloaded into the SC2
 `Maps` directory before they can be played.
 
-Download the [ladder maps](https://blizzard.com/XXX) and the
+Download the [ladder maps](https://github.com/Blizzard/s2client-proto#downloads) and the
 [mini games](https://github.com/deepmind/pysc2/releases/maps/XXX) and extract
 them to your `StarcraftII` directory.
 
@@ -168,7 +168,7 @@ and observations that each player made as they played.
 
 Blizzard is releasing a large number of anonymized 1v1 replays played on the
 ladder. You can find instructions for how to get the
-[replay files](https://github.com/Blizzard/s2client-api/XXX) on their site. You
+[replay files](https://github.com/Blizzard/s2client-proto#downloads) on their site. You
 can also review your own replays.
 
 Replays can be played back to get the observations and actions made during that
