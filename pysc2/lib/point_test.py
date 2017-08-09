@@ -21,6 +21,11 @@ from pysc2.lib import point
 
 from pysc2.lib import basetest
 
+try:
+  long        # Python 2
+except NameError:
+  long = int  # Python 3
+
 
 class FakePoint(object):
 
