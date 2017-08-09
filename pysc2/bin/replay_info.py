@@ -25,6 +25,11 @@ from pysc2 import run_configs
 from pysc2.lib import app
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
+try:
+  unicode        # Python 2
+except NameError:
+  unicode = str  # Python 3
+
 
 def _replay_index(replay_dir):
   """Output information for a directory of replays."""
