@@ -321,7 +321,7 @@ usable until they are added to `pysc2.lib.actions`.
 To see which actions exist run:
 
 ```shell
-$ python pysc2.bin.valid_actions
+$ python -m pysc2.bin.valid_actions
 ```
 
 optionally with `--hide_specific`, `--screen_resolution` or
