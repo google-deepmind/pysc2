@@ -20,15 +20,12 @@ from __future__ import print_function
 
 import os
 
+from builtins import str
+
 from pysc2 import run_configs
 
 from pysc2.lib import app
 from s2clientprotocol import sc2api_pb2 as sc_pb
-
-try:
-  unicode        # Python 2
-except NameError:
-  unicode = str  # Python 3
 
 
 def _replay_index(replay_dir):
@@ -75,7 +72,7 @@ def _replay_index(replay_dir):
               sc_pb.Race.Name(info.player_info[1].player_info.race_actual),
               info.player_info[1].player_apm,
           ]
-        print(u",".join(unicode(s) for s in out))
+        print(u",".join(str(s) for s in out))
     if bad_replays:
       print("Replays with errors:")
       print("\n".join(bad_replays))
@@ -116,4 +113,3 @@ def main():  # Needed so the setup.py scripts work.
 
 if __name__ == "__main__":
   main()
-
