@@ -41,7 +41,7 @@ def get_data():
   with run_config.start() as controller:
     m = maps.get("Sequencer")  # Arbitrary ladder map.
     create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
-        map_path=m.path, map_data=run_config.map_data(m.path)))
+        map_path=m.path, map_data=m.data(run_config)))
     create.player_setup.add(type=sc_pb.Participant)
     create.player_setup.add(type=sc_pb.Computer, race=sc_pb.Random,
                             difficulty=sc_pb.VeryEasy)

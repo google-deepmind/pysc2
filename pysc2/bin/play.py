@@ -111,7 +111,7 @@ def _main(unused_argv):
         realtime=FLAGS.realtime,
         disable_fog=FLAGS.disable_fog,
         local_map=sc_pb.LocalMap(map_path=map_inst.path,
-                                 map_data=run_config.map_data(map_inst.path)))
+                                 map_data=map_inst.data(run_config)))
     create.player_setup.add(type=sc_pb.Participant)
     create.player_setup.add(type=sc_pb.Computer,
                             race=sc2_env.races[FLAGS.bot_race],

@@ -27,6 +27,7 @@ from pysc2.maps import lib
 class Ladder(lib.Map):
   players = 2
   game_steps_per_episode = 16 * 60 * 30  # 30 minute limit.
+  download = "https://github.com/Blizzard/s2client-proto#map-packs"
 
 
 ladder_seasons = [

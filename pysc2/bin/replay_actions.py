@@ -38,6 +38,7 @@ from pysc2.lib import remote_controller
 
 from pysc2.lib import app
 import gflags as flags
+from pysc2.lib import gfile
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 FLAGS = flags.FLAGS
@@ -330,7 +331,7 @@ def main(unused_argv):
   """Dump stats about all the actions that are in use in a set of replays."""
   run_config = run_configs.get()
 
-  if not os.path.exists(FLAGS.replays):
+  if not gfile.Exists(FLAGS.replays):
     sys.exit("{} doesn't exist.".format(FLAGS.replays))
 
   stats_queue = multiprocessing.Queue()

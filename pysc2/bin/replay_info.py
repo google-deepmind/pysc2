@@ -23,6 +23,7 @@ import os
 from pysc2 import run_configs
 
 from pysc2.lib import app
+from pysc2.lib import gfile
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
@@ -97,7 +98,7 @@ def _main(argv=()):
   path = argv[1]
 
   try:
-    if os.path.isdir(path):
+    if gfile.IsDirectory(path):
       return _replay_index(path)
     else:
       return _replay_info(path)

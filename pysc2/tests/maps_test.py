@@ -41,8 +41,7 @@ class MapsTest(utils.TestCase):
     for _, map_class in sorted(all_maps.items()):
       map_inst = map_class()
       logging.info("map: %s", map_inst.name)
-      self.assertTrue(run_config.map_data(map_inst.path),
-                      msg="Failed on %s" % map_inst)
+      self.assertTrue(map_inst.data(run_config), msg="Failed on %s" % map_inst)
 
   def test_load_random_map(self):
     """Test loading a few random maps."""
@@ -57,7 +56,7 @@ class MapsTest(utils.TestCase):
         m = map_class()
         logging.info("Loading map: %s", m.name)
         create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
-            map_path=m.path, map_data=run_config.map_data(m.path)))
+            map_path=m.path, map_data=m.data(run_config)))
         create.player_setup.add(type=sc_pb.Participant)
         create.player_setup.add(type=sc_pb.Computer, race=sc_pb.Random,
                                 difficulty=sc_pb.VeryEasy)

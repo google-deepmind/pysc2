@@ -165,8 +165,7 @@ class SC2Env(environment.Base):
     minimap_size_px.assign_to(interface.feature_layer.minimap_resolution)
 
     create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
-        map_path=self._map.path,
-        map_data=self._run_config.map_data(self._map.path)))
+        map_path=self._map.path, map_data=self._map.data(self._run_config)))
     create.player_setup.add(type=sc_pb.Participant)
     create.player_setup.add(type=sc_pb.Computer,
                             race=races[bot_race or "R"],

@@ -21,7 +21,7 @@ automatically registered for creation by `get`.
     filename = "map_name"
     players = 3
 
-You can build a heirarchy of classes to make your definitions less verbose.
+You can build a hierarchy of classes to make your definitions less verbose.
 
 To use a map, either import the map module and instantiate the map directly, or
 import the maps lib and use `get`. Using `get` from this lib will work, but only
@@ -32,6 +32,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging
 import os
 
 
@@ -49,6 +50,7 @@ class Map(object):
   Properties:
     directory: Directory for the map
     filename: Actual filename. You can skip the ".SC2Map" file ending.
+    download: Where to download the map.
     game_steps_per_episode: Game steps per episode, independent of the step_mul.
         0 (default) means no limit.
     step_mul: How many game steps per agent step?
@@ -59,6 +61,7 @@ class Map(object):
   """
   directory = ""
   filename = None
+  download = None
   game_steps_per_episode = 0
   step_mul = 8
   score_index = -1
@@ -73,6 +76,16 @@ class Map(object):
       if not map_path.endswith(".SC2Map"):
         map_path += ".SC2Map"
       return map_path
+
+  def data(self, run_config):
+    """Return the map data."""
+    try:
+      return run_config.map_data(self.path)
+    except (IOError, OSError) as e:  # Catch both for python 2/3 compatibility.
+      if self.download and hasattr(e, "filename"):
+        logging.error("Error reading map '%s' from: %s", self.name, e.filename)
+        logging.error("Download the map from: %s", self.download)
+      raise
 
   @property
   def name(self):

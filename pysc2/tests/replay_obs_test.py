@@ -112,7 +112,7 @@ class GameController(object):
     """Initialize play/replay connection."""
     run_config = run_configs.get()
     self._map_inst = maps.get(self._config.map_name)
-    self._map_data = run_config.map_data(self._map_inst.path)
+    self._map_data = self._map_inst.data(run_config)
 
     self._sc2_proc = run_config.start()
     self._controller = self._sc2_proc.controller
