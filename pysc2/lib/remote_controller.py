@@ -88,7 +88,7 @@ class RemoteController(object):
   All of these are implemented as blocking calls, so wait for the response
   before returning.
 
-  Many of these functions take a Reqest* object and respond with the
+  Many of these functions take a Request* object and respond with the
   corresponding Response* object as returned from SC2. The simpler functions
   take a value and construct the Request itself, or return something more useful
   than a Response* object.
