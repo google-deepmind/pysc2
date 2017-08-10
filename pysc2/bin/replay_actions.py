@@ -45,7 +45,7 @@ flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
 flags.DEFINE_integer("step_mul", 8, "How many game steps per observation.")
 flags.DEFINE_string("replays", None, "Path to a directory of replays.")
 flags.mark_flag_as_required("replays")
-
+FLAGS(sys.argv)
 
 size = point.Point(16, 16)
 interface = sc_pb.InterfaceOptions(
