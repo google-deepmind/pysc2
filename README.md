@@ -72,7 +72,7 @@ install the dependencies and `pysc2` package:
 
 ```shell
 $ git clone https://github.com/deepmind/pysc2.git
-$ pip install pysc2/
+$ pip install setup.py
 ```
 
 ## Get StarCraft II
