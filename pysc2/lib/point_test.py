@@ -18,6 +18,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from future.builtins import int  # pylint: disable=redefined-builtin
+
 from pysc2.lib import point
 
 from pysc2.lib import basetest
@@ -74,20 +76,20 @@ class PointTest(basetest.TestCase):
   def testRound(self):
     p = point.Point(1.3, 2.6).round()
     self.assertEqual(point.Point(1, 3), p)
-    self.assertIsInstance(p.x, (int, long))
-    self.assertIsInstance(p.y, (int, long))
+    self.assertIsInstance(p.x, int)
+    self.assertIsInstance(p.y, int)
 
   def testCeil(self):
     p = point.Point(1.3, 2.6).ceil()
     self.assertEqual(point.Point(2, 3), p)
-    self.assertIsInstance(p.x, (int, long))
-    self.assertIsInstance(p.y, (int, long))
+    self.assertIsInstance(p.x, int)
+    self.assertIsInstance(p.y, int)
 
   def testFloor(self):
     p = point.Point(1.3, 2.6).floor()
     self.assertEqual(point.Point(1, 2), p)
-    self.assertIsInstance(p.x, (int, long))
-    self.assertIsInstance(p.y, (int, long))
+    self.assertIsInstance(p.x, int)
+    self.assertIsInstance(p.y, int)
 
   def testRotate(self):
     p = point.Point(0, 100)
