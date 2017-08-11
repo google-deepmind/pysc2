@@ -140,11 +140,11 @@ def generate_py_abilities(data):
 
     name = generate_name(ability).replace(" ", "_")
 
-    if ability.target in (sc_data.AbilityData.None,
+    if ability.target in (sc_data.AbilityData.Target.Value("None"),
                           sc_data.AbilityData.PointOrNone):
       print_action(next(func_ids), name + "_quick", "cmd_quick", ab_id,
                    ability.remaps_to_ability_id)
-    if ability.target != sc_data.AbilityData.None:
+    if ability.target != sc_data.AbilityData.Target.Value("None"):
       print_action(next(func_ids), name+ "_screen", "cmd_screen", ab_id,
                    ability.remaps_to_ability_id)
       if ability.allow_minimap:
