@@ -228,20 +228,22 @@ class SC2Env(environment.Base):
     self._controller.step(self._step_mul)
     self._obs = self._controller.observe()
     agent_obs = self._features.transform_obs(self._obs.observation)
-    reward = 0
-    discount = self._discount
 
     if self._obs.player_result:  # Episode over.
       self._state = environment.StepType.LAST
+      outcome = _possible_results.get(self._obs.player_result[0].result, 0)
       discount = 0
-      reward = _possible_results.get(self._obs.player_result[0].result, 0)
-      logging.info("Reward: %s", reward)
+    else:
+      outcome = 0
+      discount = self._discount
 
     if self._score_index >= 0:  # Game score, not win/loss reward.
       cur_score = agent_obs["score_cumulative"][self._score_index]
-      if self._episode_steps > 0:  # First reward is always 0
-        reward = cur_score - self._last_score
+      # First reward is always 0.
+      reward = cur_score - self._last_score if self._episode_steps > 0 else 0
       self._last_score = cur_score
+    else:
+      reward = outcome
 
     if self._renderer_human:
       self._renderer_human.render(self._obs)
@@ -262,6 +264,10 @@ class SC2Env(environment.Base):
     if (self._save_replay_steps > 0 and
         self._total_steps % self._save_replay_steps < self._step_mul):
       self.save_replay(self._replay_dir)
+
+    if self._state == environment.StepType.LAST:
+      logging.info("Episode finished. Outcome: %s, reward: %s, score: %s",
+                   outcome, reward, agent_obs["score_cumulative"][0])
 
     return (environment.TimeStep(
         step_type=self._state, reward=reward * self._score_multiplier,
