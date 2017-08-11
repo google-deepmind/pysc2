@@ -21,7 +21,6 @@ from __future__ import print_function
 import collections
 import multiprocessing
 import os
-import Queue
 import signal
 import sys
 import threading
@@ -29,6 +28,7 @@ import time
 
 from future.builtins import range  # pylint: disable=redefined-builtin
 import six
+from six.moves import queue
 
 from pysc2 import run_configs
 from pysc2.lib import features
@@ -186,7 +186,7 @@ class ReplayProcessor(multiprocessing.Process):
           for _ in range(300):
             try:
               replay_path = self.replay_queue.get()
-            except Queue.Empty:
+            except queue.Empty:
               self._update_stage("done")
               self._print("Empty queue, returning")
               return
@@ -307,7 +307,7 @@ def stats_printer(stats_queue):
           running = False
           break
         proc_stats[s.proc_id] = s
-      except Queue.Empty:
+      except queue.Empty:
         pass
 
     replay_stats = ReplayStats()
