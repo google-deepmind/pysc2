@@ -25,6 +25,10 @@ import signal
 import sys
 import threading
 import time
+try:
+    import queue as Queue
+except:
+    import Queue
 
 from future.builtins import range  # pylint: disable=redefined-builtin
 import six
