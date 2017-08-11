@@ -20,6 +20,8 @@ from __future__ import print_function
 
 import os
 
+from future.builtins import str  # pylint: disable=redefined-builtin
+
 from pysc2 import run_configs
 
 from pysc2.lib import app
@@ -71,7 +73,7 @@ def _replay_index(replay_dir):
               sc_pb.Race.Name(info.player_info[1].player_info.race_actual),
               info.player_info[1].player_apm,
           ]
-        print(u",".join(unicode(s) for s in out))
+        print(u",".join(str(s) for s in out))
     if bad_replays:
       print("Replays with errors:")
       print("\n".join(bad_replays))
