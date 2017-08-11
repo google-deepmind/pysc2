@@ -21,11 +21,14 @@ from __future__ import print_function
 import collections
 import multiprocessing
 import os
-import Queue
 import signal
 import sys
 import threading
 import time
+
+try: import Queue
+except ImportError:
+  import queue as Queue
 
 from future.builtins import range  # pylint: disable=redefined-builtin
 import six
