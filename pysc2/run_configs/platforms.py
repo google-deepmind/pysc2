@@ -33,8 +33,16 @@ class LocalBase(lib.RunConfig):
     cwd = cwd and os.path.join(base_dir, cwd)
 
     if "Versions/Base*/" in exec_path:
-      versions = os.listdir(os.path.join(base_dir, "Versions"))
-      latest = max(int(v[4:]) for v in versions if v.startswith("Base"))
+      versions_dir = os.path.join(base_dir, "Versions")
+      if not os.path.isdir(versions_dir):
+        raise lib.SC2LaunchError(
+            "Expected to find StarCraft II installed at '%s'. Either install "
+            "it there or set the SC2PATH environment variable." % base_dir)
+      latest = max(int(v[4:]) for v in os.listdir(versions_dir)
+                   if v.startswith("Base"))
+      if latest < 55958:
+        raise lib.SC2LaunchError(
+            "Your SC2 binary is too old. Upgrade to 3.16.1 or newer.")
       exec_path = exec_path.replace("*", str(latest))
 
     super(LocalBase, self).__init__(
