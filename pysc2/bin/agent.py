@@ -90,11 +90,12 @@ def _main(unused_argv):
   agent_cls = getattr(importlib.import_module(agent_module), agent_name)
 
   threads = []
-  for i in range(FLAGS.parallel):
-    t = threading.Thread(target=run_thread, args=(
-        agent_cls, FLAGS.map, FLAGS.render and i == 0))
+  for _ in range(FLAGS.parallel - 1):
+    t = threading.Thread(target=run_thread, args=(agent_cls, FLAGS.map, False))
     threads.append(t)
     t.start()
+
+  run_thread(agent_cls, FLAGS.map, FLAGS.render)
 
   for t in threads:
     t.join()
