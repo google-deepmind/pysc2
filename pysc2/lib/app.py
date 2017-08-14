@@ -30,21 +30,25 @@ else:
   import gflags as flags
 
   flags.DEFINE_bool("help", False, "Ask for the help text.")
-  flags.DEFINE_bool("helpfull", False, "Ask for the full help text.")
   FLAGS = flags.FLAGS
 
-  def _usage():
-    if not FLAGS.help and not FLAGS.helpfull:
-      return
-    print(sys.modules["__main__"].__doc__, "\n")
+  def usage():
+    if sys.modules["__main__"].__doc__:
+      print(sys.modules["__main__"].__doc__, "\n")
     print("USAGE:", sys.argv[0], "[flags]")
-    print(str(FLAGS) if FLAGS.helpfull else FLAGS.main_module_help())
+    print(str(FLAGS))
     sys.exit()
 
   def run():
     really_start(sys.modules["__main__"].main)
 
-  def really_start(main=None):
-    argv = FLAGS(sys.argv)
-    _usage()
+  def really_start(main):
+    try:
+      argv = FLAGS(sys.argv)
+    except flags.FlagsError as e:
+      sys.stderr.write("FATAL Flags parsing error: %s\n" % e)
+      sys.stderr.write("Pass --help to see help on flags.\n")
+      sys.exit(1)
+    if FLAGS.help:
+      usage()
     sys.exit(main(argv))
