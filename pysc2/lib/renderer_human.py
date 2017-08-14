@@ -256,7 +256,7 @@ class RendererHuman(object):
 
     # Create the actual window surface. This should only be blitted to from one
     # of the sub-surfaces defined below.
-    self._window = pygame.display.set_mode(window_size_px)
+    self._window = pygame.display.set_mode(window_size_px, 0, 32)
     pygame.display.set_caption("Starcraft Viewer")
 
     # The sub-surfaces that the various draw functions will draw to.
