@@ -86,5 +86,7 @@ class DefeatRoaches(base_agent.BaseAgent):
       index = numpy.argmax(roach_y)
       target = [roach_x[index], roach_y[index]]
       return actions.FunctionCall(_ATTACK_SCREEN, [_NOT_QUEUED, target])
-    else:
+    elif _SELECT_ARMY in obs.observation["available_actions"]:
       return actions.FunctionCall(_SELECT_ARMY, [_SELECT_ALL])
+    else:
+      return actions.FunctionCall(_NO_OP, [])
