@@ -39,9 +39,6 @@ else:
     print(str(FLAGS))
     sys.exit()
 
-  def run():
-    really_start(sys.modules["__main__"].main)
-
   def really_start(main):
     try:
       argv = FLAGS(sys.argv)
@@ -52,3 +49,9 @@ else:
     if FLAGS.help:
       usage()
     sys.exit(main(argv))
+
+
+# It's ok to override the apputils.app.run as it doesn't seem to do much more
+# than call really_start anyway.
+def run(main=None):
+  really_start(main or sys.modules["__main__"].main)

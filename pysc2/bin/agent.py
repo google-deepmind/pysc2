@@ -79,7 +79,7 @@ def run_thread(agent_cls, map_name, visualize):
       env.save_replay(agent_cls.__name__)
 
 
-def _main(unused_argv):
+def main(unused_argv):
   """Run an agent."""
   stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
   stopwatch.sw.trace = FLAGS.trace
@@ -104,9 +104,9 @@ def _main(unused_argv):
     print(stopwatch.sw)
 
 
-def main():  # Needed so setup.py scripts work.
-  app.really_start(_main)
+def entry_point():  # Needed so setup.py scripts work.
+  app.run(main)
 
 
 if __name__ == "__main__":
-  main()
+  app.run(main)

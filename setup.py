@@ -64,9 +64,9 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'pysc2_agent = pysc2.bin.agent:main',
-            'pysc2_play = pysc2.bin.play:main',
-            'pysc2_replay_info = pysc2.bin.replay_info:main',
+            'pysc2_agent = pysc2.bin.agent:entry_point',
+            'pysc2_play = pysc2.bin.play:entry_point',
+            'pysc2_replay_info = pysc2.bin.replay_info:entry_point',
         ],
     },
     classifiers=[

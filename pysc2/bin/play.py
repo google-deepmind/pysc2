@@ -66,7 +66,7 @@ flags.DEFINE_string("map_path", None, "Override the map for this replay.")
 flags.DEFINE_string("replay", None, "Name of a replay to show.")
 
 
-def _main(unused_argv):
+def main(unused_argv):
   """Run SC2 to play a game or a replay."""
   stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
   stopwatch.sw.trace = FLAGS.trace
@@ -175,9 +175,9 @@ def _main(unused_argv):
     print(stopwatch.sw)
 
 
-def main():  # Needed so setup.py scripts work.
-  app.really_start(_main)
+def entry_point():  # Needed so setup.py scripts work.
+  app.run(main)
 
 
 if __name__ == "__main__":
-  main()
+  app.run(main)

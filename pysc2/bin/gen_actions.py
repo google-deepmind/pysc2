@@ -211,4 +211,4 @@ skip_abilities = cancel_slot | unload_unit | frivolous
 
 
 if __name__ == "__main__":
-  app.really_start(main)
+  app.run(main)
