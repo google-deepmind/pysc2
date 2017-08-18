@@ -152,7 +152,7 @@ SCREEN_FEATURES = ScreenFeatures(
     unit_hit_points=(1600, FeatureType.SCALAR, colors.hot, True),
     unit_energy=(1000, FeatureType.SCALAR, colors.hot, True),
     unit_shields=(1000, FeatureType.SCALAR, colors.hot, True),
-    unit_density=(16, FeatureType.SCALAR, colors.hot, False),
+    unit_density=(16, FeatureType.SCALAR, colors.hot, True),
     unit_density_aa=(256, FeatureType.SCALAR, colors.hot, False),
 )
 
