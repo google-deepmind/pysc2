@@ -92,7 +92,7 @@ def _replay_info(replay_path):
   print(info)
 
 
-def _main(argv=()):
+def main(argv):
   if not argv:
     raise ValueError("No replay directory or path specified.")
   if len(argv) > 2:
@@ -108,10 +108,9 @@ def _main(argv=()):
     pass
 
 
-def main():  # Needed so the setup.py scripts work.
-  app.really_start(_main)
+def entry_point():  # Needed so the setup.py scripts work.
+  app.run(main)
 
 
 if __name__ == "__main__":
-  main()
-
+  app.run(main)

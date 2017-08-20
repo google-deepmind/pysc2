@@ -17,21 +17,30 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os
-
 from setuptools import setup
 
+description = """PySC2 - StarCraft II Learning Environment
 
-def read(fname):
-  with open(os.path.join(os.path.dirname(__file__), fname)) as f:
-    return f.read()
+PySC2 is DeepMind's Python component of the StarCraft II Learning Environment
+(SC2LE). It exposes Blizzard Entertainment's StarCraft II Machine Learning API
+as a Python RL Environment. This is a collaboration between DeepMind and
+Blizzard to develop StarCraft II into a rich environment for RL research. PySC2
+provides an interface for RL agents to interact with StarCraft 2, getting
+observations and sending actions.
 
+We have published an accompanying blogpost and paper
+https://deepmind.com/blog/deepmind-and-blizzard-open-starcraft-ii-ai-research-environment/
+which outlines our motivation for using StarCraft II for DeepRL research, and
+some initial research results using the environment.
+
+Read the README at https://github.com/deepmind/pysc2 for more information.
+"""
 
 setup(
     name='PySC2',
-    version='1.0',
+    version='1.1',
     description='Starcraft II environment and library for training agents.',
-    long_description=read('README.md'),
+    long_description=description,
     author='DeepMind',
     author_email='pysc2@deepmind.com',
     license='Apache License, Version 2.0',
@@ -64,9 +73,9 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'pysc2_agent = pysc2.bin.agent:main',
-            'pysc2_play = pysc2.bin.play:main',
-            'pysc2_replay_info = pysc2.bin.replay_info:main',
+            'pysc2_agent = pysc2.bin.agent:entry_point',
+            'pysc2_play = pysc2.bin.play:entry_point',
+            'pysc2_replay_info = pysc2.bin.replay_info:entry_point',
         ],
     },
     classifiers=[

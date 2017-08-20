@@ -53,5 +53,6 @@ def main(unused_argv):
   print("Total base actions:", count)
   print("Total possible actions (flattened):", flattened)
 
+
 if __name__ == "__main__":
-  app.run()
+  app.run(main)

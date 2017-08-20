@@ -365,5 +365,6 @@ def main(unused_argv):
     stats_queue.put(None)  # Tell the stats_thread to print and exit.
     stats_thread.join()
 
+
 if __name__ == "__main__":
-  app.run()
+  app.run(main)

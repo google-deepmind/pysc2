@@ -31,4 +31,4 @@ else:
   TestCase = unittest.TestCase
 
   def main():
-    app.really_start(lambda argv: unittest.main(argv=argv))
+    app.run(lambda argv: unittest.main(argv=argv))
