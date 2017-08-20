@@ -684,7 +684,7 @@ class RendererHuman(object):
         if u.alliance != 3:
           if u.energy or u.shield:
             text = self.font_small.render(
-                "En: %.0f, Sh: %.0f)" % (u.energy, u.shield),
+                "En: %.0f, Sh: %.0f" % (u.energy, u.shield),
                 True,
                 colors.PLAYER_RELATIVE_PALETTE[u.alliance])
             rect = text.get_rect()
