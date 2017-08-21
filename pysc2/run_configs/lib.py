@@ -32,24 +32,25 @@ class SC2LaunchError(Exception):
 class RunConfig(object):
   """Base class for different run configs."""
 
-  def __init__(self, replay_dir, data_dir, tmp_dir, exec_path, cwd=None,
-               env=None):
+  def __init__(self, replay_dir, data_dir, tmp_dir, cwd=None, env=None):
     """Initialize the runconfig with the various directories needed.
 
     Args:
       replay_dir: Where to find replays. Might not be accessible to SC2.
       data_dir: Where SC2 should find the data and battle.net cache.
       tmp_dir: The temporary directory. None is system default.
-      exec_path: Where to find the SC2 binary.
       cwd: Where to set the current working directory.
       env: What to pass as the environment variables.
     """
     self.replay_dir = replay_dir
     self.data_dir = data_dir
     self.tmp_dir = tmp_dir
-    self.exec_path = exec_path
     self.cwd = cwd
     self.env = env
+
+  def exec_path(self, game_version=None):
+    """Get the exec_path for this platform. Possibly find the latest build."""
+    raise NotImplementedError()
 
   def map_data(self, map_name):
     """Return the map data for a map by name or path."""

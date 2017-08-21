@@ -53,22 +53,26 @@ class StarcraftProcess(object):
       controller.ping()
   """
 
-  def __init__(self, run_config, full_screen=False, **kwargs):
+  def __init__(self, run_config, full_screen=False, game_version=None,
+               data_version=None, **kwargs):
     self._proc = None
     self._sock = None
     self._controller = None
     self._tmp_dir = tempfile.mkdtemp(prefix="sc-", dir=run_config.tmp_dir)
     self._port = portpicker.pick_unused_port()
-    self._check_exists(run_config.exec_path)
+    exec_path = run_config.exec_path(game_version)
+    self._check_exists(exec_path)
 
     args = [
-        run_config.exec_path,
+        exec_path,
         "-listen", "127.0.0.1",
         "-port", str(self._port),
         "-dataDir", os.path.join(run_config.data_dir, ""),
         "-tempDir", os.path.join(self._tmp_dir, ""),
         "-displayMode", "1" if full_screen else "0",
     ]
+    if data_version:
+      args += ["-dataVersion", data_version]
     try:
       self._proc = self._launch(run_config, args, **kwargs)
       self._sock = self._connect(self._port)

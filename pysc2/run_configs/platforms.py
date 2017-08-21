@@ -23,31 +23,54 @@ import platform
 
 from pysc2.run_configs import lib
 
+VERSION = "3.16.1"
+VERSIONS = {  # Map of game version to build and data versions.
+    "3.16.1": ("55958", "5BD7C31B44525DAB46E64C4602A81DC2"),
+}
+
+
+def get_version(game_version):
+  if game_version not in VERSIONS:
+    raise ValueError("Unknown game version: %s. Known versions: %s" % (
+        game_version, sorted(VERSIONS.keys())))
+  return VERSIONS[game_version]
+
 
 class LocalBase(lib.RunConfig):
   """Base run config for the deepmind file hierarchy."""
 
-  def __init__(self, base_dir, exec_path, cwd=None, env=None):
+  def __init__(self, base_dir, exec_name, cwd=None, env=None):
     base_dir = os.path.expanduser(base_dir)
-    exec_path = os.path.join(base_dir, exec_path)
     cwd = cwd and os.path.join(base_dir, cwd)
+    super(LocalBase, self).__init__(
+        replay_dir=os.path.join(base_dir, "Replays"),
+        data_dir=base_dir, tmp_dir=None, cwd=cwd, env=env)
+    self._exec_name = exec_name
 
-    if "Versions/Base*/" in exec_path:
-      versions_dir = os.path.join(base_dir, "Versions")
+  def exec_path(self, game_version=None):
+    """Get the exec_path for this platform. Possibly find the latest build."""
+    build_version = get_version(game_version)[0] if game_version else None
+
+    if not build_version:
+      versions_dir = os.path.join(self.data_dir, "Versions")
       if not os.path.isdir(versions_dir):
         raise lib.SC2LaunchError(
             "Expected to find StarCraft II installed at '%s'. Either install "
-            "it there or set the SC2PATH environment variable." % base_dir)
-      latest = max(int(v[4:]) for v in os.listdir(versions_dir)
-                   if v.startswith("Base"))
-      if latest < 55958:
+            "it there or set the SC2PATH environment variable." % self.data_dir)
+      build_version = max(int(v[4:]) for v in os.listdir(versions_dir)
+                          if v.startswith("Base"))
+      if build_version < 55958:
         raise lib.SC2LaunchError(
             "Your SC2 binary is too old. Upgrade to 3.16.1 or newer.")
-      exec_path = exec_path.replace("*", str(latest))
+    return os.path.join(
+        self.data_dir, "Versions/Base%s" % build_version, self._exec_name)
 
-    super(LocalBase, self).__init__(
-        replay_dir=os.path.join(base_dir, "Replays"),
-        data_dir=base_dir, tmp_dir=None, exec_path=exec_path, cwd=cwd, env=env)
+  def start(self, game_version=None, data_version=None, **kwargs):
+    """Launch the game."""
+    if game_version and not data_version:
+      data_version = get_version(game_version)[1]
+    return super(LocalBase, self).start(game_version=game_version,
+                                        data_version=data_version, **kwargs)
 
 
 class Windows(LocalBase):
@@ -56,8 +79,7 @@ class Windows(LocalBase):
   def __init__(self):
     super(Windows, self).__init__(
         os.environ.get("SC2PATH", "C:/Program Files (x86)/StarCraft II"),
-        "Versions/Base*/SC2_x64.exe",
-        "Support64")
+        "SC2_x64.exe", "Support64")
 
   @classmethod
   def priority(cls):
@@ -71,7 +93,7 @@ class MacOS(LocalBase):
   def __init__(self):
     super(MacOS, self).__init__(
         os.environ.get("SC2PATH", "/Applications/StarCraft II"),
-        "Versions/Base*/SC2.app/Contents/MacOS/SC2")
+        "SC2.app/Contents/MacOS/SC2")
 
   @classmethod
   def priority(cls):
@@ -89,7 +111,7 @@ class Linux(LocalBase):
     env["LD_LIBRARY_PATH"] = ":".join(filter(None, [
         os.environ.get("LD_LIBRARY_PATH"),
         os.path.join(base_dir, "Libs/")]))
-    super(Linux, self).__init__(base_dir, "Versions/Base*/SC2_x64", env=env)
+    super(Linux, self).__init__(base_dir, "SC2_x64", env=env)
 
   @classmethod
   def priority(cls):
