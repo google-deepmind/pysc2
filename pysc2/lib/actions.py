@@ -894,7 +894,7 @@ class FunctionCall(collections.namedtuple(
   """Represents a function call action.
 
   Attributes:
-    function_id: Store the function id, eg 2 for select_point.
+    function: Store the function id, eg 2 for select_point.
     arguments: The list of arguments for that function, each being a list of
         ints. For select_point this could be: [[0], [23, 38]].
   """
