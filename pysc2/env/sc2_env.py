@@ -119,11 +119,6 @@ class SC2Env(environment.Base):
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
     """
-    # Make the destructor happy.
-    self._renderer_human = None
-    self._controller = None
-    self._sc2_proc = None
-
     if _only_use_kwargs:
       raise ValueError("All arguments must be passed as keyword arguments.")
 
@@ -188,6 +183,8 @@ class SC2Env(environment.Base):
     if visualize:
       self._renderer_human = renderer_human.RendererHuman()
       self._renderer_human.init(game_info, static_data)
+    else:
+      self._renderer_human = None
 
     self._episode_count = 0
     self._obs = None
@@ -289,13 +286,13 @@ class SC2Env(environment.Base):
 
   def close(self):
     logging.info("Environment Close")
-    if self._renderer_human:
+    if hasattr(self, "_renderer_human") and self._renderer_human:
       self._renderer_human.close()
       self._renderer_human = None
-    if self._controller:
+    if hasattr(self, "_controller") and self._controller:
       self._controller.quit()
       self._controller = None
-    if self._sc2_proc:
+    if hasattr(self, "_sc2_proc") and self._sc2_proc:
       self._sc2_proc.close()
       self._sc2_proc = None
     logging.info(sw)
