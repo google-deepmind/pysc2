@@ -32,7 +32,7 @@ class TestEasy(utils.TestCase):
 
   def test_move_to_beacon(self):
     with sc2_env.SC2Env(
-        "MoveToBeacon",
+        map_name="MoveToBeacon",
         step_mul=self.step_mul,
         game_steps_per_episode=self.steps * self.step_mul) as env:
       agent = scripted_agent.MoveToBeacon()
@@ -44,7 +44,7 @@ class TestEasy(utils.TestCase):
 
   def test_collect_mineral_shards(self):
     with sc2_env.SC2Env(
-        "CollectMineralShards",
+        map_name="CollectMineralShards",
         step_mul=self.step_mul,
         game_steps_per_episode=self.steps * self.step_mul) as env:
       agent = scripted_agent.CollectMineralShards()
@@ -56,7 +56,7 @@ class TestEasy(utils.TestCase):
 
   def test_defeat_roaches(self):
     with sc2_env.SC2Env(
-        "DefeatRoaches",
+        map_name="DefeatRoaches",
         step_mul=self.step_mul,
         game_steps_per_episode=self.steps * self.step_mul) as env:
       agent = scripted_agent.DefeatRoaches()

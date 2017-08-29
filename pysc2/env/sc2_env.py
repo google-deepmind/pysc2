@@ -67,8 +67,9 @@ class SC2Env(environment.Base):
   lib/features.py
   """
 
-  def __init__(self,
-               map_name,
+  def __init__(self,  # pylint: disable=invalid-name
+               _only_use_kwargs=None,
+               map_name=None,
                screen_size_px=(64, 64),
                minimap_size_px=(64, 64),
                camera_width_world_units=None,
@@ -86,6 +87,7 @@ class SC2Env(environment.Base):
     """Create a SC2 Env.
 
     Args:
+      _only_use_kwargs: Don't pass args, only kwargs.
       map_name: Name of a SC2 map. Run bin/map_list to get the full list of
           known maps. Alternatively, pass a Map instance. Take a look at the
           docs in maps/README.md for more information on available maps.
@@ -121,6 +123,9 @@ class SC2Env(environment.Base):
     self._renderer_human = None
     self._controller = None
     self._sc2_proc = None
+
+    if _only_use_kwargs:
+      raise ValueError("All arguments must be passed as keyword arguments.")
 
     if save_replay_steps and not replay_dir:
       raise ValueError("Missing replay_dir")

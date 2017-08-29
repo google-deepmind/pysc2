@@ -31,7 +31,7 @@ from pysc2.lib import basetest
 class TestObservationSpec(utils.TestCase):
 
   def test_observation_matches_obs_spec(self):
-    with sc2_env.SC2Env("Simple64") as env:
+    with sc2_env.SC2Env(map_name="Simple64") as env:
       spec = env.observation_spec()
 
       agent = random_agent.RandomAgent()
