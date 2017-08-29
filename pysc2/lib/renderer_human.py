@@ -104,10 +104,11 @@ class _Surface(object):
 
   def draw_circle(self, color, world_loc, world_radius, thickness=0):
     """Draw a circle using world coordinates and radius."""
-    pygame.draw.circle(self.surf, color,
-                       self.world_to_surf.fwd_pt(world_loc).floor(),
-                       int(self.world_to_surf.fwd_dist(world_radius)),
-                       thickness)
+    if world_radius > 0:
+      radius = max(1, int(self.world_to_surf.fwd_dist(world_radius)))
+      pygame.draw.circle(self.surf, color,
+                         self.world_to_surf.fwd_pt(world_loc).floor(),
+                         radius, thickness if thickness < radius else 0)
 
   def draw_rect(self, color, world_rect, thickness=0):
     """Draw a rectangle using world coordinates."""
