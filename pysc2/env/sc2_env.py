@@ -25,6 +25,7 @@ from pysc2.env import environment
 from pysc2.lib import features
 from pysc2.lib import point
 from pysc2.lib import renderer_human
+from pysc2.lib import run_parallel
 from pysc2.lib import stopwatch
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
@@ -69,21 +70,11 @@ class SC2Env(environment.Base):
 
   def __init__(self,  # pylint: disable=invalid-name
                _only_use_kwargs=None,
-               map_name=None,
-               screen_size_px=(64, 64),
-               minimap_size_px=(64, 64),
-               camera_width_world_units=None,
-               discount=1.,
-               visualize=False,
                agent_race=None,
                bot_race=None,
                difficulty=None,
-               step_mul=None,
-               save_replay_steps=0,
-               replay_dir=None,
-               game_steps_per_episode=None,
-               score_index=None,
-               score_multiplier=None):
+               **kwargs):
+    # pylint: disable=g-doc-args
     """Create a SC2 Env.
 
     Args:
@@ -119,17 +110,44 @@ class SC2Env(environment.Base):
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
     """
+    # pylint: enable=g-doc-args
     if _only_use_kwargs:
       raise ValueError("All arguments must be passed as keyword arguments.")
 
+    agent_race = agent_race or "R"
+    if agent_race not in races:
+      raise ValueError("Bad agent_race args")
+
+    bot_race = bot_race or "R"
+    if bot_race not in races:
+      raise ValueError("Bad bot_race args")
+
+    difficulty = difficulty and str(difficulty) or "1"
+    if difficulty not in difficulties:
+      raise ValueError("Bad difficulty")
+
+    self._num_players = 1
+
+    self._setup((agent_race, bot_race, difficulty), **kwargs)
+
+  def _setup(self,
+             player_setup,
+             map_name,
+             screen_size_px=(64, 64),
+             minimap_size_px=(64, 64),
+             camera_width_world_units=None,
+             discount=1.,
+             visualize=False,
+             step_mul=None,
+             save_replay_steps=0,
+             replay_dir=None,
+             game_steps_per_episode=None,
+             score_index=None,
+             score_multiplier=None):
+
     if save_replay_steps and not replay_dir:
       raise ValueError("Missing replay_dir")
-    if agent_race and agent_race not in races:
-      raise ValueError("Bad agent_race args")
-    if bot_race and bot_race not in races:
-      raise ValueError("Bad bot_race args")
-    if difficulty and str(difficulty) not in difficulties:
-      raise ValueError("Bad difficulty")
+
     self._map = maps.get(map_name)
     self._discount = discount
     self._step_mul = step_mul or self._map.step_mul
@@ -152,8 +170,7 @@ class SC2Env(environment.Base):
     self._episode_steps = 0
 
     self._run_config = run_configs.get()
-    self._sc2_proc = self._run_config.start()
-    self._controller = self._sc2_proc.controller
+    self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
 
     screen_size_px = point.Point(*screen_size_px)
     minimap_size_px = point.Point(*minimap_size_px)
@@ -164,20 +181,10 @@ class SC2Env(environment.Base):
     screen_size_px.assign_to(interface.feature_layer.resolution)
     minimap_size_px.assign_to(interface.feature_layer.minimap_resolution)
 
-    create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
-        map_path=self._map.path, map_data=self._map.data(self._run_config)))
-    create.player_setup.add(type=sc_pb.Participant)
-    create.player_setup.add(type=sc_pb.Computer,
-                            race=races[bot_race or "R"],
-                            difficulty=difficulties[difficulty or "1"])
-    join = sc_pb.RequestJoinGame(race=races[agent_race or "R"],
-                                 options=interface)
+    self._launch(interface, player_setup)
 
-    self._controller.create_game(create)
-    self._controller.join_game(join)
-
-    game_info = self._controller.game_info()
-    static_data = self._controller.data()
+    game_info = self._controllers[0].game_info()
+    static_data = self._controllers[0].data()
 
     self._features = features.Features(game_info)
     if visualize:
@@ -191,6 +198,24 @@ class SC2Env(environment.Base):
     self._state = environment.StepType.LAST  # Want to jump to `reset`.
     logging.info("Environment is ready.")
 
+  def _launch(self, interface, player_setup):
+    agent_race, bot_race, difficulty = player_setup
+
+    self._sc2_procs = [self._run_config.start()]
+    self._controllers = [p.controller for p in self._sc2_procs]
+
+    # Create the game.
+    create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
+        map_path=self._map.path,
+        map_data=self._run_config.map_data(self._map.path)))
+    create.player_setup.add(type=sc_pb.Participant)
+    create.player_setup.add(type=sc_pb.Computer, race=races[bot_race],
+                            difficulty=difficulties[difficulty])
+    self._controllers[0].create_game(create)
+
+    join = sc_pb.RequestJoinGame(race=races[agent_race], options=interface)
+    self._controllers[0].join_game(join)
+
   def observation_spec(self):
     """Look at Features for full specs."""
     return self._features.observation_spec()
@@ -199,18 +224,21 @@ class SC2Env(environment.Base):
     """Look at Features for full specs."""
     return self._features.action_spec()
 
+  def _restart(self):
+    self._controllers[0].restart()
+
   @sw.decorate
   def reset(self):
     """Start a new episode."""
     self._episode_steps = 0
     if self._episode_count:
       # No need to restart for the first episode.
-      self._controller.restart()
+      self._restart()
 
     self._episode_count += 1
     logging.info("Starting episode: %s", self._episode_count)
 
-    self._last_score = None
+    self._last_score = [0] * self._num_players
     self._state = environment.StepType.FIRST
     return self._step()
 
@@ -220,36 +248,45 @@ class SC2Env(environment.Base):
     if self._state == environment.StepType.LAST:
       return self.reset()
 
-    assert len(actions) == 1  # No multiplayer yet.
-    action = self._features.transform_action(self._obs.observation, actions[0])
-    self._controller.act(action)
+    self._parallel.run(
+        (c.act, self._features.transform_action(o.observation, a))
+        for c, o, a in zip(self._controllers, self._obs, actions))
+
     self._state = environment.StepType.MID
     return self._step()
 
   def _step(self):
-    self._controller.step(self._step_mul)
-    self._obs = self._controller.observe()
-    agent_obs = self._features.transform_obs(self._obs.observation)
+    self._parallel.run((c.step, self._step_mul) for c in self._controllers)
+    self._obs = self._parallel.run(c.observe for c in self._controllers)
+    agent_obs = [self._features.transform_obs(o.observation) for o in self._obs]
 
-    if self._obs.player_result:  # Episode over.
+    # TODO(tewalds): How should we handle more than 2 agents and the case where
+    # the episode can end early for some agents?
+    outcome = [0] * self._num_players
+    discount = self._discount
+    if any(o.player_result for o in self._obs):  # Episode over.
       self._state = environment.StepType.LAST
-      outcome = _possible_results.get(self._obs.player_result[0].result, 0)
       discount = 0
-    else:
-      outcome = 0
-      discount = self._discount
+      for i, o in enumerate(self._obs):
+        player_id = o.observation.player_common.player_id
+        for result in o.player_result:
+          if result.player_id == player_id:
+            outcome[i] = _possible_results.get(result.result, 0)
 
     if self._score_index >= 0:  # Game score, not win/loss reward.
-      cur_score = agent_obs["score_cumulative"][self._score_index]
-      # First reward is always 0.
-      reward = cur_score - self._last_score if self._episode_steps > 0 else 0
+      cur_score = [o["score_cumulative"][self._score_index] for o in agent_obs]
+      if self._episode_steps == 0:  # First reward is always 0.
+        reward = [0] * self._num_players
+      else:
+        reward = [cur - last for cur, last in zip(cur_score, self._last_score)]
       self._last_score = cur_score
     else:
       reward = outcome
 
     if self._renderer_human:
-      self._renderer_human.render(self._obs)
-      cmd = self._renderer_human.get_actions(self._run_config, self._controller)
+      self._renderer_human.render(self._obs[0])
+      cmd = self._renderer_human.get_actions(
+          self._run_config, self._controllers[0])
       if cmd == renderer_human.ActionCmd.STEP:
         pass
       elif cmd == renderer_human.ActionCmd.RESTART:
@@ -268,16 +305,18 @@ class SC2Env(environment.Base):
       self.save_replay(self._replay_dir)
 
     if self._state == environment.StepType.LAST:
-      logging.info("Episode finished. Outcome: %s, reward: %s, score: %s",
-                   outcome, reward, agent_obs["score_cumulative"][0])
+      logging.info(
+          "Episode finished. Outcome: %s, reward: %s, score: %s",
+          outcome, reward, [o["score_cumulative"][0] for o in agent_obs])
 
-    return (environment.TimeStep(
-        step_type=self._state, reward=reward * self._score_multiplier,
-        discount=discount, observation=agent_obs),)  # A tuple for multiplayer.
+    return tuple(environment.TimeStep(step_type=self._state,
+                                      reward=r * self._score_multiplier,
+                                      discount=discount, observation=o)
+                 for r, o in zip(reward, agent_obs))
 
   def save_replay(self, replay_dir):
     replay_path = self._run_config.save_replay(
-        self._controller.save_replay(), replay_dir, self._map.name)
+        self._controllers[0].save_replay(), replay_dir, self._map.name)
     print("Wrote replay to:", replay_path)
 
   @property
@@ -289,10 +328,15 @@ class SC2Env(environment.Base):
     if hasattr(self, "_renderer_human") and self._renderer_human:
       self._renderer_human.close()
       self._renderer_human = None
+
+    # Don't use parallel since it might be broken by an exception.
     if hasattr(self, "_controller") and self._controller:
-      self._controller.quit()
-      self._controller = None
+      for c in self._controllers:
+        c.quit()
+      self._controllers = None
     if hasattr(self, "_sc2_proc") and self._sc2_proc:
-      self._sc2_proc.close()
-      self._sc2_proc = None
+      for p in self._sc2_procs:
+        p.close()
+      self._sc2_procs = None
+
     logging.info(sw)
