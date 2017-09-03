@@ -223,7 +223,7 @@ class SC2Env(environment.Base):
     if self._state == environment.StepType.LAST:
       return self.reset()
 
-    assert len(actions) == 1  # No multiplayer yet.
+    assert len(actions) == 1  # No multiplayer yet. Make sure your action only contains a single entry
     action = self._features.transform_action(self._obs.observation, actions[0])
     self._controller.act(action)
     self._state = environment.StepType.MID
