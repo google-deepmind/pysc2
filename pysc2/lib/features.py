@@ -391,7 +391,7 @@ class Features(object):
     if len(func_call.arguments) != len(func.args):
       raise ValueError(
           "Wrong number of arguments for function: %s, got: %s" % (
-              self._valid_functions[func_id], func_call.arguments))
+              func, func_call.arguments))
 
     # Args are valid?
     for t, arg in zip(func.args, func_call.arguments):
@@ -404,13 +404,13 @@ class Features(object):
 
       if len(sizes) != len(arg):
         raise ValueError(
-            "Wrong number of values for argument: %s, got: %s" % (
-                self._valid_functions[func_id], func_call.arguments))
+            "Wrong number of values for argument of %s, got: %s" % (
+                func, func_call.arguments))
 
       for s, a in zip(sizes, arg):
         if not 0 <= a < s:
-          raise ValueError("Argument is out of range: %s, got: %s" % (
-              self._valid_functions[func_id], func_call.arguments))
+          raise ValueError("Argument is out of range for %s, got: %s" % (
+              func, func_call.arguments))
 
     # Convert them to python types.
     kwargs = {type_.name: type_.fn(a)
