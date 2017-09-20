@@ -97,9 +97,9 @@ class SC2Env(environment.Base):
       difficulty: One of 1-9,A. How strong should the bot be?
       step_mul: How many game steps per agent step (action/observation). None
           means use the map default.
-      save_replay_steps: How many game steps to wait before saving a replay.
-          Default of 0 means don't save replays.
-      replay_dir: Directory to save replays to. Required with save_replay_steps.
+      save_replay_episodes: Save a replay after this many episodes. Default of 0
+          means don't save replays.
+      replay_dir: Directory to save replays. Required with save_replay_episodes.
       game_steps_per_episode: Game steps per episode, independent of the
           step_mul. 0 means no limit. None means use the map default.
       score_index: -1 means use the win/loss reward, >=0 is the index into the
@@ -139,19 +139,19 @@ class SC2Env(environment.Base):
              discount=1.,
              visualize=False,
              step_mul=None,
-             save_replay_steps=0,
+             save_replay_episodes=0,
              replay_dir=None,
              game_steps_per_episode=None,
              score_index=None,
              score_multiplier=None):
 
-    if save_replay_steps and not replay_dir:
+    if save_replay_episodes and not replay_dir:
       raise ValueError("Missing replay_dir")
 
     self._map = maps.get(map_name)
     self._discount = discount
     self._step_mul = step_mul or self._map.step_mul
-    self._save_replay_steps = save_replay_steps
+    self._save_replay_episodes = save_replay_episodes
     self._replay_dir = replay_dir
     self._total_steps = 0
 
@@ -294,17 +294,16 @@ class SC2Env(environment.Base):
       elif cmd == renderer_human.ActionCmd.QUIT:
         raise KeyboardInterrupt("Quit?")
 
+    self._total_steps += self._step_mul
     self._episode_steps += self._step_mul
     if self._episode_length > 0 and self._episode_steps >= self._episode_length:
       self._state = environment.StepType.LAST
       # No change to reward or discount since it's not actually terminal.
 
-    self._total_steps += self._step_mul
-    if (self._save_replay_steps > 0 and
-        self._total_steps % self._save_replay_steps < self._step_mul):
-      self.save_replay(self._replay_dir)
-
     if self._state == environment.StepType.LAST:
+      if (self._save_replay_episodes > 0 and
+          self._episode_count % self._save_replay_episodes == 0):
+        self.save_replay(self._replay_dir)
       logging.info(
           "Episode finished. Outcome: %s, reward: %s, score: %s",
           outcome, reward, [o["score_cumulative"][0] for o in agent_obs])

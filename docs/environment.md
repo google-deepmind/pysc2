@@ -420,8 +420,8 @@ ignoring certain observations and not sending actions on those frames, except it
 also speeds up the environment since it doesn't need to render the skipped
 frames.
 
-`save_replay_steps` and `replay_dir` specify how often to save replays and where
-to save them.
+`save_replay_episodes` and `replay_dir` specify how often to save replays and
+where to save them.
 
 Currently there is no multiplayer support.
 
