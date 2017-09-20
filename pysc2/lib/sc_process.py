@@ -171,16 +171,6 @@ def _shutdown_proc(p, timeout):
       logging.info("Shutdown gracefully.")
       return ret
     time.sleep(1 / freq)
-  for attempt in range(3):
-    # We would like SC2 to shut down cleanly, but become forceful if needed.
-    logging.warning("Terminating attempt %s...", attempt)
-    p.terminate()
-    for _ in range(1 + timeout * freq):
-      ret = p.poll()
-      if ret is not None:
-        logging.warning("Terminated.")
-        return ret
-      time.sleep(1 / freq)
   logging.warning("Killing the process.")
   p.kill()
   return p.wait()
