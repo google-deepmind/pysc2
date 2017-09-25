@@ -64,6 +64,7 @@ flags.DEFINE_string("map", None, "Name of a map to use to play.")
 
 flags.DEFINE_string("map_path", None, "Override the map for this replay.")
 flags.DEFINE_string("replay", None, "Name of a replay to show.")
+flags.DEFINE_string("game_version", None, "Version of the game to run.")
 
 
 def main(unused_argv):
@@ -126,7 +127,7 @@ def main(unused_argv):
         disable_fog=FLAGS.disable_fog,
         observed_player_id=FLAGS.observed_player)
 
-  with run_config.start(full_screen=FLAGS.full_screen) as controller:
+  with run_config.start(full_screen=FLAGS.full_screen, game_version=FLAGS.game_version) as controller:
     if FLAGS.map:
       controller.create_game(create)
       controller.join_game(join)
