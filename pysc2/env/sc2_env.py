@@ -316,7 +316,7 @@ class SC2Env(environment.Base):
   def save_replay(self, replay_dir):
     replay_path = self._run_config.save_replay(
         self._controllers[0].save_replay(), replay_dir, self._map.name)
-    print("Wrote replay to:", replay_path)
+    logging.info("Wrote replay to: %s", replay_path)
 
   @property
   def state(self):
