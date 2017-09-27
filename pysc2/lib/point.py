@@ -79,7 +79,17 @@ class Point(collections.namedtuple("Point", ["x", "y"])):
 
   def scale_max_size(self, max_size):
     """Scale this value, keeping aspect ratio, but fitting inside `max_size`."""
-    return self * min(max_size.x / self.x, max_size.y / self.y)
+    return self * (max_size / self).min_dim()
+
+  def scale_min_size(self, min_size):
+    """Scale this value, keeping aspect ratio, but fitting around `min_size`."""
+    return self * (min_size / self).max_dim()
+
+  def min_dim(self):
+    return min(self.x, self.y)
+
+  def max_dim(self):
+    return max(self.x, self.y)
 
   def transpose(self):
     """Flip x and y."""

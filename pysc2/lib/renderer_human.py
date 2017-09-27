@@ -276,8 +276,9 @@ class RendererHuman(object):
     # Just flip so the base minimap is TL origin
     self._world_to_minimap = transform.Linear(point.Point(1, -1),
                                               point.Point(0, self._map_size.y))
+    max_map_dim = self._map_size.max_dim()
     self._minimap_to_fl_minimap = transform.Linear(
-        self._feature_layer_minimap_size / self._map_size)
+        self._feature_layer_minimap_size / max_map_dim)
     self._world_to_fl_minimap = transform.Chain(
         self._world_to_minimap,
         self._minimap_to_fl_minimap,
@@ -309,7 +310,7 @@ class RendererHuman(object):
     self.minimap_size_px = self._map_size.scale_max_size(
         self.screen_size_px / 4)
     minimap_to_visual_minimap = transform.Linear(
-        self.minimap_size_px.x / self._map_size.x)
+        self.minimap_size_px.max_dim() / max_map_dim)
     minimap_offset = point.Point(0, (self.screen_size_px.y -
                                      self.minimap_size_px.y))
     add_surface(SurfType.MINIMAP,
@@ -804,13 +805,18 @@ class RendererHuman(object):
           self._obs.observation)
       visibility_fade = np.array([[0.5] * 3, [0.75]*3, [1]*3])
 
+      # Compose and color the different layers.
       out = hmap_color * 0.6
       out[creep_mask, :] = (0.4 * out[creep_mask, :] +
                             0.6 * creep_color[creep_mask, :])
       out[player_mask, :] = player_color[player_mask, :]
       out *= visibility_fade[visibility]
 
-      surf.blit_np_array(out)
+      # Render the bit of the composited layers that actually correspond to the
+      # map. This isn't all of it on non-square maps.
+      shape = self._map_size.scale_max_size(
+          self._feature_layer_minimap_size).floor()
+      surf.blit_np_array(out[:shape.y, :shape.x, :])
 
       surf.draw_rect(colors.white * 0.8, self._camera, 1)  # Camera
       pygame.draw.rect(surf.surf, colors.red, surf.surf.get_rect(), 1)  # Border

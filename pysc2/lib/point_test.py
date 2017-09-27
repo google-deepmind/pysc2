@@ -70,6 +70,19 @@ class PointTest(basetest.TestCase):
     self.assertEqual(point.Point(6, 8), p.scale_max_size(point.Point(100, 8)))
     self.assertEqual(point.Point(6, 8), p.scale_max_size(point.Point(6, 100)))
 
+  def testScaleMinSize(self):
+    p = point.Point(3, 4)
+    self.assertEqual(p, p.scale_min_size(p))
+    self.assertEqual(point.Point(6, 8), p.scale_min_size(point.Point(6, 6)))
+    self.assertEqual(point.Point(6, 8), p.scale_min_size(point.Point(2, 8)))
+    self.assertEqual(point.Point(6, 8), p.scale_min_size(point.Point(6, 2)))
+
+  def testMinDim(self):
+    self.assertEqual(5, point.Point(5, 10).min_dim())
+
+  def testMaxDim(self):
+    self.assertEqual(10, point.Point(5, 10).max_dim())
+
   def testTranspose(self):
     self.assertEqual(point.Point(4, 3), point.Point(3, 4).transpose())
 
