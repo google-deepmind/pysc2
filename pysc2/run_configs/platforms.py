@@ -23,13 +23,20 @@ import platform
 
 from pysc2.run_configs import lib
 
-VERSION = "3.16.1"
+
+# https://github.com/Blizzard/s2client-proto/blob/master/buildinfo/versions.json
 VERSIONS = {  # Map of game version to build and data versions.
-    "3.16.1": ("55958", "5BD7C31B44525DAB46E64C4602A81DC2"),
+    "3.16.1": (55958, "5bd7c31b44525dab46e64c4602a81dc2"),
+    "3.17.0": (56787, "dfd1f6607f2cf19cb4e1c996b2563d9b"),
+    "3.17.1": (56787, "3f2fced08798d83b873b5543befa6c4b"),
+    "3.17.2": (56787, "c690fc543082d35ea0aaa876b8362bea"),
+    "3.18.0": (57507, "1659ef34997da3470ff84a14431e3a86"),
 }
 
 
 def get_version(game_version):
+  if game_version.count(".") == 1:
+    game_version += ".0"
   if game_version not in VERSIONS:
     raise ValueError("Unknown game version: %s. Known versions: %s" % (
         game_version, sorted(VERSIONS.keys())))
