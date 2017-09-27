@@ -34,6 +34,10 @@ from pysc2.lib import remote_controller
 from pysc2.lib import stopwatch
 import websocket
 
+import gflags as flags
+
+flags.DEFINE_bool("sc2_verbose", False, "Enable SC2 verbose logging.")
+FLAGS = flags.FLAGS
 
 sw = stopwatch.sw
 
@@ -54,7 +58,7 @@ class StarcraftProcess(object):
   """
 
   def __init__(self, run_config, full_screen=False, game_version=None,
-               data_version=None, **kwargs):
+               data_version=None, verbose=False, **kwargs):
     self._proc = None
     self._sock = None
     self._controller = None
@@ -71,6 +75,8 @@ class StarcraftProcess(object):
         "-tempDir", os.path.join(self._tmp_dir, ""),
         "-displayMode", "1" if full_screen else "0",
     ]
+    if verbose or FLAGS.sc2_verbose:
+      args += ["-verbose"]
     if data_version:
       args += ["-dataVersion", data_version]
     try:
