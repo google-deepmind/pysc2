@@ -23,7 +23,7 @@ from pysc2.lib import protocol
 from pysc2.lib import remote_controller
 from pysc2.tests import utils
 
-from pysc2.lib import basetest
+from absl.testing import absltest as basetest
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 

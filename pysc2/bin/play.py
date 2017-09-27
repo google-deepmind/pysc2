@@ -28,8 +28,8 @@ from pysc2.env import sc2_env
 from pysc2.lib import renderer_human
 from pysc2.lib import stopwatch
 
-from pysc2.lib import app
-import gflags as flags
+from absl import app
+from absl import flags
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 FLAGS = flags.FLAGS

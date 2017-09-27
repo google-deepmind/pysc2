@@ -19,7 +19,7 @@ from __future__ import print_function
 
 from pysc2.lib import stopwatch
 
-from pysc2.lib import basetest
+from absl.testing import absltest as basetest
 
 
 class TestCase(basetest.TestCase):

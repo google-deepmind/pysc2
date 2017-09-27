@@ -22,7 +22,7 @@ import threading
 
 from pysc2.lib import run_parallel
 
-from pysc2.lib import basetest
+from absl.testing import absltest as basetest
 
 
 class Barrier(object):

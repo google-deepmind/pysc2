@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
-import logging
+from absl import logging
 
 import enum
 import numpy as np

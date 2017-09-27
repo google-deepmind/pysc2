@@ -18,7 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import logging
+from absl import logging
 import os
 import random
 
@@ -28,7 +28,7 @@ from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.tests import utils
 
-from pysc2.lib import basetest
+from absl.testing import absltest as basetest
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 

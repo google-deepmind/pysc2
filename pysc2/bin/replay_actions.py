@@ -36,8 +36,8 @@ from pysc2.lib import point
 from pysc2.lib import protocol
 from pysc2.lib import remote_controller
 
-from pysc2.lib import app
-import gflags as flags
+from absl import app
+from absl import flags
 from pysc2.lib import gfile
 from s2clientprotocol import sc2api_pb2 as sc_pb
 

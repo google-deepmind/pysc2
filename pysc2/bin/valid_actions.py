@@ -21,8 +21,8 @@ from __future__ import print_function
 from pysc2.lib import actions
 from pysc2.lib import features
 
-from pysc2.lib import app
-import gflags as flags
+from absl import app
+from absl import flags
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("screen_resolution", "84,84",

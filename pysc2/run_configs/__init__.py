@@ -20,7 +20,7 @@ from __future__ import print_function
 from pysc2.run_configs import lib
 from pysc2.run_configs import platforms
 
-import gflags as flags
+from absl import flags
 
 flags.DEFINE_string("sc2_run_config", None,
                     "Which run_config to use to spawn the binary.")

@@ -24,7 +24,7 @@ from pysc2 import run_configs
 from pysc2.lib import stopwatch
 from pysc2.tests import utils
 
-from pysc2.lib import basetest
+from absl.testing import absltest as basetest
 
 
 class TestPing(utils.TestCase):

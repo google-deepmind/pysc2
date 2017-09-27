@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import logging
+from absl import logging
 import os
 import shutil
 import socket
@@ -34,7 +34,7 @@ from pysc2.lib import remote_controller
 from pysc2.lib import stopwatch
 import websocket
 
-import gflags as flags
+from absl import flags
 
 flags.DEFINE_bool("sc2_verbose", False, "Enable SC2 verbose logging.")
 FLAGS = flags.FLAGS

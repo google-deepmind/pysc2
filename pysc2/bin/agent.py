@@ -29,8 +29,8 @@ from pysc2.env import run_loop
 from pysc2.env import sc2_env
 from pysc2.lib import stopwatch
 
-from pysc2.lib import app
-import gflags as flags
+from absl import app
+from absl import flags
 
 
 FLAGS = flags.FLAGS

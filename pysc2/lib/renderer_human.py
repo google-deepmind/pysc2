@@ -20,7 +20,7 @@ from __future__ import print_function
 import collections
 import functools
 import itertools
-import logging
+from absl import logging
 import math
 import threading
 import time

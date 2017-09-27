@@ -26,7 +26,7 @@ from pysc2.lib import features
 from pysc2.lib import point
 
 from google.protobuf import text_format
-from pysc2.lib import basetest
+from absl.testing import absltest as basetest
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 

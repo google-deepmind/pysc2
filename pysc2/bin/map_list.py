@@ -20,7 +20,7 @@ from __future__ import print_function
 
 from pysc2 import maps
 
-from pysc2.lib import app
+from absl import app
 
 
 def main(unused_argv):

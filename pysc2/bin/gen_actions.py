@@ -24,8 +24,8 @@ import six
 from pysc2 import maps
 from pysc2 import run_configs
 
-from pysc2.lib import app
-import gflags as flags
+from absl import app
+from absl import flags
 from s2clientprotocol import data_pb2 as sc_data
 from s2clientprotocol import sc2api_pb2 as sc_pb
 

@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import contextlib
-import logging
+from absl import logging
 import os
 import socket
 import sys
@@ -28,7 +28,7 @@ import enum
 from pysc2.lib import stopwatch
 import websocket
 
-import gflags as flags
+from absl import flags
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
