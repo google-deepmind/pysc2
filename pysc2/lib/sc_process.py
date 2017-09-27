@@ -78,7 +78,7 @@ class StarcraftProcess(object):
     if verbose or FLAGS.sc2_verbose:
       args += ["-verbose"]
     if data_version:
-      args += ["-dataVersion", data_version]
+      args += ["-dataVersion", data_version.upper()]
     try:
       self._proc = self._launch(run_config, args, **kwargs)
       self._sock = self._connect(self._port)

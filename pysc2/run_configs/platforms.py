@@ -23,6 +23,7 @@ import platform
 
 from pysc2.run_configs import lib
 
+from absl import flags
 
 # https://github.com/Blizzard/s2client-proto/blob/master/buildinfo/versions.json
 VERSIONS = {  # Map of game version to build and data versions.
@@ -32,6 +33,10 @@ VERSIONS = {  # Map of game version to build and data versions.
     "3.17.2": (56787, "c690fc543082d35ea0aaa876b8362bea"),
     "3.18.0": (57507, "1659ef34997da3470ff84a14431e3a86"),
 }
+
+flags.DEFINE_enum("sc2_version", None, sorted(VERSIONS.keys()),
+                  "Which version of the game to use.")
+FLAGS = flags.FLAGS
 
 
 def get_version(game_version):
@@ -74,6 +79,7 @@ class LocalBase(lib.RunConfig):
 
   def start(self, game_version=None, data_version=None, **kwargs):
     """Launch the game."""
+    game_version = game_version or FLAGS.sc2_version
     if game_version and not data_version:
       data_version = get_version(game_version)[1]
     return super(LocalBase, self).start(game_version=game_version,
