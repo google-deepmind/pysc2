@@ -142,7 +142,7 @@ class StarcraftProcess(object):
         logging.warning(
             "SC2 isn't running, so bailing early on the websocket connection.")
         break
-      logging.info("Connection attempt %s", i)
+      logging.info("Connection attempt %s (running: %s)", i, is_running)
       time.sleep(1)
       try:
         return websocket.create_connection("ws://127.0.0.1:%s/sc2api" % port,
