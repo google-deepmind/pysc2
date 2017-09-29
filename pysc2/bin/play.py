@@ -18,10 +18,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import json
 import platform
 import sys
 import time
 
+import mpyq
+import six
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.env import sc2_env
@@ -118,6 +121,7 @@ def main(unused_argv):
                             difficulty=sc2_env.difficulties[FLAGS.difficulty])
     join = sc_pb.RequestJoinGame(race=sc2_env.races[FLAGS.user_race],
                                  options=interface)
+    game_version = None
   else:
     replay_data = run_config.replay_data(FLAGS.replay)
     start_replay = sc_pb.RequestStartReplay(
@@ -125,8 +129,10 @@ def main(unused_argv):
         options=interface,
         disable_fog=FLAGS.disable_fog,
         observed_player_id=FLAGS.observed_player)
+    game_version = get_game_version(replay_data)
 
-  with run_config.start(full_screen=FLAGS.full_screen) as controller:
+  with run_config.start(game_version=game_version,
+                        full_screen=FLAGS.full_screen) as controller:
     if FLAGS.map:
       controller.create_game(create)
       controller.join_game(join)
@@ -173,6 +179,16 @@ def main(unused_argv):
 
   if FLAGS.profile:
     print(stopwatch.sw)
+
+
+def get_game_version(replay_data):
+  replay_io = six.BytesIO()
+  replay_io.write(replay_data)
+  replay_io.seek(0)
+  archive = mpyq.MPQArchive(replay_io).extract()
+  metadata = json.loads(archive[b"replay.gamemetadata.json"].decode("utf-8"))
+  version = metadata["GameVersion"]
+  return ".".join(version.split(".")[:-1])
 
 
 def entry_point():  # Needed so setup.py scripts work.

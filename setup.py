@@ -62,6 +62,7 @@ setup(
         'future',
         'futures',
         'mock',
+        'mpyq',
         'numpy>=1.10',
         'portpicker',
         'protobuf>=2.6',
