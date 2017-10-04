@@ -35,6 +35,27 @@ from pysc2.tests import utils
 from absl.testing import absltest as basetest
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
+# TODO(tewalds): define unit types in static data?
+_EMPTY = 0
+_COMMANDCENTER = 18
+_SUPPLYDEPOT = 19
+_BARRACKS = 21
+_SCV = 45
+_MINERALFIELD = 341
+_GEYSER = 343
+_MINERALFIELD750 = 483
+
+printable_unit_types = {
+    _EMPTY: '.',
+    _COMMANDCENTER: 'C',
+    _SUPPLYDEPOT: 'D',
+    _BARRACKS: 'B',
+    _SCV: 's',
+    _MINERALFIELD: 'M',
+    _GEYSER: 'G',
+    _MINERALFIELD750: 'm',
+}
+
 
 class Config(object):
   """Holds the configuration options."""
@@ -56,20 +77,20 @@ class Config(object):
     minimap_resolution.assign_to(
         self.interface.feature_layer.minimap_resolution)
 
-    # Magic unit ids.
-    self.scv_unit_id = 45
-    self.command_center_id = 18
-
     # Feature layer with the unit types.
     self.unit_type_id = features.SCREEN_FEATURES.unit_type.index
     self.num_observations = 3000
     self.player_id = 1
 
     # Hard code an action sequence.
+    # TODO(petkoig): This is very brittle. A random seed reduces flakiness, but
+    # isn't guaranteed to give the same actions between game versions. The pixel
+    # coords should be computed at run-time, maybe with a trigger type system in
+    # case build times also change.
     self.action_sequence = {
-        507: ('select_point', [[1], [9, 15]]),  # Target an SCV.
+        507: ('select_point', [[1], [9, 18]]),  # Target an SCV.
         963: ('Build_SupplyDepot_screen', [[0], [4, 19]]),
-        1152: ('select_point', [[0], [15, 10]]),  # Select the Command Center.
+        1152: ('select_point', [[0], [15, 13]]),  # Select the Command Center.
         1320: ('Train_SCV_quick', [[0]]),
         1350: ('Train_SCV_quick', [[0]]),
         1393: ('Train_SCV_quick', [[0]]),
@@ -90,7 +111,8 @@ class Config(object):
 
 
 def _layer_string(layer):
-  return '\n'.join(' '.join(str(v) for v in row) for row in layer)
+  return '\n'.join(' '.join(printable_unit_types.get(v, str(v))
+                            for v in row) for row in layer)
 
 
 class GameController(object):
@@ -181,21 +203,24 @@ class ReplayObsTest(utils.TestCase):
         func = config.actions[o.game_loop]
         print(str(func))
         print(_layer_string(unit_type))
+        scv_y, scv_x = (_SCV == unit_type).nonzero()
+        print('scv locations: ', zip(scv_x, scv_y))
 
         # Ensure action is available.
         # If a build action is available, we have managed to target an SCV.
         self.assertIn(func.function, obs['available_actions'])
 
-        if config.action_sequence[o.game_loop][0] == 'select-point':
+        if (config.actions[o.game_loop].function ==
+            actions.FUNCTIONS.select_point.id):
           # Ensure we have selected an SCV or the command center.
           x, y = func.arguments[1]
-          self.assertIn(unit_type[y, x], (
-              config.scv_unit_id, config.command_center_id))
-        elif (config.action_sequence[o.game_loop][0] in
-              ('SupplyDepot-screen', 'Barracks-screen')):
+          self.assertIn(unit_type[y, x], (_SCV, _COMMANDCENTER))
+        elif (config.actions[o.game_loop].function in
+              (actions.FUNCTIONS.Build_SupplyDepot_screen.id,
+               actions.FUNCTIONS.Build_Barracks_screen.id)):
           # Ensure we can build on that position.
           x, y = func.arguments[1]
-          self.assertEqual(0, unit_type[y, x])
+          self.assertEqual(_EMPTY, unit_type[y, x])
 
         action = f.transform_action(o, func)
         controller.act(action)
@@ -229,24 +254,20 @@ class ReplayObsTest(utils.TestCase):
         if o.observation.game_loop == 2:
           # Center camera is initiated automatically by the game and reported
           # at frame 2.
-          self.assertEqual(1, func.function)
+          self.assertEqual(actions.FUNCTIONS.move_camera.id, func.function)
           continue
 
         # Action is reported one frame later.
         executed = config.actions.get(o.observation.game_loop - 1, None)
         if not executed:
           self.assertEqual(
-              1, func.function,
+              actions.FUNCTIONS.move_camera.id, func.function,
               'A camera move to center the idle worker is expected.')
           continue
 
-        self.assertEqual(func.function, executed.function)
         print('Parsed and executed funcs: ', func, executed)
-        # TODO(petkoig): Check whether we want the reported unit selection
-        # TODO(petkoig): to match the original or current observation.
-        for i, arg in enumerate(func.arguments):
-          for j, value in enumerate(arg):
-            self.assertEqual(value, executed.arguments[i][j])
+        self.assertEqual(func.function, executed.function)
+        self.assertEqual(func.arguments, executed.arguments)
 
       controller.step()
 
