@@ -26,6 +26,7 @@ from pysc2 import run_configs
 
 from absl import app
 from pysc2.lib import gfile
+from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
@@ -65,12 +66,12 @@ def _replay_index(replay_dir):
             info.game_duration_loops,
             len(info.player_info),
             sc_pb.Result.Name(info.player_info[0].player_result.result),
-            sc_pb.Race.Name(info.player_info[0].player_info.race_actual),
+            sc_common.Race.Name(info.player_info[0].player_info.race_actual),
             info.player_info[0].player_apm,
         ]
         if len(info.player_info) >= 2:
           out += [
-              sc_pb.Race.Name(info.player_info[1].player_info.race_actual),
+              sc_common.Race.Name(info.player_info[1].player_info.race_actual),
               info.player_info[1].player_apm,
           ]
         print(u",".join(str(s) for s in out))

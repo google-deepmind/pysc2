@@ -39,6 +39,7 @@ from pysc2.lib import remote_controller
 from absl import app
 from absl import flags
 from pysc2.lib import gfile
+from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 FLAGS = flags.FLAGS
@@ -204,8 +205,9 @@ class ReplayProcessor(multiprocessing.Process):
               if valid_replay(info, ping):
                 self.stats.replay_stats.maps[info.map_name] += 1
                 for player_info in info.player_info:
-                  self.stats.replay_stats.races[
-                      sc_pb.Race.Name(player_info.player_info.race_actual)] += 1
+                  race_name = sc_common.Race.Name(
+                      player_info.player_info.race_actual)
+                  self.stats.replay_stats.races[race_name] += 1
                 map_data = None
                 if info.local_map_path:
                   self._update_stage("open map file")

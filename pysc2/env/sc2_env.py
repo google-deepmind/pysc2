@@ -28,6 +28,7 @@ from pysc2.lib import renderer_human
 from pysc2.lib import run_parallel
 from pysc2.lib import stopwatch
 
+from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 sw = stopwatch.sw
@@ -41,10 +42,10 @@ _possible_results = {
 }
 
 races = {
-    "R": sc_pb.Random,
-    "P": sc_pb.Protoss,
-    "T": sc_pb.Terran,
-    "Z": sc_pb.Zerg,
+    "R": sc_common.Random,
+    "P": sc_common.Protoss,
+    "T": sc_common.Terran,
+    "Z": sc_common.Zerg,
 }
 
 difficulties = {

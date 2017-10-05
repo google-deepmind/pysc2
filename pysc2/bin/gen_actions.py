@@ -26,6 +26,7 @@ from pysc2 import run_configs
 
 from absl import app
 from absl import flags
+from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import data_pb2 as sc_data
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
@@ -43,9 +44,9 @@ def get_data():
     create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
         map_path=m.path, map_data=m.data(run_config)))
     create.player_setup.add(type=sc_pb.Participant)
-    create.player_setup.add(type=sc_pb.Computer, race=sc_pb.Random,
+    create.player_setup.add(type=sc_pb.Computer, race=sc_common.Random,
                             difficulty=sc_pb.VeryEasy)
-    join = sc_pb.RequestJoinGame(race=sc_pb.Random,
+    join = sc_pb.RequestJoinGame(race=sc_common.Random,
                                  options=sc_pb.InterfaceOptions(raw=True))
 
     controller.create_game(create)

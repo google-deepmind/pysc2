@@ -33,6 +33,7 @@ from pysc2.lib import point
 from pysc2.tests import utils
 
 from absl.testing import absltest as basetest
+from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 # TODO(tewalds): define unit types in static data?
@@ -156,10 +157,10 @@ class GameController(object):
     create.player_setup.add(type=sc_pb.Participant)
     create.player_setup.add(
         type=sc_pb.Computer,
-        race=sc_pb.Terran,
+        race=sc_common.Terran,
         difficulty=sc_pb.VeryEasy)
     join = sc_pb.RequestJoinGame(
-        race=sc_pb.Terran,
+        race=sc_common.Terran,
         options=self._config.interface)
 
     self._controller.create_game(create)
