@@ -67,7 +67,7 @@ setup(
         'portpicker',
         'protobuf>=2.6',
         'pygame',
-        's2clientprotocol==1.1',
+        's2clientprotocol>=3.18',
         'six',
         'websocket-client',
     ],
