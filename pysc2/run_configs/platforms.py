@@ -27,11 +27,12 @@ from absl import flags
 
 # https://github.com/Blizzard/s2client-proto/blob/master/buildinfo/versions.json
 VERSIONS = {  # Map of game version to build and data versions.
-    "3.16.1": (55958, "5bd7c31b44525dab46e64c4602a81dc2"),
-    "3.17.0": (56787, "dfd1f6607f2cf19cb4e1c996b2563d9b"),
-    "3.17.1": (56787, "3f2fced08798d83b873b5543befa6c4b"),
-    "3.17.2": (56787, "c690fc543082d35ea0aaa876b8362bea"),
-    "3.18.0": (57507, "1659ef34997da3470ff84a14431e3a86"),
+    "3.16.1": (55958, "5BD7C31B44525DAB46E64C4602A81DC2"),
+    "3.17.0": (56787, "DFD1F6607F2CF19CB4E1C996B2563D9B"),
+    "3.17.1": (56787, "3F2FCED08798D83B873B5543BEFA6C4B"),
+    "3.17.2": (56787, "C690FC543082D35EA0AAA876B8362BEA"),
+    "3.18.0": (57507, "1659EF34997DA3470FF84A14431E3A86"),
+    "3.19.0": (58400, "2B06AEE58017A7DF2A3D452D733F1019"),
 }
 
 flags.DEFINE_enum("sc2_version", None, sorted(VERSIONS.keys()),
