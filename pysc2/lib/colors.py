@@ -210,6 +210,26 @@ def unit_type(scale):
   return palette
 
 
+effects = numpy.array([
+    [0, 0, 0],
+    [72, 173, 207],
+    [203, 76, 49],
+    [122, 98, 209],
+    [109, 183, 67],
+    [192, 80, 181],
+    [86, 185, 138],
+    [211, 63, 115],
+    [81, 128, 60],
+    [182, 135, 208],
+    [182, 174, 73],
+    [95, 123, 196],
+    [220, 146, 71],
+    [187, 102, 147],
+    [138, 109, 48],
+    [197, 103, 99],
+])
+
+
 # Generated with http://tools.medialab.sciences-po.fr/iwanthue/
 distinct_colors = numpy.array([
     [128, 72, 135],

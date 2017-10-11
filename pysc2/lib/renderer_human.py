@@ -853,7 +853,11 @@ class RendererHuman(object):
   @sw.decorate
   def draw_feature_layer(self, surf, feature):
     """Draw a feature layer."""
-    surf.blit_np_array(feature.color(feature.unpack(self._obs.observation)))
+    layer = feature.unpack(self._obs.observation)
+    if layer is not None:
+      surf.blit_np_array(feature.color(layer))
+    else:  # Ignore layers that aren't in this version of SC2.
+      surf.surf.fill(colors.black)
 
   def all_surfs(self, fn, *args, **kwargs):
     for surf in self.surfaces:

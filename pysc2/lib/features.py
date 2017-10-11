@@ -73,6 +73,9 @@ class Feature(collections.namedtuple(
   def unpack_layer(plane):
     """Return a correctly shaped numpy array given the feature layer bytes."""
     size = point.Point.build(plane.size)
+    if size == (0, 0):
+      # New layer that isn't implemented in this SC2 version.
+      return None
     data = np.fromstring(plane.data, dtype=Feature.dtypes[plane.bits_per_pixel])
     if plane.bits_per_pixel == 1:
       data = np.unpackbits(data)
@@ -97,7 +100,8 @@ class Feature(collections.namedtuple(
 class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
     "height_map", "visibility_map", "creep", "power", "player_id",
     "player_relative", "unit_type", "selected", "unit_hit_points",
-    "unit_energy", "unit_shields", "unit_density", "unit_density_aa"])):
+    "unit_hit_points_ratio", "unit_energy", "unit_energy_ratio", "unit_shields",
+    "unit_shields_ratio", "unit_density", "unit_density_aa", "effects"])):
   """The set of screen feature layers."""
   __slots__ = ()
 
@@ -150,10 +154,14 @@ SCREEN_FEATURES = ScreenFeatures(
     unit_type=(1850, FeatureType.CATEGORICAL, colors.unit_type, False),
     selected=(2, FeatureType.CATEGORICAL, colors.SELECTED_PALETTE, False),
     unit_hit_points=(1600, FeatureType.SCALAR, colors.hot, True),
+    unit_hit_points_ratio=(256, FeatureType.SCALAR, colors.hot, False),
     unit_energy=(1000, FeatureType.SCALAR, colors.hot, True),
+    unit_energy_ratio=(256, FeatureType.SCALAR, colors.hot, False),
     unit_shields=(1000, FeatureType.SCALAR, colors.hot, True),
+    unit_shields_ratio=(256, FeatureType.SCALAR, colors.hot, False),
     unit_density=(16, FeatureType.SCALAR, colors.hot, True),
     unit_density_aa=(256, FeatureType.SCALAR, colors.hot, False),
+    effects=(16, FeatureType.CATEGORICAL, colors.effects, False),
 )
 
 MINIMAP_FEATURES = MinimapFeatures(
@@ -258,11 +266,17 @@ class Features(object):
         "cargo_slots_available": np.array([0], dtype=np.int32),
     }
 
+    def or_zeros(layer, size):
+      if layer is not None:
+        return layer.astype(np.int32, copy=False)
+      else:
+        return np.zeros(size.transpose(), dtype=np.int32)
+
     with sw("feature_layers"):
-      out["screen"] = np.stack(
-          f.unpack(obs) for f in SCREEN_FEATURES).astype(np.int32, copy=False)
-      out["minimap"] = np.stack(
-          f.unpack(obs) for f in MINIMAP_FEATURES).astype(np.int32, copy=False)
+      out["screen"] = np.stack(or_zeros(f.unpack(obs), self._screen_size_px)
+                               for f in SCREEN_FEATURES)
+      out["minimap"] = np.stack(or_zeros(f.unpack(obs), self._minimap_size_px)
+                                for f in MINIMAP_FEATURES)
 
     out["game_loop"] = np.array([obs.game_loop], dtype=np.int32)
     out["score_cumulative"] = np.array([
@@ -550,4 +564,3 @@ class Features(object):
         for f in actions.FUNCTIONS])
 
     return actions.ValidActions(types, functions)
-
