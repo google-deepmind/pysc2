@@ -97,6 +97,9 @@ class StarcraftProcess(object):
     self._proc = None
     self._sock = None
     self._controller = None
+    if hasattr(self, "_port") and self._port:
+      portpicker.return_port(self._port)
+      self._port = None
     if os.path.exists(self._tmp_dir):
       shutil.rmtree(self._tmp_dir)
 

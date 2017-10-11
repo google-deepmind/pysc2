@@ -64,7 +64,7 @@ setup(
         'mock',
         'mpyq',
         'numpy>=1.10',
-        'portpicker',
+        'portpicker>=1.2.0',
         'protobuf>=2.6',
         'pygame',
         's2clientprotocol>=1.2',
