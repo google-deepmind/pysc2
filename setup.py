@@ -38,7 +38,7 @@ Read the README at https://github.com/deepmind/pysc2 for more information.
 
 setup(
     name='PySC2',
-    version='1.1',
+    version='1.2',
     description='Starcraft II environment and library for training agents.',
     long_description=description,
     author='DeepMind',
@@ -67,7 +67,7 @@ setup(
         'portpicker>=1.2.0',
         'protobuf>=2.6',
         'pygame',
-        's2clientprotocol>=1.2',
+        's2clientprotocol>=3.19.0.58400.0',
         'six',
         'websocket-client',
     ],
