@@ -616,6 +616,7 @@ class RendererHuman(object):
   def draw_units(self, surf):
     """Draw the units and buildings."""
     for u, p in self._visible_units():
+
       if self._camera.intersects_circle(p, u.radius):
         fraction_damage = clamp((u.health_max - u.health) / (u.health_max or 1),
                                 0, 1)
@@ -676,6 +677,25 @@ class RendererHuman(object):
             len(self._render_times) / (sum(self._render_times) or 1)),
         True, colors.green)
     surf.surf.blit(text, (3, 3))
+
+  @sw.decorate
+  def draw_shield_energy_status(self, surf):
+    """Draw the energy and shield status under the unit."""
+    for u, p in self._visible_units():
+      if self._camera.intersects_circle(p, u.radius):
+        if u.alliance != 3:
+          if u.energy or u.shield:
+            text = self.font_small.render(
+                "En: %.0f, Sh: %.0f" % (u.energy, u.shield),
+                True,
+                colors.PLAYER_RELATIVE_PALETTE[u.alliance])
+            rect = text.get_rect()
+
+            x, y = surf.world_to_surf.fwd_pt( p )
+            y += surf.world_to_surf.fwd_dist(u.radius) + 5
+            rect.center = (x, y)
+
+            surf.surf.blit(text, rect)
 
   @sw.decorate
   def draw_help(self, surf):
@@ -846,6 +866,7 @@ class RendererHuman(object):
       self.draw_base_map(surf)
       self.draw_units(surf)
     self.draw_selection(surf)
+    self.draw_shield_energy_status(surf)
     self.draw_build_target(surf)
     self.draw_overlay(surf)
     self.draw_commands(surf)
