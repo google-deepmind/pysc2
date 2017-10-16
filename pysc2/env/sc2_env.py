@@ -166,8 +166,9 @@ class SC2Env(environment.Base):
       self._score_multiplier = score_multiplier
     self._last_score = None
 
-    self._episode_length = (game_steps_per_episode or
-                            self._map.game_steps_per_episode)
+    self._episode_length = game_steps_per_episode
+    if self._episode_length is None:
+      self._episode_length = self._map.game_steps_per_episode
     self._episode_steps = 0
 
     self._run_config = run_configs.get()
