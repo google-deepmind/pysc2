@@ -43,10 +43,14 @@ flags.DEFINE_bool("full_screen", False, "Whether to run full screen.")
 flags.DEFINE_float("fps", 22.4, "Frames per second to run the game.")
 flags.DEFINE_integer("step_mul", 1, "Game steps per observation.")
 flags.DEFINE_bool("render_sync", False, "Turn on sync rendering.")
-flags.DEFINE_integer("screen_resolution", 84,
+flags.DEFINE_integer("fl_screen_resolution", 84,
                      "Resolution for screen feature layers.")
-flags.DEFINE_integer("minimap_resolution", 64,
+flags.DEFINE_integer("fl_minimap_resolution", 64,
                      "Resolution for minimap feature layers.")
+flags.DEFINE_integer("rgb_screen_resolution", 256,
+                     "Resolution for rendered screen.")
+flags.DEFINE_integer("rgb_minimap_resolution", 128,
+                     "Resolution for rendered minimap.")
 
 flags.DEFINE_integer("max_game_steps", 0, "Total game steps to run.")
 flags.DEFINE_integer("max_episode_steps", 0, "Total game steps per episode.")
@@ -99,10 +103,15 @@ def main(unused_argv):
   interface.raw = FLAGS.render
   interface.score = True
   interface.feature_layer.width = 24
-  interface.feature_layer.resolution.x = FLAGS.screen_resolution
-  interface.feature_layer.resolution.y = FLAGS.screen_resolution
-  interface.feature_layer.minimap_resolution.x = FLAGS.minimap_resolution
-  interface.feature_layer.minimap_resolution.y = FLAGS.minimap_resolution
+  interface.feature_layer.resolution.x = FLAGS.fl_screen_resolution
+  interface.feature_layer.resolution.y = FLAGS.fl_screen_resolution
+  interface.feature_layer.minimap_resolution.x = FLAGS.fl_minimap_resolution
+  interface.feature_layer.minimap_resolution.y = FLAGS.fl_minimap_resolution
+  if FLAGS.rgb_screen_resolution and FLAGS.rgb_minimap_resolution:
+    interface.render.resolution.x = FLAGS.rgb_screen_resolution
+    interface.render.resolution.y = FLAGS.rgb_screen_resolution
+    interface.render.minimap_resolution.x = FLAGS.rgb_minimap_resolution
+    interface.render.minimap_resolution.y = FLAGS.rgb_minimap_resolution
 
   max_episode_steps = FLAGS.max_episode_steps
 

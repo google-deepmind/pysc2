@@ -132,3 +132,12 @@ class Linux(LocalBase):
     if platform.system() == "Linux":
       return 1
 
+  def start(self, **kwargs):
+    extra_args = kwargs.pop("extra_args", [])
+    extra_args += [
+        # Defaults on Ubuntu. These can be a full paths.
+        "-eglpath", "libEGL.so.1",
+        "-osmesapath", "libOSMesa.so.6",
+    ]
+    return super(Linux, self).start(extra_args=extra_args, **kwargs)
+

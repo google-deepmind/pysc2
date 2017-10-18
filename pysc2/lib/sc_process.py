@@ -58,7 +58,7 @@ class StarcraftProcess(object):
   """
 
   def __init__(self, run_config, full_screen=False, game_version=None,
-               data_version=None, verbose=False, **kwargs):
+               data_version=None, extra_args=None, verbose=False, **kwargs):
     self._proc = None
     self._sock = None
     self._controller = None
@@ -79,6 +79,8 @@ class StarcraftProcess(object):
       args += ["-verbose"]
     if data_version:
       args += ["-dataVersion", data_version.upper()]
+    if extra_args:
+      args += extra_args
     try:
       self._proc = self._launch(run_config, args, **kwargs)
       self._sock = self._connect(self._port)
