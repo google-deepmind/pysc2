@@ -161,6 +161,7 @@ class RendererHuman(object):
   shortcuts = [
       ("F4", "Quit the game"),
       ("F5", "Restart the map"),
+      ("F7", "Toggle RGB rendering"),
       ("F8", "Toggle synchronous rendering"),
       ("F9", "Save a replay"),
       ("Ctrl++", "Zoom in"),
@@ -184,6 +185,7 @@ class RendererHuman(object):
     self._fps = fps
     self._step_mul = step_mul
     self._render_sync = render_sync
+    self._render_rgb = None
     self._obs_queue = queue.Queue()
     self._render_thread = threading.Thread(target=self.render_thread,
                                            name="Renderer")
@@ -218,6 +220,8 @@ class RendererHuman(object):
     self._feature_layer_minimap_size = point.Point.build(
         fl_opts.minimap_resolution)
     self._camera_width_world_units = fl_opts.width
+    if game_info.options.HasField("render"):
+      self._render_rgb = True
     try:
       self.init_window()
       self._initialized = True
@@ -454,6 +458,10 @@ class RendererHuman(object):
           return ActionCmd.QUIT
         elif event.key == pygame.K_F5:
           return ActionCmd.RESTART
+        elif event.key == pygame.K_F7:  # Toggle rgb rendering.
+          if self._render_rgb is not None:
+            self._render_rgb = not self._render_rgb
+            print("Rendering", self._render_rgb and "RGB" or "Feature Layers")
         elif event.key == pygame.K_F8:  # Toggle synchronous rendering.
           self._render_sync = not self._render_sync
           print("Rendering", self._render_sync and "Sync" or "Async")
@@ -779,7 +787,7 @@ class RendererHuman(object):
   @sw.decorate
   def draw_mini_map(self, surf):
     """Draw the minimap."""
-    if (self._obs.observation.HasField("render_data") and
+    if (self._render_rgb and self._obs.observation.HasField("render_data") and
         self._obs.observation.render_data.HasField("minimap")):
       # Draw the rendered version.
       surf.blit_np_array(features.Feature.unpack_rgb_image(
@@ -839,7 +847,7 @@ class RendererHuman(object):
   def draw_screen(self, surf):
     """Draw the screen area."""
     # surf.fill(colors.black)
-    if (self._obs.observation.HasField("render_data") and
+    if (self._render_rgb and self._obs.observation.HasField("render_data") and
         self._obs.observation.render_data.HasField("map")):
       self.draw_rendered_map(surf)
     else:
