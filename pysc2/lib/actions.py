@@ -329,6 +329,8 @@ class Functions(object):
       raise ValueError("Function names must be unique.")
 
   def __getattr__(self, name):
+    if name.startswith("__") and name.endswith("__"):
+      return super(Functions, self).__getattr__(name)
     return self._func_dict[name]
 
   def __getitem__(self, key):
