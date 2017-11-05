@@ -102,6 +102,19 @@ class _Surface(object):
     self.world_to_surf = world_to_surf
     self.draw = draw
 
+  def draw_arc(self, color, screen_loc, radius, scale, start_angle, stop_angle, thickness=1):
+    """Draw an arc using screen coordinates, radius, start and stop angles."""
+    rect = pygame.Rect(screen_loc.x,
+                       screen_loc.y,
+                       scale * radius,
+                       scale * radius)
+    pygame.draw.arc(self.surf,
+                    color,
+                    rect,
+                    start_angle,
+                    stop_angle,
+                    thickness)
+
   def draw_circle(self, color, world_loc, world_radius, thickness=0):
     """Draw a circle using world coordinates and radius."""
     if world_radius > 0:
@@ -617,6 +630,27 @@ class RendererHuman(object):
     """Draw the units and buildings."""
     for u, p in self._visible_units():
       if self._camera.intersects_circle(p, u.radius):
+        screen_loc = surf.world_to_surf.fwd_pt(p).floor()
+        aligned_screen_loc = point.Point(screen_loc.x - (self.scale * u.radius * 1.3),
+                                         screen_loc.y - (self.scale * u.radius * 1.35))
+        if u.shield:
+          surf.draw_arc(colors.blue,
+                        aligned_screen_loc,
+                        u.radius,
+                        self.scale * 2.66,
+                        0,
+                        u.shield / (u.shield_max or 1.0) * math.pi,
+                        1)
+
+        if u.energy:
+          surf.draw_arc(colors.white,
+                        point.Point(aligned_screen_loc.x, aligned_screen_loc.y - 5),
+                        u.radius,
+                        self.scale * 2.66,
+                        0,
+                        u.energy / (u.energy_max or 1.0) * math.pi,
+                        1)
+
         fraction_damage = clamp((u.health_max - u.health) / (u.health_max or 1),
                                 0, 1)
         surf.draw_circle(colors.PLAYER_ABSOLUTE_PALETTE[u.owner], p, u.radius)
