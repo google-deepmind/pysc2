@@ -41,6 +41,10 @@ from s2clientprotocol import data_pb2 as sc_data
 from s2clientprotocol import sc2api_pb2 as sc_pb
 from s2clientprotocol import spatial_pb2 as sc_spatial
 
+import ctypes
+
+ctypes.windll.user32.SetProcessDPIAware()
+
 sw = stopwatch.sw
 
 render_lock = threading.Lock()  # Serialize all window/render operations.
