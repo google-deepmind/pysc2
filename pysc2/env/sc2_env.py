@@ -107,6 +107,7 @@ class SC2Env(environment.Base):
           score_cumulative with 0 being the curriculum score. None means use
           the map default.
       score_multiplier: How much to multiply the score by. Useful for negating.
+      random_seed: Random number seed to use when initializing the game.
 
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
@@ -144,7 +145,8 @@ class SC2Env(environment.Base):
              replay_dir=None,
              game_steps_per_episode=None,
              score_index=None,
-             score_multiplier=None):
+             score_multiplier=None,
+             random_seed=None):
 
     if save_replay_episodes and not replay_dir:
       raise ValueError("Missing replay_dir")
@@ -155,6 +157,7 @@ class SC2Env(environment.Base):
     self._save_replay_episodes = save_replay_episodes
     self._replay_dir = replay_dir
     self._total_steps = 0
+    self._random_seed = random_seed
 
     if score_index is None:
       self._score_index = self._map.score_index
@@ -212,6 +215,8 @@ class SC2Env(environment.Base):
     create.player_setup.add(type=sc_pb.Participant)
     create.player_setup.add(type=sc_pb.Computer, race=races[bot_race],
                             difficulty=difficulties[difficulty])
+    if self._random_seed is not None:
+      create.random_seed = self._random_seed
     self._controllers[0].create_game(create)
 
     join = sc_pb.RequestJoinGame(race=races[agent_race], options=interface)
