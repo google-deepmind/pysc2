@@ -42,8 +42,8 @@ from s2clientprotocol import sc2api_pb2 as sc_pb
 from s2clientprotocol import spatial_pb2 as sc_spatial
 
 import ctypes
+import os
 
-ctypes.windll.user32.SetProcessDPIAware()
 
 sw = stopwatch.sw
 
@@ -133,6 +133,10 @@ class MousePos(collections.namedtuple("MousePos", ["pos", "type"])):
   """Holds the mouse position in world coordinates and a SurfType."""
   __slots__ = ()
 
+#check if OS is windows based. If True, run SetProcessDPIAware()
+#to correct display resolution issues PR#78
+if os.name == 'nt':
+  ctypes.windll.user32.SetProcessDPIAware()
 
 max_window_size = None
 def _get_max_window_size():  # pylint: disable=g-wrong-blank-lines
