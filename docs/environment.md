@@ -400,6 +400,14 @@ A `Behavior` can be turned on and off.
 Take a look at the `random_agent` for an example of how to consume
 `ValidActions` and fill `FunctionCall`s.
 
+The following snippet shows how to print a human-readable list of
+available actions for debugging purposes:
+
+    from pysc2.lib import actions
+
+    for action in obs.observation['available_actions']:
+        print(actions.FUNCTIONS[action])
+
 ## RL Environment
 
 The main SC2 environment is at `pysc2.env.sc2_env`, with the action and observation
