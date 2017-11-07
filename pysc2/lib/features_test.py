@@ -18,6 +18,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import pickle
+
 from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy
 import six
@@ -269,6 +271,11 @@ class FeaturesTest(basetest.TestCase):
           self.assertEqual(func_call, func_call2, msg=sc2_action)
         self.assertEqual(sc2_action, sc2_action2)
 
+  def testCanPickleSpecs(self):
+    feats = features.Features(screen_size_px=(84, 80), minimap_size_px=(64, 67))
+
+    pickle.loads(pickle.dumps(feats.action_spec()))
+    pickle.loads(pickle.dumps(feats.observation_spec()))
 
 if __name__ == "__main__":
   basetest.main()
