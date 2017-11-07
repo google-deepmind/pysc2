@@ -141,6 +141,27 @@ because there is a lot of text and numbers which agents aren't expected to learn
 to read, especially at low resolution. It's also because it's hard to reverse
 replays back to exactly the same visuals that the human saw.
 
+__Important Note:__
+
+The spatial observations are designed to be directly representative of
+the screen coordinate space, which means that the first axis in each of
+the spatial observations is the _`y`_ dimension, and the `x` dimension
+comes second. However, arguments to actions that require points on the
+screen or the minimap still expect the coordinates as (`x`, `y`). The
+origin (`0`, `0`) point is always at the top-left corner.
+
+The following snippet extracted from the [scripted agents
+code](../pysc2/agents/scripted_agent.py) shows an example of how this
+works:
+
+    # spatial observations have the y-coordinate first:
+    y, x = (obs.observation["screen"][_PLAYER_RELATIVE] == _PLAYER_NEUTRAL).nonzero()
+
+    # while actions expect x-coordinate first:
+    target = [int(x.mean()), int(y.mean())]
+    action = actions.FunctionCall(_MOVE_SCREEN, [_NOT_QUEUED, target])
+
+
 ### Observation
 
 #### Spatial/Visual
