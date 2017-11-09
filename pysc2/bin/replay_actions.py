@@ -42,10 +42,14 @@ from pysc2.lib import gfile
 from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
+import importlib
+
 FLAGS = flags.FLAGS
 flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
 flags.DEFINE_integer("step_mul", 8, "How many game steps per observation.")
 flags.DEFINE_string("replays", None, "Path to a directory of replays.")
+flags.DEFINE_string("parser", "pysc2.replay_parsers.base_parser.BaseParser",
+                    "Which agent to run")
 flags.mark_flag_as_required("replays")
 
 
@@ -62,77 +66,15 @@ def sorted_dict_str(d):
                             for k in sorted(d, key=d.get, reverse=True))
 
 
-class ReplayStats(object):
-  """Summary stats of the replays seen so far."""
-
-  def __init__(self):
-    self.replays = 0
-    self.steps = 0
-    self.camera_move = 0
-    self.select_pt = 0
-    self.select_rect = 0
-    self.control_group = 0
-    self.maps = collections.defaultdict(int)
-    self.races = collections.defaultdict(int)
-    self.unit_ids = collections.defaultdict(int)
-    self.valid_abilities = collections.defaultdict(int)
-    self.made_abilities = collections.defaultdict(int)
-    self.valid_actions = collections.defaultdict(int)
-    self.made_actions = collections.defaultdict(int)
-    self.crashing_replays = set()
-    self.invalid_replays = set()
-
-  def merge(self, other):
-    """Merge another ReplayStats into this one."""
-    def merge_dict(a, b):
-      for k, v in six.iteritems(b):
-        a[k] += v
-
-    self.replays += other.replays
-    self.steps += other.steps
-    self.camera_move += other.camera_move
-    self.select_pt += other.select_pt
-    self.select_rect += other.select_rect
-    self.control_group += other.control_group
-    merge_dict(self.maps, other.maps)
-    merge_dict(self.races, other.races)
-    merge_dict(self.unit_ids, other.unit_ids)
-    merge_dict(self.valid_abilities, other.valid_abilities)
-    merge_dict(self.made_abilities, other.made_abilities)
-    merge_dict(self.valid_actions, other.valid_actions)
-    merge_dict(self.made_actions, other.made_actions)
-    self.crashing_replays |= other.crashing_replays
-    self.invalid_replays |= other.invalid_replays
-
-  def __str__(self):
-    len_sorted_dict = lambda s: (len(s), sorted_dict_str(s))
-    len_sorted_list = lambda s: (len(s), sorted(s))
-    return "\n\n".join((
-        "Replays: %s, Steps total: %s" % (self.replays, self.steps),
-        "Camera move: %s, Select pt: %s, Select rect: %s, Control group: %s" % (
-            self.camera_move, self.select_pt, self.select_rect,
-            self.control_group),
-        "Maps: %s\n%s" % len_sorted_dict(self.maps),
-        "Races: %s\n%s" % len_sorted_dict(self.races),
-        "Unit ids: %s\n%s" % len_sorted_dict(self.unit_ids),
-        "Valid abilities: %s\n%s" % len_sorted_dict(self.valid_abilities),
-        "Made abilities: %s\n%s" % len_sorted_dict(self.made_abilities),
-        "Valid actions: %s\n%s" % len_sorted_dict(self.valid_actions),
-        "Made actions: %s\n%s" % len_sorted_dict(self.made_actions),
-        "Crashing replays: %s\n%s" % len_sorted_list(self.crashing_replays),
-        "Invalid replays: %s\n%s" % len_sorted_list(self.invalid_replays),
-    ))
-
-
 class ProcessStats(object):
   """Stats for a worker process."""
 
-  def __init__(self, proc_id):
+  def __init__(self, proc_id, parser_cls):
     self.proc_id = proc_id
     self.time = time.time()
     self.stage = ""
     self.replay = ""
-    self.replay_stats = ReplayStats()
+    self.replay_stats = parser_cls
 
   def update(self, stage):
     self.time = time.time()
@@ -166,12 +108,13 @@ def valid_replay(info, ping):
 class ReplayProcessor(multiprocessing.Process):
   """A Process that pulls replays and processes them."""
 
-  def __init__(self, proc_id, run_config, replay_queue, stats_queue):
+  def __init__(self, proc_id, run_config, replay_queue, stats_queue, parser_cls):
     super(ReplayProcessor, self).__init__()
-    self.stats = ProcessStats(proc_id)
+    self.stats = ProcessStats(proc_id, parser_cls)
     self.run_config = run_config
     self.replay_queue = replay_queue
     self.stats_queue = stats_queue
+    self.parser_cls = parser_cls
 
   def run(self):
     signal.signal(signal.SIGTERM, lambda a, b: sys.exit())  # Exit quietly.
@@ -292,9 +235,9 @@ class ReplayProcessor(multiprocessing.Process):
       controller.step(FLAGS.step_mul)
 
 
-def stats_printer(stats_queue):
+def stats_printer(stats_queue, parser_cls):
   """A thread that consumes stats_queue and prints them every 10 seconds."""
-  proc_stats = [ProcessStats(i) for i in range(FLAGS.parallel)]
+  proc_stats = [ProcessStats(i,parser_cls) for i in range(FLAGS.parallel)]
   print_time = start_time = time.time()
   width = 107
 
@@ -312,7 +255,7 @@ def stats_printer(stats_queue):
       except queue.Empty:
         pass
 
-    replay_stats = ReplayStats()
+    replay_stats = parser_cls
     for s in proc_stats:
       replay_stats.merge(s.replay_stats)
 
@@ -333,11 +276,16 @@ def main(unused_argv):
   """Dump stats about all the actions that are in use in a set of replays."""
   run_config = run_configs.get()
 
+  parser_module, parser_name = FLAGS.parser.rsplit(".", 1)
+  print(parser_module)
+  print(parser_name)
+  parser_cls = getattr(importlib.import_module(parser_module), parser_name)
+
   if not gfile.Exists(FLAGS.replays):
     sys.exit("{} doesn't exist.".format(FLAGS.replays))
 
   stats_queue = multiprocessing.Queue()
-  stats_thread = threading.Thread(target=stats_printer, args=(stats_queue,))
+  stats_thread = threading.Thread(target=stats_printer, args=(stats_queue,parser_cls))
   stats_thread.start()
   try:
     # For some reason buffering everything into a JoinableQueue makes the
@@ -355,7 +303,7 @@ def main(unused_argv):
     replay_queue_thread.start()
 
     for i in range(FLAGS.parallel):
-      p = ReplayProcessor(i, run_config, replay_queue, stats_queue)
+      p = ReplayProcessor(i, run_config, replay_queue, stats_queue, parser_cls)
       p.daemon = True
       p.start()
       time.sleep(1)  # Stagger startups, otherwise they seem to conflict somehow
