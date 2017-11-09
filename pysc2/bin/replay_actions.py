@@ -61,11 +61,6 @@ size.assign_to(interface.feature_layer.resolution)
 size.assign_to(interface.feature_layer.minimap_resolution)
 
 
-def sorted_dict_str(d):
-  return "{%s}" % ", ".join("%s: %s" % (k, d[k])
-                            for k in sorted(d, key=d.get, reverse=True))
-
-
 class ProcessStats(object):
   """Stats for a worker process."""
 
@@ -74,7 +69,7 @@ class ProcessStats(object):
     self.time = time.time()
     self.stage = ""
     self.replay = ""
-    self.replay_stats = parser_cls
+    self.replay_stats = parser_cls()
 
   def update(self, stage):
     self.time = time.time()
@@ -114,7 +109,7 @@ class ReplayProcessor(multiprocessing.Process):
     self.run_config = run_config
     self.replay_queue = replay_queue
     self.stats_queue = stats_queue
-    self.parser_cls = parser_cls
+    self.parser_cls = parser_cls()
 
   def run(self):
     signal.signal(signal.SIGTERM, lambda a, b: sys.exit())  # Exit quietly.
@@ -255,7 +250,7 @@ def stats_printer(stats_queue, parser_cls):
       except queue.Empty:
         pass
 
-    replay_stats = parser_cls
+    replay_stats = parser_cls()
     for s in proc_stats:
       replay_stats.merge(s.replay_stats)
 

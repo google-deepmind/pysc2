@@ -13,6 +13,12 @@
 # limitations under the License.
 """A base replay parser to write custom replay data scrappers."""
 
+import collections
+import six
+
+def sorted_dict_str(d):
+  return "{%s}" % ", ".join("%s: %s" % (k, d[k])
+                            for k in sorted(d, key=d.get, reverse=True))
 
 class BaseParser(object):
   """Summary stats of the replays seen so far."""
