@@ -69,7 +69,7 @@ class ProcessStats(object):
     self.time = time.time()
     self.stage = ""
     self.replay = ""
-    self.replay_stats = parser_cls()
+    self.parser = parser_cls()
 
   def update(self, stage):
     self.time = time.time()
@@ -78,26 +78,10 @@ class ProcessStats(object):
   def __str__(self):
     return ("[%2d] replay: %10s, replays: %5d, steps: %7d, game loops: %7s, "
             "last: %12s, %3d s ago" % (
-                self.proc_id, self.replay, self.replay_stats.replays,
-                self.replay_stats.steps,
-                self.replay_stats.steps * FLAGS.step_mul, self.stage,
+                self.proc_id, self.replay, self.parser.replays,
+                self.parser.steps,
+                self.parser.steps * FLAGS.step_mul, self.stage,
                 time.time() - self.time))
-
-
-def valid_replay(info, ping):
-  """Make sure the replay isn't corrupt, and is worth looking at."""
-  if (info.HasField("error") or
-      info.base_build != ping.base_build or  # different game version
-      info.game_duration_loops < 1000 or
-      len(info.player_info) != 2):
-    # Probably corrupt, or just not interesting.
-    return False
-  for p in info.player_info:
-    if p.player_apm < 10 or p.player_mmr < 1000:
-      # Low APM = player just standing around.
-      # Low MMR = corrupt replay or player who is weak.
-      return False
-  return True
 
 
 class ReplayProcessor(multiprocessing.Process):
@@ -109,7 +93,6 @@ class ReplayProcessor(multiprocessing.Process):
     self.run_config = run_config
     self.replay_queue = replay_queue
     self.stats_queue = stats_queue
-    self.parser_cls = parser_cls()
 
   def run(self):
     signal.signal(signal.SIGTERM, lambda a, b: sys.exit())  # Exit quietly.
@@ -140,12 +123,12 @@ class ReplayProcessor(multiprocessing.Process):
               self._print((" Replay Info %s " % replay_name).center(60, "-"))
               self._print(info)
               self._print("-" * 60)
-              if valid_replay(info, ping):
-                self.stats.replay_stats.maps[info.map_name] += 1
+              if self.stats.parser.valid_replay(info, ping):
+                self.stats.parser.maps[info.map_name] += 1
                 for player_info in info.player_info:
                   race_name = sc_common.Race.Name(
                       player_info.player_info.race_actual)
-                  self.stats.replay_stats.races[race_name] += 1
+                  self.stats.parser.races[race_name] += 1
                 map_data = None
                 if info.local_map_path:
                   self._update_stage("open map file")
@@ -157,13 +140,13 @@ class ReplayProcessor(multiprocessing.Process):
                                       player_id)
               else:
                 self._print("Replay is invalid.")
-                self.stats.replay_stats.invalid_replays.add(replay_name)
+                self.stats.parser.invalid_replays.add(replay_name)
             finally:
               self.replay_queue.task_done()
           self._update_stage("shutdown")
       except (protocol.ConnectionError, protocol.ProtocolError,
               remote_controller.RequestError):
-        self.stats.replay_stats.crashing_replays.add(replay_name)
+        self.stats.parser.crashing_replays.add(replay_name)
       except KeyboardInterrupt:
         return
 
@@ -186,42 +169,15 @@ class ReplayProcessor(multiprocessing.Process):
 
     feat = features.Features(controller.game_info())
 
-    self.stats.replay_stats.replays += 1
+    self.stats.parser.replays += 1
     self._update_stage("step")
     controller.step()
     while True:
-      self.stats.replay_stats.steps += 1
+      self.stats.parser.steps += 1
       self._update_stage("observe")
       obs = controller.observe()
 
-      for action in obs.actions:
-        act_fl = action.action_feature_layer
-        if act_fl.HasField("unit_command"):
-          self.stats.replay_stats.made_abilities[
-              act_fl.unit_command.ability_id] += 1
-        if act_fl.HasField("camera_move"):
-          self.stats.replay_stats.camera_move += 1
-        if act_fl.HasField("unit_selection_point"):
-          self.stats.replay_stats.select_pt += 1
-        if act_fl.HasField("unit_selection_rect"):
-          self.stats.replay_stats.select_rect += 1
-        if action.action_ui.HasField("control_group"):
-          self.stats.replay_stats.control_group += 1
-
-        try:
-          func = feat.reverse_action(action).function
-        except ValueError:
-          func = -1
-        self.stats.replay_stats.made_actions[func] += 1
-
-      for valid in obs.observation.abilities:
-        self.stats.replay_stats.valid_abilities[valid.ability_id] += 1
-
-      for u in obs.observation.raw_data.units:
-        self.stats.replay_stats.unit_ids[u.unit_type] += 1
-
-      for ability_id in feat.available_actions(obs.observation):
-        self.stats.replay_stats.valid_actions[ability_id] += 1
+      self.stats.parser.parse_step(obs,feat)
 
       if obs.player_result:
         break
@@ -250,12 +206,12 @@ def stats_printer(stats_queue, parser_cls):
       except queue.Empty:
         pass
 
-    replay_stats = parser_cls()
+    parser = parser_cls()
     for s in proc_stats:
-      replay_stats.merge(s.replay_stats)
+      parser.merge(s.parser)
 
     print((" Summary %0d secs " % (print_time - start_time)).center(width, "="))
-    print(replay_stats)
+    print(parser)
     print(" Process stats ".center(width, "-"))
     print("\n".join(str(s) for s in proc_stats))
     print("=" * width)
@@ -272,8 +228,6 @@ def main(unused_argv):
   run_config = run_configs.get()
 
   parser_module, parser_name = FLAGS.parser.rsplit(".", 1)
-  print(parser_module)
-  print(parser_name)
   parser_cls = getattr(importlib.import_module(parser_module), parser_name)
 
   if not gfile.Exists(FLAGS.replays):
