@@ -202,8 +202,11 @@ POWER_PALETTE = numpy.array([black, cyan * 0.7])
 SELECTED_PALETTE = numpy.array([black, green * 0.7])
 
 
-def unit_type(scale):
-  palette = shuffled_hue(scale)  # Just in case we don't know all unit types.
+def unit_type(scale=None):
+  """Returns a palette that maps unit types to rgb colors."""
+  # Can specify a scale to match the api or to accept unknown unit types.
+  palette_size = scale or max(static_data.UNIT_TYPES) + 1
+  palette = shuffled_hue(palette_size)
   assert len(static_data.UNIT_TYPES) <= len(distinct_colors)
   for i, v in enumerate(static_data.UNIT_TYPES):
     palette[v] = distinct_colors[i]
