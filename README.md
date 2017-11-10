@@ -230,7 +230,7 @@ $ python -m pysc2.bin.replay_actions --replays <path-to-replay-directory> --pars
 
 Details on how to implement a custom replay parser can be found in the [here](docs/environment.md#replay-parsers).
 
-##Public Replays
+## Public Replays
 
 Blizzard is releasing a large number of anonymized 1v1 replays played on the
 ladder. You can find instructions for how to get the
