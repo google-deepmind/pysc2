@@ -19,40 +19,68 @@ from __future__ import print_function
 
 import collections
 import six
+import numpy as np
 
 from pysc2.replay_parsers import base_parser
 
-class ActionParser(base_parser.BaseParser):
+from s2clientprotocol import sc2api_pb2 as sc_pb
+from s2clientprotocol import common_pb2 as sc_common
+
+def calc_armies(screen):
+	friendly_army = []
+	enemy_army = []
+	unit_list = np.unique(screen[6])
+	for unit in unit_list:
+		friendly_pixels = (screen[5] == 1) & (screen[6] == unit)
+		friendly_unit_count = sum(screen[11,friendly_pixels])
+	#only append if count > 0
+		if friendly_unit_count:
+			friendly_army.append([int(unit),friendly_unit_count])
+		enemy_pixels = (screen[5] == 4) & (screen[6] == unit)
+		enemy_unit_count = sum(screen[11,enemy_pixels])
+		if enemy_unit_count:
+			enemy_army.append([int(unit), enemy_unit_count])
+	return friendly_army, enemy_army
+
+def update_minimap(minimap,screen):
+	#Update minimap data with screen details
+	#Identify which minimap squares are on screen
+	visible = minimap[1] == 1
+	#TODO: need to devide screen into visible minimap, for now
+	#devide each quantity by number of visible minimap squares
+	total_visible = sum(visible.ravel())
+	#power
+	minimap[4,visible] = (sum(screen[3].ravel())/
+						  (len(screen[3].ravel())*total_visible))
+	#friendy army
+	friendly_units = screen[5] == 1
+	#unit density
+	minimap[5,visible] = sum(screen[11,friendly_units])/total_visible
+	#Most common unit
+	if friendly_units.any() == True:
+		minimap[6,visible] = np.bincount(screen[6,friendly_units]).argmax()
+	else:
+		minimap[6,visible] = 0
+	#Total HP + Shields
+	minimap[7,visible] = ((sum(screen[8,friendly_units]) + 
+						  sum(screen[10,friendly_units]))/total_visible)
+	#enemy army
+	enemy_units = screen[5] == 4
+	#unit density
+	minimap[8,visible] = sum(screen[11,enemy_units])/total_visible
+	#main unit
+	if enemy_units.any() == True:
+		minimap[9,visible] = np.bincount(screen[6,enemy_units]).argmax()
+	else:
+		minimap[9,visible] = 0
+	#Total HP + shields
+	minimap[10,visible] = ((sum(screen[8,enemy_units]) + 
+							sum(screen[10,friendly_units]))/total_visible)
+
+	return minimap
+
+class StateParser(base_parser.BaseParser):
 	"""Action statistics parser for replays."""
-
-	def __init__(self):
-		super(ActionParser, self).__init__()
-		self.camera_move = 0
-		self.select_pt = 0
-		self.select_rect = 0
-		self.control_group = 0
-		self.unit_ids = collections.defaultdict(int)
-		self.valid_abilities = collections.defaultdict(int)
-		self.made_abilities = collections.defaultdict(int)
-		self.valid_actions = collections.defaultdict(int)
-		self.made_actions = collections.defaultdict(int)
-
-	def merge(self, other):
-		"""Merge another ReplayStats into this one."""
-		def merge_dict(a, b):
-			for k, v in six.iteritems(b):
-				a[k] += v
-		super(ActionParser,self).merge(other)      
-		self.camera_move += other.camera_move
-		self.select_pt += other.select_pt
-		self.select_rect += other.select_rect
-		self.control_group += other.control_group
-		merge_dict(self.unit_ids, other.unit_ids)
-		merge_dict(self.valid_abilities, other.valid_abilities)
-		merge_dict(self.made_abilities, other.made_abilities)
-		merge_dict(self.valid_actions, other.valid_actions)
-		merge_dict(self.made_actions, other.made_actions)
-
 	def valid_replay(self,info, ping):
 		return True
 		"""Make sure the replay isn't corrupt, and is worth looking at."""
@@ -69,51 +97,44 @@ class ActionParser(base_parser.BaseParser):
 				return False
 		return True
 
-	def __str__(self):
-		len_sorted_dict = lambda s: (len(s), self.sorted_dict_str(s))
-		len_sorted_list = lambda s: (len(s), sorted(s))
-		return "\n\n".join((
-		"Replays: %s, Steps total: %s" % (self.replays, self.steps),
-		"Camera move: %s, Select pt: %s, Select rect: %s, Control group: %s" % (
-		self.camera_move, self.select_pt, self.select_rect,
-		self.control_group),
-		"Maps: %s\n%s" % len_sorted_dict(self.maps),
-		"Races: %s\n%s" % len_sorted_dict(self.races),
-		"Unit ids: %s\n%s" % len_sorted_dict(self.unit_ids),
-		"Valid abilities: %s\n%s" % len_sorted_dict(self.valid_abilities),
-		"Made abilities: %s\n%s" % len_sorted_dict(self.made_abilities),
-		"Valid actions: %s\n%s" % len_sorted_dict(self.valid_actions),
-		"Made actions: %s\n%s" % len_sorted_dict(self.made_actions),
-		"Crashing replays: %s\n%s" % len_sorted_list(self.crashing_replays),
-		"Invalid replays: %s\n%s" % len_sorted_list(self.invalid_replays),
-		))
-
-	def parse_step(self,obs,feat):
+	def parse_step(self,obs,feat,info):
+		actions = []
 		for action in obs.actions:
-			act_fl = action.action_feature_layer
-			if act_fl.HasField("unit_command"):
-				self.made_abilities[
-					act_fl.unit_command.ability_id] += 1
-			if act_fl.HasField("camera_move"):
-				self.camera_move += 1
-			if act_fl.HasField("unit_selection_point"):
-				self.select_pt += 1
-			if act_fl.HasField("unit_selection_rect"):
-				self.select_rect += 1
-			if action.action_ui.HasField("control_group"):
-				self.control_group += 1
-
 			try:
-				func = feat.reverse_action(action).function
+				full_act = feat.reverse_action(action)
+				func = full_act.function
+				args = full_act.arguments
 			except ValueError:
 				func = -1
-				self.made_actions[func] += 1
+				args = []
 
-		for valid in obs.observation.abilities:
-			self.valid_abilities[valid.ability_id] += 1
+			actions.append([func,args])
 
-		for u in obs.observation.raw_data.units:
-			self.unit_ids[u.unit_type] += 1
+		all_features = feat.transform_obs(obs.observation)
+		#remove elevation, viz and selected data from minimap
+		minimap_data = all_features['minimap'][2:6,:,:]
+		screen = all_features['screen']
 
-		for ability_id in feat.available_actions(obs.observation):
-			self.valid_actions[ability_id] += 1
+		mini_shape = minimap_data.shape
+		minimap = np.zeros(shape=(11,mini_shape[1],mini_shape[2]),dtype=np.int)
+		minimap[0:4,:,:] = minimap_data
+		extended_minimap = update_minimap(minimap,screen).tolist()
+		friendly_army, enemy_army = calc_armies(screen)
+
+		if info.player_info[0].player_result.result == 'Victory':
+			winner = 1
+		else:
+			winner = 2
+		for player_id in [1, 2]:
+			race = sc_common.Race.Name(info.player_info[player_id-1].player_info.race_actual)
+			if player_id == 1:
+				enemy = 2
+			else:
+				enemy = 1 
+		enemy_race = sc_common.Race.Name(info.player_info[enemy-1].player_info.race_actual)
+		
+		full_state = [info.map_name, extended_minimap,
+					friendly_army,enemy_army,all_features['player'].tolist(),
+					all_features['available_actions'].tolist(),actions,winner,
+					race,enemy_race]
+		return full_state

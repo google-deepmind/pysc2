@@ -43,6 +43,7 @@ from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 import importlib
+import json
 import sys
 
 FLAGS = flags.FLAGS
@@ -51,7 +52,7 @@ flags.DEFINE_integer("step_mul", 8, "How many game steps per observation.")
 flags.DEFINE_string("replays", None, "Path to a directory of replays.")
 flags.DEFINE_string("parser", "pysc2.replay_parsers.base_parser.BaseParser",
                     "Which agent to run")
-flags.DEFINE_string("data_dir", "/",
+flags.DEFINE_string("data_dir", "C:/",
                     "Path to directory to save replay data from replay parser")
 flags.DEFINE_integer("screen_resolution", 16,
                      "Resolution for screen feature layers.")
@@ -121,7 +122,7 @@ class ReplayProcessor(multiprocessing.Process):
               self._print("Empty queue, returning")
               return
             try:
-              replay_name = os.path.basename(replay_path)[:10]
+              replay_name = os.path.basename(replay_path)
               self.stats.replay = replay_name
               self._print("Got replay: %s" % replay_path)
               self._update_stage("open replay file")
@@ -145,7 +146,7 @@ class ReplayProcessor(multiprocessing.Process):
                   self._print("Starting %s from player %s's perspective" % (
                       replay_name, player_id))
                   self.process_replay(controller, replay_data, map_data,
-                                      player_id)
+                                      player_id,info,replay_name)
               else:
                 self._print("Replay is invalid.")
                 self.stats.parser.invalid_replays.add(replay_name)
@@ -166,7 +167,7 @@ class ReplayProcessor(multiprocessing.Process):
     self.stats.update(stage)
     self.stats_queue.put(self.stats)
 
-  def process_replay(self, controller, replay_data, map_data, player_id):
+  def process_replay(self, controller, replay_data, map_data, player_id,info,replay_name):
     """Process a single replay, updating the stats."""
     self._update_stage("start_replay")
     controller.start_replay(sc_pb.RequestStartReplay(
@@ -180,16 +181,25 @@ class ReplayProcessor(multiprocessing.Process):
     self.stats.parser.replays += 1
     self._update_stage("step")
     controller.step()
+    data = []
     while True:
       self.stats.parser.steps += 1
       self._update_stage("observe")
       obs = controller.observe()
 
-      self.stats.parser.parse_step(obs,feat)
+      #if parser.parse_step returns, whatever is returned is appended
+      #to a data list, and this data list is saved to a json file
+      #in the data_dir directory with filename = replay_name_player_id.json
+      parsed_data = self.stats.parser.parse_step(obs,feat,info)
+      if parsed_data:
+        data.append(parsed_data)
 
-      if obs.player_result:
-        #save scraped replay data to file at end of replay
-        self.stats.parser.save_data(FLAGS.data_dir)
+      if obs.player_result:        
+        #save scraped replay data to file at end of replay if parser returns        
+        if data:
+          data_file = FLAGS.data_dir + replay_name + "_" + str(player_id) + '.json'
+          with open(data_file,'w') as outfile:
+            json.dump(data,outfile)
         break
 
       self._update_stage("step")

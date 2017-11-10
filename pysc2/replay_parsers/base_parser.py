@@ -17,7 +17,7 @@ import collections
 import six
 
 class BaseParser(object):
-    """Summary stats of the replays seen so far."""
+    """A base replay parser to write custom replay data scrappers."""
     def __init__(self):
         self.replays = 0
         self.steps = 0
@@ -54,10 +54,9 @@ class BaseParser(object):
         #All replays are valid in the base parser
         return True
 
-    def parse_step(self,obs,feat):
-        pass
-
-    def save_data(self,data_dir):
+    def parse_step(self,obs,feat,info):
+        #base parser doesn't directly parse any data,
+        #parse_step is a required function for parsers
         pass
 
     def sorted_dict_str(self, d):

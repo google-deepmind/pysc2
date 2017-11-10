@@ -54,7 +54,6 @@ class ActionParser(base_parser.BaseParser):
 		merge_dict(self.made_actions, other.made_actions)
 
 	def valid_replay(self,info, ping):
-		return True
 		"""Make sure the replay isn't corrupt, and is worth looking at."""
 		if (info.HasField("error") or
 		info.base_build != ping.base_build or  # different game version
@@ -88,7 +87,7 @@ class ActionParser(base_parser.BaseParser):
 		"Invalid replays: %s\n%s" % len_sorted_list(self.invalid_replays),
 		))
 
-	def parse_step(self,obs,feat):
+	def parse_step(self,obs,feat,info):
 		for action in obs.actions:
 			act_fl = action.action_feature_layer
 			if act_fl.HasField("unit_command"):
