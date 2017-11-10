@@ -43,6 +43,7 @@ from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 import importlib
+import sys
 
 FLAGS = flags.FLAGS
 flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
@@ -51,6 +52,7 @@ flags.DEFINE_string("replays", None, "Path to a directory of replays.")
 flags.DEFINE_string("parser", "pysc2.replay_parsers.base_parser.BaseParser",
                     "Which agent to run")
 flags.mark_flag_as_required("replays")
+FLAGS(sys.argv)
 
 
 size = point.Point(16, 16)
