@@ -198,18 +198,41 @@ This works for any replay as long as the map can be found by the game.
 The same controls work as for playing the game, so `F4` to exit, `pgup`/`pgdn`
 to control the speed, etc.
 
-
-
 You can visualize the replays with the full game, or with `pysc2.bin.play`.
 Alternatively you can run `pysc2.bin.replay_actions` to process many replays
 in parallel by supplying a replay directory. Each replay in the supplied directory
 will be processed.
 
 ```shell
-$ python -m pysc2.bin.pl --replay <path-to-replay>
+$ python -m pysc2.bin.replay_actions --replays <path-to-replay-directory>
 ```
+The default number of instances to run in parallel is 1, but can be changed using
+the `parallel` argument.
+
+```shell
+$ python -m pysc2.bin.replay_actions --replays <path-to-replay-directory> --parallel <number-of-parallel-instances>
+```
+
+## Parse a replay
+
+To collect data from one or more replays, a replay parser can be used. Two example 
+replay parsers can be found in the replay_parsers folder:  
+
+*   `action_parser`: Collects statistics about actions and general replay stats and prints to console
+*   `player_info_parser`: Collects General player info at each replay step and saves to file
+
+To run a specific replay parser, pass the parser as the `parser` argument. If the replay parser
+returns data to be stored in a file, a directory must be supplied to the `data_dir` argument
+
+```shell
+$ python -m pysc2.bin.replay_actions --replays <path-to-replay-directory> --parser pysc2.replay_parsers.action_parser.ActionParser --data_dir <path-to-save-directory>
+```
+
+Details on how to implement a custom replay parser can be found in the [here](docs/environment.md#replay-parsers).
+
+##Public Replays
 
 Blizzard is releasing a large number of anonymized 1v1 replays played on the
 ladder. You can find instructions for how to get the
 [replay files](https://github.com/Blizzard/s2client-proto#downloads) on their
-site. You can also review your own replays.
+site.

@@ -50,7 +50,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
 flags.DEFINE_integer("step_mul", 8, "How many game steps per observation.")
 flags.DEFINE_string("replays", None, "Path to a directory of replays.")
-flags.DEFINE_string("parser", "pysc2.replay_parsers.base_parser.BaseParser",
+flags.DEFINE_string("parser", "pysc2.replay_parsers.action_parser.ActionParser",
                     "Which parser to use in scrapping replay data")
 flags.DEFINE_string("data_dir", None,
                     "Path to directory to save replay data from replay parser")
@@ -59,6 +59,7 @@ flags.DEFINE_integer("screen_resolution", 16,
 flags.DEFINE_integer("minimap_resolution", 16,
                      "Resolution for minimap feature layers.")
 flags.mark_flag_as_required("replays")
+FLAGS(sys.argv)
 
 interface = sc_pb.InterfaceOptions()
 interface.raw = True
