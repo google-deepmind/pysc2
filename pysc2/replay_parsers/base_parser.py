@@ -57,6 +57,9 @@ class BaseParser(object):
     def parse_step(self,obs,feat):
         pass
 
+    def save_data(self,data_dir):
+        pass
+
     def sorted_dict_str(self, d):
       return "{%s}" % ", ".join("%s: %s" % (k, d[k])
                                 for k in sorted(d, key=d.get, reverse=True))

@@ -51,17 +51,23 @@ flags.DEFINE_integer("step_mul", 8, "How many game steps per observation.")
 flags.DEFINE_string("replays", None, "Path to a directory of replays.")
 flags.DEFINE_string("parser", "pysc2.replay_parsers.base_parser.BaseParser",
                     "Which agent to run")
+flags.DEFINE_string("data_dir", "/",
+                    "Path to directory to save replay data from replay parser")
+flags.DEFINE_integer("screen_resolution", 16,
+                     "Resolution for screen feature layers.")
+flags.DEFINE_integer("minimap_resolution", 16,
+                     "Resolution for minimap feature layers.")
 flags.mark_flag_as_required("replays")
 FLAGS(sys.argv)
 
-
-size = point.Point(16, 16)
-interface = sc_pb.InterfaceOptions(
-    raw=True, score=False,
-    feature_layer=sc_pb.SpatialCameraSetup(width=24))
-size.assign_to(interface.feature_layer.resolution)
-size.assign_to(interface.feature_layer.minimap_resolution)
-
+interface = sc_pb.InterfaceOptions()
+interface.raw = True
+interface.score = False
+interface.feature_layer.width = 24
+interface.feature_layer.resolution.x = FLAGS.screen_resolution
+interface.feature_layer.resolution.y = FLAGS.screen_resolution
+interface.feature_layer.minimap_resolution.x = FLAGS.minimap_resolution
+interface.feature_layer.minimap_resolution.y = FLAGS.minimap_resolution
 
 class ProcessStats(object):
   """Stats for a worker process."""
@@ -182,6 +188,8 @@ class ReplayProcessor(multiprocessing.Process):
       self.stats.parser.parse_step(obs,feat)
 
       if obs.player_result:
+        #save scraped replay data to file at end of replay
+        self.stats.parser.save_data(FLAGS.data_dir)
         break
 
       self._update_stage("step")
