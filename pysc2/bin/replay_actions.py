@@ -59,7 +59,6 @@ flags.DEFINE_integer("screen_resolution", 16,
 flags.DEFINE_integer("minimap_resolution", 16,
                      "Resolution for minimap feature layers.")
 flags.mark_flag_as_required("replays")
-FLAGS(sys.argv)
 
 interface = sc_pb.InterfaceOptions()
 interface.raw = True
