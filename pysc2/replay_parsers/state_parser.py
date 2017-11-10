@@ -54,4 +54,3 @@ class StateParser(base_parser.BaseParser):
       winner = 2
     # Return current replay step data to be appended and save to file
     return [player_resources,winner]
-    
