@@ -17,48 +17,48 @@ import collections
 import six
 
 class BaseParser(object):
-    """A base replay parser to write custom replay data scrappers."""
-    def __init__(self):
-        self.replays = 0
-        self.steps = 0
-        self.maps = collections.defaultdict(int)
-        self.races = collections.defaultdict(int)
-        self.crashing_replays = set()
-        self.invalid_replays = set()
+  """A base replay parser to write custom replay data scrappers."""
+  def __init__(self):
+    self.replays = 0
+    self.steps = 0
+    self.maps = collections.defaultdict(int)
+    self.races = collections.defaultdict(int)
+    self.crashing_replays = set()
+    self.invalid_replays = set()
 
-    def merge(self, other):
-        """Merge another ReplayStats into this one."""
+  def merge(self, other):
+    """Merge another ReplayStats into this one."""
 
-        def merge_dict(a, b):
-            for k, v in six.iteritems(b):
-                a[k] += v
-        self.replays += other.replays
-        self.steps += other.steps
-        merge_dict(self.maps, other.maps)
-        merge_dict(self.races, other.races)
-        self.crashing_replays |= other.crashing_replays
-        self.invalid_replays |= other.invalid_replays
+    def merge_dict(a, b):
+      for k, v in six.iteritems(b):
+        a[k] += v
+    self.replays += other.replays
+    self.steps += other.steps
+    merge_dict(self.maps, other.maps)
+    merge_dict(self.races, other.races)
+    self.crashing_replays |= other.crashing_replays
+    self.invalid_replays |= other.invalid_replays
 
-    def __str__(self):
-        len_sorted_dict = lambda s: (len(s), self.sorted_dict_str(s))
-        len_sorted_list = lambda s: (len(s), sorted(s))
-        return "\n\n".join((
-        "Replays: %s, Steps total: %s" % (self.replays, self.steps),
-        "Maps: %s\n%s" % len_sorted_dict(self.maps),
-        "Races: %s\n%s" % len_sorted_dict(self.races),
-        "Crashing replays: %s\n%s" % len_sorted_list(self.crashing_replays),
-        "Invalid replays: %s\n%s" % len_sorted_list(self.invalid_replays),
-        ))
+  def __str__(self):
+    len_sorted_dict = lambda s: (len(s), self.sorted_dict_str(s))
+    len_sorted_list = lambda s: (len(s), sorted(s))
+    return "\n\n".join((
+    "Replays: %s, Steps total: %s" % (self.replays, self.steps),
+    "Maps: %s\n%s" % len_sorted_dict(self.maps),
+    "Races: %s\n%s" % len_sorted_dict(self.races),
+    "Crashing replays: %s\n%s" % len_sorted_list(self.crashing_replays),
+    "Invalid replays: %s\n%s" % len_sorted_list(self.invalid_replays),
+    ))
 
-    def valid_replay(self,info, ping):
-        #All replays are valid in the base parser
-        return True
+  def valid_replay(self,info, ping):
+    # All replays are valid in the base parser
+    return True
 
-    def parse_step(self,obs,feat,info):
-        #base parser doesn't directly parse any data,
-        #parse_step is a required function for parsers
-        pass
+  def parse_step(self,obs,feat,info):
+    # Base parser doesn't directly parse any data,
+    # parse_step is a required function for parsers
+    raise NotImplementedError()
 
-    def sorted_dict_str(self, d):
-      return "{%s}" % ", ".join("%s: %s" % (k, d[k])
-                                for k in sorted(d, key=d.get, reverse=True))
+  def sorted_dict_str(self, d):
+    return "{%s}" % ", ".join("%s: %s" % (k, d[k])
+                for k in sorted(d, key=d.get, reverse=True))
