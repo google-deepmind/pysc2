@@ -451,7 +451,7 @@ replay parsers can be found in the replay_parsers folder:
 To build a custom replay parser, a class that inherits from BaseParser needs to be defined. 
 The main method of the replay parser is the `parse_step` method. This function must take as arguments:
 `obs`,`feat` and `info` which are the game observations, feature layers and replay information at a single
-step in the replay, which is passed to the parser from `replay_actions` script for each step in the
+step in the replay, which is passed to the parser from `process_replays` script for each step in the
 replay file. This information is used to parse the desired data. If the `parse_step` function returns,
 the returned value is appended to a list containing the parsed data for each step in the replay. Once the
 replay is finished, this list is saved to a data file in the supplied `data_dir` directory.
@@ -459,4 +459,4 @@ If no directory is supplied, the data is not saved to a file.
 
 The `valid_replay` method of the parent BaseParser class can be overridden to supply a custom
 definition for valid replays (ie. filter out replays having players with small MMR). The `valid_replay`
-method must take as arguments `info` and `ping` supplied from `replay_action` and return a boolean. 
+method must take as arguments `info` and `ping` supplied from `process_replays` and return a boolean. 

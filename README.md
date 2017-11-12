@@ -199,18 +199,18 @@ The same controls work as for playing the game, so `F4` to exit, `pgup`/`pgdn`
 to control the speed, etc.
 
 You can visualize the replays with the full game, or with `pysc2.bin.play`.
-Alternatively you can run `pysc2.bin.replay_actions` to process many replays
+Alternatively you can run `pysc2.bin.process_replays` to process many replays
 in parallel by supplying a replay directory. Each replay in the supplied directory
 will be processed.
 
 ```shell
-$ python -m pysc2.bin.replay_actions --replays <path-to-replay-directory>
+$ python -m pysc2.bin.process_replays --replays <path-to-replay-directory>
 ```
 The default number of instances to run in parallel is 1, but can be changed using
 the `parallel` argument.
 
 ```shell
-$ python -m pysc2.bin.replay_actions --replays <path-to-replay-directory> --parallel <number-of-parallel-instances>
+$ python -m pysc2.bin.process_replays --replays <path-to-replay-directory> --parallel <number-of-parallel-instances>
 ```
 
 ## Parse a replay
@@ -225,7 +225,7 @@ To run a specific replay parser, pass the parser as the `parser` argument. If th
 returns data to be stored in a file, a directory must be supplied to the `data_dir` argument
 
 ```shell
-$ python -m pysc2.bin.replay_actions --replays <path-to-replay-directory> --parser pysc2.replay_parsers.action_parser.ActionParser --data_dir <path-to-save-directory>
+$ python -m pysc2.bin.process_replays --replays <path-to-replay-directory> --parser pysc2.replay_parsers.action_parser.ActionParser --data_dir <path-to-save-directory>
 ```
 
 Details on how to implement a custom replay parser can be found in the [here](docs/environment.md#replay-parsers).
