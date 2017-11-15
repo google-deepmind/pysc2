@@ -18,10 +18,12 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
+import ctypes
 import functools
 import itertools
 from absl import logging
 import math
+import os
 import threading
 import time
 
@@ -243,6 +245,10 @@ class RendererHuman(object):
   @sw.decorate
   def init_window(self):
     """Initialize the pygame window and lay out the surfaces."""
+    if os.name == "nt":
+      # Enable DPI awareness on Windows to give the correct window size.
+      ctypes.windll.user32.SetProcessDPIAware()
+
     pygame.init()
 
     # Want a roughly square grid of feature layers, each being roughly square.
