@@ -89,16 +89,16 @@ class Config(object):
     # coords should be computed at run-time, maybe with a trigger type system in
     # case build times also change.
     self.action_sequence = {
-        507: ('select_point', [[1], [9, 14]]),  # Target an SCV.
+        507: ('select_point', [[1], [9, 18]]),  # Target an SCV.
         963: ('Build_SupplyDepot_screen', [[0], [4, 19]]),
-        1152: ('select_point', [[0], [15, 10]]),  # Select the Command Center.
+        1152: ('select_point', [[0], [15, 13]]),  # Select the Command Center.
         1320: ('Train_SCV_quick', [[0]]),
         1350: ('Train_SCV_quick', [[0]]),
         1393: ('Train_SCV_quick', [[0]]),
         1437: ('Train_SCV_quick', [[0]]),
         1564: ('Train_SCV_quick', [[0]]),
         1602: ('Train_SCV_quick', [[0]]),
-        1822: ('select_idle_worker', [[2]]),
+        1822: ('select_point', [[0], [4, 20]]),
         2848: ('Build_Barracks_screen', [[0], [22, 22]])
     }
 
