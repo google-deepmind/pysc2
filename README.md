@@ -32,7 +32,7 @@ agents to interact with StarCraft 2, getting observations and sending actions.
 
 We have published an accompanying
 [blogpost](https://deepmind.com/blog/deepmind-and-blizzard-open-starcraft-ii-ai-research-environment/)
-and [paper](https://deepmind.com/documents/110/sc2le.pdf), which outlines our
+and [paper](https://arxiv.org/abs/1708.04782), which outlines our
 motivation for using StarCraft II for DeepRL research, and some initial research
 results using the environment.
 
@@ -41,7 +41,7 @@ results using the environment.
 Disclaimer: This is not an official Google product.
 
 If you use the StarCraft II Machine Learning API and/or PySC2 in your research,
-please cite the [StarCraft II Paper](https://deepmind.com/documents/110/sc2le.pdf)
+please cite the [StarCraft II Paper](https://arxiv.org/abs/1708.04782)
 
 You can reach us at [pysc2@deepmind.com](mailto:pysc2@deepmind.com).
 
