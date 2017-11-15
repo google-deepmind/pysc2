@@ -70,8 +70,6 @@ class TestRender(utils.TestCase):
       for _ in range(50):
         controller.step(8)
         observation = controller.observe()
-        if observation.player_result:
-          break
 
         obs = observation.observation
         rgb_screen = features.Feature.unpack_rgb_image(obs.render_data.map)
@@ -93,6 +91,8 @@ class TestRender(utils.TestCase):
         self.assertTrue(fl_screen.any())
         self.assertTrue(fl_minimap.any())
 
+        if observation.player_result:
+          break
 
 if __name__ == "__main__":
   basetest.main()
