@@ -274,8 +274,12 @@ class FeaturesTest(basetest.TestCase):
   def testCanPickleSpecs(self):
     feats = features.Features(screen_size_px=(84, 80), minimap_size_px=(64, 67))
 
-    pickle.loads(pickle.dumps(feats.action_spec()))
-    pickle.loads(pickle.dumps(feats.observation_spec()))
+    action_spec = feats.action_spec()
+    observation_spec = feats.observation_spec()
+
+    self.assertEqual(action_spec, pickle.loads(pickle.dumps(action_spec)))
+    self.assertEqual(observation_spec,
+                     pickle.loads(pickle.dumps(observation_spec)))
 
 if __name__ == "__main__":
   basetest.main()

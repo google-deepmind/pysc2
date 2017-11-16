@@ -344,6 +344,9 @@ class Functions(object):
   def __len__(self):
     return len(self._func_list)
 
+  def __eq__(self, other):
+    return self._func_list == other._func_list  # pylint: disable=protected-access
+
 
 # pylint: disable=line-too-long
 FUNCTIONS = Functions([
