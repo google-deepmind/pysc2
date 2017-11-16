@@ -104,18 +104,27 @@ class _Surface(object):
     self.world_to_surf = world_to_surf
     self.draw = draw
 
+  def draw_arc(self, color, world_loc, world_radius, start_angle, stop_angle,
+               thickness=1):
+    """Draw an arc using world coordinates, radius, start and stop angles."""
+    center = self.world_to_surf.fwd_pt(world_loc).round()
+    radius = max(1, int(self.world_to_surf.fwd_dist(world_radius)))
+    rect = pygame.Rect(center - radius, (radius * 2, radius * 2))
+    pygame.draw.arc(self.surf, color, rect, start_angle, stop_angle,
+                    thickness if thickness < radius else 0)
+
   def draw_circle(self, color, world_loc, world_radius, thickness=0):
     """Draw a circle using world coordinates and radius."""
     if world_radius > 0:
+      center = self.world_to_surf.fwd_pt(world_loc).round()
       radius = max(1, int(self.world_to_surf.fwd_dist(world_radius)))
-      pygame.draw.circle(self.surf, color,
-                         self.world_to_surf.fwd_pt(world_loc).floor(),
-                         radius, thickness if thickness < radius else 0)
+      pygame.draw.circle(self.surf, color, center, radius,
+                         thickness if thickness < radius else 0)
 
   def draw_rect(self, color, world_rect, thickness=0):
     """Draw a rectangle using world coordinates."""
-    tl = self.world_to_surf.fwd_pt(world_rect.tl).floor()
-    br = self.world_to_surf.fwd_pt(world_rect.br).floor()
+    tl = self.world_to_surf.fwd_pt(world_rect.tl).round()
+    br = self.world_to_surf.fwd_pt(world_rect.br).round()
     rect = pygame.Rect(tl, br - tl)
     pygame.draw.rect(self.surf, color, rect, thickness)
 
@@ -639,6 +648,13 @@ class RendererHuman(object):
           surf.draw_circle(colors.PLAYER_ABSOLUTE_PALETTE[u.owner] // 2,
                            p, u.radius * fraction_damage)
 
+        if u.shield and u.shield_max:
+          surf.draw_arc(colors.blue, p, u.radius, 0,
+                        2 * math.pi * u.shield / u.shield_max)
+        if u.energy and u.energy_max:
+          surf.draw_arc(colors.purple * 0.75, p, u.radius - 0.05, 0,
+                        2 * math.pi * u.energy / u.energy_max)
+
         name = self.get_unit_name(
             surf, self._static_data.units.get(u.unit_type, "<none>"), u.radius)
         if name:
@@ -648,7 +664,7 @@ class RendererHuman(object):
           surf.surf.blit(text, rect)
 
         if u.is_selected:
-          surf.draw_circle(colors.green, p, u.radius + 0.05, 1)
+          surf.draw_circle(colors.green, p, u.radius + 0.1, 1)
 
   @sw.decorate
   def draw_selection(self, surf):
