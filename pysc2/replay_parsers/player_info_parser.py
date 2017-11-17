@@ -28,7 +28,7 @@ from pysc2.replay_parsers import base_parser
 class PlayerInfoParser(base_parser.BaseParser):
   """Example parser for collection General player information
   from replays."""
-  def valid_replay(self,info, ping):
+  def valid_replay(self, info, ping):
     """Make sure the replay isn't corrupt, and is worth looking at."""
     if (info.HasField("error") or
     info.base_build != ping.base_build or  # different game version
@@ -43,7 +43,7 @@ class PlayerInfoParser(base_parser.BaseParser):
         return False
     return True
 
-  def parse_step(self,obs,feat,info):
+  def parse_step(self, obs, feat, info):
     # Obtain feature layers from current step observations
     all_features = feat.transform_obs(obs.observation)
     player_resources = all_features['player'].tolist()

@@ -50,11 +50,11 @@ class BaseParser(object):
     "Invalid replays: %s\n%s" % len_sorted_list(self.invalid_replays),
     ))
 
-  def valid_replay(self,info, ping):
+  def valid_replay(self, info, ping):
     # All replays are valid in the base parser
     return True
 
-  def parse_step(self,obs,feat,info):
+  def parse_step(self, obs, feat, info):
     # Base parser doesn't directly parse any data,
     # parse_step is a required function for parsers
     raise NotImplementedError()

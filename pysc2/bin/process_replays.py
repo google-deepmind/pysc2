@@ -250,7 +250,7 @@ def replay_queue_filler(replay_queue, replay_list):
 
 
 def main(unused_argv):
-  """Dump stats about all the actions that are in use in a set of replays."""
+  """Collect data from a set of replays using supplied parser."""
   run_config = run_configs.get()
 
   parser_module, parser_name = FLAGS.parser.rsplit(".", 1)
