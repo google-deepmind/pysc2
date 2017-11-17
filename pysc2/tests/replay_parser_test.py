@@ -12,13 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Process a test replay using the ActionParser replay parser"""
+"""Process a test replay using the replay parsers
+  A replay named "test_replay.SC2Replay" is required to exist in
+  the StarCraft II install Replay directory."""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import multiprocessing
+
 from pysc2 import run_configs
+from pysc2.replay_parsers import base_parser
 from pysc2.replay_parsers import action_parser
 from pysc2.bin import process_replays
 from pysc2.tests import utils
@@ -27,18 +32,46 @@ from absl.testing import absltest as basetest
 
 
 class TestBaseParser(utils.TestCase):
+  
+  def test_true_valid_replay(self):
+    '''BaseParser returns valid_replay = True for all replays,
+      test the replay info loading and assert BaseParser does
+      return True for valid_replay call'''
 
-  def __init__(self):
     run_config = run_configs.get()
-    self.processor = process_replays.ReplayProcessor(proc_id = 0,
-                                                     run_config = run_config,
-                                                     replay_queue = None,
-                                                     stats_queue = None,
-                                                     parser_cls = action_parser)
+    processor = process_replays.ReplayProcessor(proc_id = 0,
+                                                run_config = run_config,
+                                                replay_queue = None,
+                                                stats_queue = None,
+                                                parser_cls = base_parser.BaseParser)
+    with run_config.start() as controller:
+      ping = controller.ping()
+      replay_path = "test_replay.SC2Replay"
+      replay_data = run_config.replay_data(replay_path)
+      info = controller.replay_info(replay_data)
+      self.assertTrue(processor.stats.parser.valid_replay(info, ping))
 
-  #def boolean_valid_replay(self):
+  def test_parse_replay(self):
+    '''Run the process_replay script for the test replay file and ensure
+       consistency of processing meta data'''
 
-
+    run_config = run_configs.get()
+    stats_queue = multiprocessing.Queue()
+    processor = process_replays.ReplayProcessor(proc_id = 0,
+                                                run_config = run_config,
+                                                replay_queue = None,
+                                                stats_queue = stats_queue,
+                                                parser_cls = action_parser.ActionParser)
+    with run_config.start() as controller:
+      ping = controller.ping()
+      replay_path = "test_replay.SC2Replay"
+      processor.load_replay(replay_path, controller, ping)
+      # Test replay count == 2 (one for each player persepctive in test replay)
+      self.assertEqual(processor.stats.parser.replays, 2)
+      # Ensure test replay is valid for ActionParser
+      self.assertFalse(processor.stats.parser.invalid_replays)
+      # Test parser processes more than 1 step from test replay 
+      self.assertTrue(processor.stats.parser.steps > 0)  
 
 if __name__ == "__main__":
   basetest.main()

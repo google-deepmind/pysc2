@@ -54,16 +54,15 @@ class ActionParser(base_parser.BaseParser):
     merge_dict(self.made_actions, other.made_actions)
 
   def valid_replay(self, info, ping):
-    return True
     """Make sure the replay isn't corrupt, and is worth looking at."""
     if (info.HasField("error") or
     info.base_build != ping.base_build or  # different game version
-    info.game_duration_loops < 1000 or
+    info.game_duration_loops < 1 or
     len(info.player_info) != 2):
     # Probably corrupt, or just not interesting.
       return False
     for p in info.player_info:
-      if p.player_apm < 10 or p.player_mmr < 1000:
+      if p.player_apm < 10 or p.player_mmr < 0:
     # Low APM = player just standing around.
     # Low MMR = corrupt replay or player who is weak.
         return False
