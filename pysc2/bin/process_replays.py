@@ -49,7 +49,7 @@ import sys
 FLAGS = flags.FLAGS
 flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
 flags.DEFINE_integer("step_mul", 8, "How many game steps per observation.")
-flags.DEFINE_string("replays", None, "Path to a directory of replays.")
+flags.DEFINE_string("replays", "None", "Path to a directory of replays.")
 flags.DEFINE_string("parser", "pysc2.replay_parsers.action_parser.ActionParser",
                     "Which parser to use in scrapping replay data")
 flags.DEFINE_string("data_dir", None,
@@ -58,7 +58,6 @@ flags.DEFINE_integer("screen_resolution", 16,
                      "Resolution for screen feature layers.")
 flags.DEFINE_integer("minimap_resolution", 16,
                      "Resolution for minimap feature layers.")
-flags.mark_flag_as_required("replays")
 FLAGS(sys.argv)
 
 interface = sc_pb.InterfaceOptions()
@@ -260,7 +259,7 @@ def main(unused_argv):
   parser_cls = getattr(importlib.import_module(parser_module), parser_name)
 
   if not gfile.Exists(FLAGS.replays):
-    sys.exit("{} doesn't exist.".format(FLAGS.replays))
+    sys.exit("Replay Path {} doesn't exist.".format(FLAGS.replays))
 
   stats_queue = multiprocessing.Queue()
   stats_thread = threading.Thread(target=stats_printer, args=(stats_queue,parser_cls))

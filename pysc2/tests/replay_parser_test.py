@@ -12,14 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Process a test replay using the BaseParser replay parser"""
+"""Process a test replay using the ActionParser replay parser"""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 from pysc2 import run_configs
-from pysc2.replay_parsers import base_parser
+from pysc2.replay_parsers import action_parser
+from pysc2.bin import process_replays
 from pysc2.tests import utils
 
 from absl.testing import absltest as basetest
@@ -27,20 +28,16 @@ from absl.testing import absltest as basetest
 
 class TestBaseParser(utils.TestCase):
 
-  def boolean_valid_replay(self):
+  def __init__(self):
+    run_config = run_configs.get()
+    self.processor = process_replays.ReplayProcessor(proc_id = 0,
+                                                     run_config = run_config,
+                                                     replay_queue = None,
+                                                     stats_queue = None,
+                                                     parser_cls = action_parser)
 
+  #def boolean_valid_replay(self):
 
-  def test_random_agent(self):
-    steps = 100
-    step_mul = 50
-    with sc2_env.SC2Env(
-        map_name="Simple64",
-        step_mul=step_mul,
-        game_steps_per_episode=steps * step_mul) as env:
-      agent = random_agent.RandomAgent()
-      run_loop.run_loop([agent], env, steps)
-
-    self.assertEqual(agent.steps, steps)
 
 
 if __name__ == "__main__":
