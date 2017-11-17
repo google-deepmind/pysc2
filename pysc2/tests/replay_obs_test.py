@@ -23,7 +23,6 @@ from __future__ import division
 from __future__ import print_function
 
 from future.builtins import range  # pylint: disable=redefined-builtin
-import six
 
 from pysc2 import maps
 from pysc2 import run_configs
@@ -58,6 +57,42 @@ printable_unit_types = {
 }
 
 
+def action_to_function_call(name, args):
+  return actions.FunctionCall(getattr(actions.FUNCTIONS, name).id, args)
+
+
+def identity_function(name, args):
+  def _identity(unused_obs):
+    return action_to_function_call(name, args)
+  return _identity
+
+
+def any_point(unit_type, obs):
+  unit_layer = obs['feature_screen'][features.SCREEN_FEATURES.unit_type.index]
+  y, x = (unit_layer == unit_type).nonzero()
+  if not y.any():
+    return None, None
+  return x[-1], y[-1]
+
+
+def avg_point(unit_type, obs):
+  unit_layer = obs['feature_screen'][features.SCREEN_FEATURES.unit_type.index]
+  y, x = (unit_layer == unit_type).nonzero()
+  if not y.any():
+    return None, None
+  return [int(x.mean()), int(y.mean())]
+
+
+def select_command_center(obs):
+  x, y = avg_point(_COMMANDCENTER, obs)
+  return action_to_function_call('select_point', [[0], [x, y]])
+
+
+def select_scv(obs):
+  x, y = any_point(_SCV, obs)
+  return action_to_function_call('select_point', [[1], [x, y]])
+
+
 class Config(object):
   """Holds the configuration options."""
 
@@ -82,31 +117,21 @@ class Config(object):
     self.player_id = 1
 
     # Hard code an action sequence.
-    # TODO(petkoig): This is very brittle. A random seed reduces flakiness, but
-    # isn't guaranteed to give the same actions between game versions. The pixel
-    # coords should be computed at run-time, maybe with a trigger type system in
-    # case build times also change.
-    self.action_sequence = {
-        507: ('select_point', [[1], [9, 18]]),  # Target an SCV.
-        963: ('Build_SupplyDepot_screen', [[0], [4, 19]]),
-        1152: ('select_point', [[0], [15, 13]]),  # Select the Command Center.
-        1320: ('Train_SCV_quick', [[0]]),
-        1350: ('Train_SCV_quick', [[0]]),
-        1393: ('Train_SCV_quick', [[0]]),
-        1437: ('Train_SCV_quick', [[0]]),
-        1564: ('Train_SCV_quick', [[0]]),
-        1602: ('Train_SCV_quick', [[0]]),
-        1822: ('select_point', [[0], [4, 20]]),
-        2848: ('Build_Barracks_screen', [[0], [22, 22]])
-    }
-
+    # TODO(petkoig): Consider whether the Barracks and Supply Depot positions
+    # need to be dynamically determined.
     self.actions = {
-        frame: self.action_to_function_call(*action)
-        for frame, action in six.iteritems(self.action_sequence)
+        507: select_scv,
+        963: identity_function('Build_SupplyDepot_screen', [[0], [4, 19]]),
+        1152: select_command_center,
+        1320: identity_function('Train_SCV_quick', [[0]]),
+        1350: identity_function('Train_SCV_quick', [[0]]),
+        1393: identity_function('Train_SCV_quick', [[0]]),
+        1437: identity_function('Train_SCV_quick', [[0]]),
+        1564: identity_function('Train_SCV_quick', [[0]]),
+        1602: identity_function('Train_SCV_quick', [[0]]),
+        1822: select_scv,
+        2848: identity_function('Build_Barracks_screen', [[0], [22, 22]])
     }
-
-  def action_to_function_call(self, name, args):
-    return actions.FunctionCall(getattr(actions.FUNCTIONS, name).id, args)
 
 
 def _layer_string(layer):
@@ -199,7 +224,7 @@ class ReplayObsTest(utils.TestCase):
       observations[o.game_loop] = unit_type
 
       if o.game_loop in config.actions:
-        func = config.actions[o.game_loop]
+        func = config.actions[o.game_loop](obs)
         print(str(func))
         print(_layer_string(unit_type))
         scv_y, scv_x = (_SCV == unit_type).nonzero()
@@ -209,12 +234,11 @@ class ReplayObsTest(utils.TestCase):
         # If a build action is available, we have managed to target an SCV.
         self.assertIn(func.function, obs['available_actions'])
 
-        if (config.actions[o.game_loop].function ==
-            actions.FUNCTIONS.select_point.id):
+        if func.function == actions.FUNCTIONS.select_point.id:
           # Ensure we have selected an SCV or the command center.
           x, y = func.arguments[1]
           self.assertIn(unit_type[y, x], (_SCV, _COMMANDCENTER))
-        elif (config.actions[o.game_loop].function in
+        elif (func.function in
               (actions.FUNCTIONS.Build_SupplyDepot_screen.id,
                actions.FUNCTIONS.Build_Barracks_screen.id)):
           # Ensure we can build on that position.
@@ -264,9 +288,10 @@ class ReplayObsTest(utils.TestCase):
               'A camera move to center the idle worker is expected.')
           continue
 
-        print('Parsed and executed funcs: ', func, executed)
-        self.assertEqual(func.function, executed.function)
-        self.assertEqual(func.arguments, executed.arguments)
+        executed_func = executed(obs)
+        print('Parsed and executed funcs: ', func, executed_func)
+        self.assertEqual(func.function, executed_func.function)
+        self.assertEqual(func.arguments, executed_func.arguments)
 
       controller.step()
 
