@@ -41,7 +41,7 @@ class MoveToBeacon(base_agent.BaseAgent):
   def step(self, obs):
     super(MoveToBeacon, self).step(obs)
     if _MOVE_SCREEN in obs.observation["available_actions"]:
-      player_relative = obs.observation["screen"][_PLAYER_RELATIVE]
+      player_relative = obs.observation["feature_screen"][_PLAYER_RELATIVE]
       neutral_y, neutral_x = (player_relative == _PLAYER_NEUTRAL).nonzero()
       if not neutral_y.any():
         return actions.FunctionCall(_NO_OP, [])
@@ -57,7 +57,7 @@ class CollectMineralShards(base_agent.BaseAgent):
   def step(self, obs):
     super(CollectMineralShards, self).step(obs)
     if _MOVE_SCREEN in obs.observation["available_actions"]:
-      player_relative = obs.observation["screen"][_PLAYER_RELATIVE]
+      player_relative = obs.observation["feature_screen"][_PLAYER_RELATIVE]
       neutral_y, neutral_x = (player_relative == _PLAYER_NEUTRAL).nonzero()
       player_y, player_x = (player_relative == _PLAYER_FRIENDLY).nonzero()
       if not neutral_y.any() or not player_y.any():
@@ -79,7 +79,7 @@ class DefeatRoaches(base_agent.BaseAgent):
   def step(self, obs):
     super(DefeatRoaches, self).step(obs)
     if _ATTACK_SCREEN in obs.observation["available_actions"]:
-      player_relative = obs.observation["screen"][_PLAYER_RELATIVE]
+      player_relative = obs.observation["feature_screen"][_PLAYER_RELATIVE]
       roach_y, roach_x = (player_relative == _PLAYER_HOSTILE).nonzero()
       if not roach_y.any():
         return actions.FunctionCall(_NO_OP, [])

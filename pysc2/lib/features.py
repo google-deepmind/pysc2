@@ -79,7 +79,12 @@ class Feature(collections.namedtuple(
     data = np.fromstring(plane.data, dtype=Feature.dtypes[plane.bits_per_pixel])
     if plane.bits_per_pixel == 1:
       data = np.unpackbits(data)
-    return data.reshape(size.transpose())
+      if data.shape[0] != size.x * size.y:
+        # This could happen if the correct length isn't a multiple of 8, leading
+        # to some padding bits at the end of the string which are incorrectly
+        # interpreted as data.
+        data = data[:size.x * size.y]
+    return data.reshape(size.y, size.x)
 
   @staticmethod
   @sw.decorate
@@ -176,6 +181,19 @@ MINIMAP_FEATURES = MinimapFeatures(
 )
 
 
+def point_from_size_width_height(size, width, height):
+  if not size and not width and not height:
+    return None
+  if size:
+    if width or height:
+      raise ValueError("Either specify size or width and height, not both.")
+    return point.Point(size, size)
+  if width and height:
+    return point.Point(width, height)
+  else:
+    raise ValueError("Specify both width and height.")
+
+
 class Features(object):
   """Render feature layers from SC2 Observation protos into numpy arrays.
 
@@ -188,15 +206,49 @@ class Features(object):
   contexts, eg a supervised dataset pipeline.
   """
 
-  def __init__(self, game_info=None, screen_size_px=None, minimap_size_px=None,
+  def __init__(self,
+               _only_use_kwargs=None,
+               game_info=None,
+               feature_screen_size=None,
+               feature_screen_width=None,
+               feature_screen_height=None,
+               feature_minimap_size=None,
+               feature_minimap_width=None,
+               feature_minimap_height=None,
+               rgb_screen_size=None,
+               rgb_screen_width=None,
+               rgb_screen_height=None,
+               rgb_minimap_size=None,
+               rgb_minimap_width=None,
+               rgb_minimap_height=None,
+               action_space=None,
                hide_specific_actions=True):
     """Initialize a Features instance.
 
+    You must specify the resolutions. This can come from a game_info object from
+    the game, or you can specify them directly. If you specify size then both
+    width and height will take that value.
+
     Args:
+      _only_use_kwargs: Don't pass args, only kwargs.
       game_info: A `sc_pb.ResponseGameInfo` from the game. Can be None if you
-          instead set `screen_size_px` and `minimap_size_px`.
-      screen_size_px: The screen resolution.
-      minimap_size_px: The minimap resolution.
+          instead set the sizes explicitly.
+      feature_screen_size: Sets feature_screen_width and feature_screen_width.
+      feature_screen_width: The width of the feature layer screen observation.
+      feature_screen_height: The height of the feature layer screen observation.
+      feature_minimap_size: Sets feature_minimap_width and
+          feature_minimap_height.
+      feature_minimap_width: The width of the feature layer minimap observation.
+      feature_minimap_height: The height of the feature layer minimap
+          observation.
+      rgb_screen_size: Sets rgb_screen_width and rgb_screen_height.
+      rgb_screen_width: The width of the rgb screen observation.
+      rgb_screen_height: The height of the rgb screen observation.
+      rgb_minimap_size: Sets rgb_minimap_width and rgb_minimap_height.
+      rgb_minimap_width: The width of the rgb minimap observation.
+      rgb_minimap_height: The height of the rgb minimap observation.
+      action_space: If you pass both feature and rgb sizes, then you must also
+          specify which you want to use for your actions as an ActionSpace enum.
       hide_specific_actions: [bool] Some actions (eg cancel) have many
           specific versions (cancel this building, cancel that spell) and can
           be represented in a more general form. If a specific action is
@@ -209,46 +261,121 @@ class Features(object):
           only the general actions.
 
     Raises:
-      ValueError: if game_info is None and screen or minimap sizes are missing.
+      ValueError: if game_info is None and the resolutions aren't well
+          specified.
+      ValueError: if the action_space is poorly specified or doesn't match the
+          observations.
     """
+    if _only_use_kwargs:
+      raise ValueError("All arguments must be passed as keyword arguments.")
+
     if game_info:
-      fl_opts = game_info.options.feature_layer
-      screen_size_px = point.Point.build(fl_opts.resolution)
-      minimap_size_px = point.Point.build(fl_opts.minimap_resolution)
-    elif not (screen_size_px and minimap_size_px):
-      raise ValueError(
-          "Must provide either game_info or screen and minimap sizes")
-    self._screen_size_px = point.Point(*screen_size_px)
-    self._minimap_size_px = point.Point(*minimap_size_px)
+      if any(
+          (feature_screen_size, feature_screen_width, feature_screen_height,
+           feature_minimap_size, feature_minimap_width, feature_minimap_height,
+           rgb_screen_size, rgb_screen_width, rgb_screen_height,
+           rgb_minimap_size, rgb_minimap_width, rgb_minimap_height)):
+        raise ValueError(
+            "Either pass the game_info or explicit sizes, not both.")
+
+      if game_info.options.HasField("feature_layer"):
+        fl_opts = game_info.options.feature_layer
+        self._feature_screen_px = point.Point.build(fl_opts.resolution)
+        self._feature_minimap_px = point.Point.build(fl_opts.minimap_resolution)
+      else:
+        self._feature_screen_px = self._feature_minimap_px = None
+      if game_info.options.HasField("render"):
+        render_opts = game_info.options.render
+        self._rgb_screen_px = point.Point.build(render_opts.resolution)
+        self._rgb_minimap_px = point.Point.build(render_opts.minimap_resolution)
+      else:
+        self._rgb_screen_px = self._rgb_minimap_px = None
+    else:
+      self._feature_screen_px = point_from_size_width_height(
+          feature_screen_size, feature_screen_width, feature_screen_height)
+      self._feature_minimap_px = point_from_size_width_height(
+          feature_minimap_size, feature_minimap_width, feature_minimap_height)
+      self._rgb_screen_px = point_from_size_width_height(
+          rgb_screen_size, rgb_screen_width, rgb_screen_height)
+      self._rgb_minimap_px = point_from_size_width_height(
+          rgb_minimap_size, rgb_minimap_width, rgb_minimap_height)
+
+    if bool(self._feature_screen_px) != bool(self._feature_minimap_px):
+      raise ValueError("Must set all the feature layer sizes.")
+    if bool(self._rgb_screen_px) != bool(self._rgb_minimap_px):
+      raise ValueError("Must set all the rgb sizes.")
+    if not self._feature_screen_px and not self._rgb_screen_px:
+      raise ValueError("Must set either the feature layer or rgb sizes.")
+
+    if action_space:
+      if not isinstance(action_space, actions.ActionSpace):
+        raise ValueError("action_space must be of type ActionSpace.")
+      if ((action_space == actions.ActionSpace.FEATURES and
+           not self._feature_screen_px) or
+          (action_space == actions.ActionSpace.RGB and
+           not self._rgb_screen_px)):
+        raise ValueError("Action space must match the observations.")
+      self._action_space = action_space
+    else:
+      if self._feature_screen_px and self._rgb_screen_px:
+        raise ValueError(
+            "You must specify the action space if you have both observations.")
+      if self._feature_screen_px:
+        self._action_space = actions.ActionSpace.FEATURES
+      else:
+        self._action_space = actions.ActionSpace.RGB
+
+    if self._action_space == actions.ActionSpace.FEATURES:
+      self._action_screen_px = self._feature_screen_px
+      self._action_minimap_px = self._feature_minimap_px
+    else:
+      self._action_screen_px = self._rgb_screen_px
+      self._action_minimap_px = self._rgb_minimap_px
+
     self._hide_specific_actions = hide_specific_actions
     self._valid_functions = self._init_valid_functions()
 
   def observation_spec(self):
     """The observation spec for the SC2 environment.
 
+    It's worth noting that the image-like observations are in y,x/row,column
+    order which is different than the actions which are in x,y order. This is
+    due to conflicting conventions, and to facilitate printing of the images.
+
     Returns:
       The dict of observation names to their tensor shapes. Shapes with a 0 can
       vary in length, for example the number of valid actions depends on which
       units you have selected.
     """
-    return {
-        "screen": (len(SCREEN_FEATURES),
-                   self._screen_size_px.y,
-                   self._screen_size_px.x),
-        "minimap": (len(MINIMAP_FEATURES),
-                    self._minimap_size_px.y,
-                    self._minimap_size_px.x),
-        "player": (11,),
-        "game_loop": (1,),
-        "score_cumulative": (13,),
+    obs_spec = {
         "available_actions": (0,),
-        "single_select": (0, 7),  # Actually only (n, 7) for n in (0, 1)
-        "multi_select": (0, 7),
+        "build_queue": (0, 7),
         "cargo": (0, 7),
         "cargo_slots_available": (1,),
-        "build_queue": (0, 7),
         "control_groups": (10, 2),
+        "game_loop": (1,),
+        "multi_select": (0, 7),
+        "player": (11,),
+        "score_cumulative": (13,),
+        "single_select": (0, 7),  # Actually only (n, 7) for n in (0, 1)
     }
+    if self._feature_screen_px:
+      obs_spec["feature_screen"] = (len(SCREEN_FEATURES),
+                                    self._feature_screen_px.y,
+                                    self._feature_screen_px.x)
+    if self._feature_minimap_px:
+      obs_spec["feature_minimap"] = (len(MINIMAP_FEATURES),
+                                     self._feature_minimap_px.y,
+                                     self._feature_minimap_px.x)
+    if self._rgb_screen_px:
+      obs_spec["rgb_screen"] = (self._rgb_screen_px.y,
+                                self._rgb_screen_px.x,
+                                3)
+    if self._rgb_minimap_px:
+      obs_spec["rgb_minimap"] = (self._rgb_minimap_px.y,
+                                 self._rgb_minimap_px.x,
+                                 3)
+    return obs_spec
 
   def action_spec(self):
     """The action space pretty complicated and fills the ValidFunctions."""
@@ -270,13 +397,22 @@ class Features(object):
       if layer is not None:
         return layer.astype(np.int32, copy=False)
       else:
-        return np.zeros(size.transpose(), dtype=np.int32)
+        return np.zeros((size.y, size.x), dtype=np.int32)
 
-    with sw("feature_layers"):
-      out["screen"] = np.stack(or_zeros(f.unpack(obs), self._screen_size_px)
-                               for f in SCREEN_FEATURES)
-      out["minimap"] = np.stack(or_zeros(f.unpack(obs), self._minimap_size_px)
-                                for f in MINIMAP_FEATURES)
+    if self._feature_screen_px:
+      out["feature_screen"] = np.stack(
+          or_zeros(f.unpack(obs), self._feature_screen_px)
+          for f in SCREEN_FEATURES)
+    if self._feature_minimap_px:
+      out["feature_minimap"] = np.stack(
+          or_zeros(f.unpack(obs), self._feature_minimap_px)
+          for f in MINIMAP_FEATURES)
+    if self._rgb_screen_px:
+      out["rgb_screen"] = Feature.unpack_rgb_image(
+          obs.render_data.map)
+    if self._rgb_minimap_px:
+      out["rgb_minimap"] = Feature.unpack_rgb_image(
+          obs.render_data.minimap)
 
     out["game_loop"] = np.array([obs.game_loop], dtype=np.int32)
     out["score_cumulative"] = np.array([
@@ -410,9 +546,9 @@ class Features(object):
     # Args are valid?
     for t, arg in zip(func.args, func_call.arguments):
       if t.name in ("screen", "screen2"):
-        sizes = self._screen_size_px
+        sizes = self._action_screen_px
       elif t.name == "minimap":
-        sizes = self._minimap_size_px
+        sizes = self._action_minimap_px
       else:
         sizes = t.sizes
 
@@ -433,6 +569,7 @@ class Features(object):
     # Call the right callback to get an SC2 action proto.
     sc2_action = sc_pb.Action()
     kwargs["action"] = sc2_action
+    kwargs["action_space"] = self._action_space
     if func.ability_id:
       kwargs["ability_id"] = func.ability_id
     actions.FUNCTIONS[func_id].function_type(**kwargs)
@@ -507,17 +644,18 @@ class Features(object):
         return func_call_ability(act_ui.toggle_autocast.ability_id,
                                  actions.autocast, [])
 
-    if action.HasField("action_feature_layer"):
-      act_fl = action.action_feature_layer
-      if act_fl.HasField("camera_move"):
-        coord = point.Point.build(act_fl.camera_move.center_minimap)
+    if (action.HasField("action_feature_layer") or
+        action.HasField("action_render")):
+      act_sp = actions.spatial(action, self._action_space)
+      if act_sp.HasField("camera_move"):
+        coord = point.Point.build(act_sp.camera_move.center_minimap)
         return func_call_name("move_camera", [coord])
-      if act_fl.HasField("unit_selection_point"):
-        select_point = act_fl.unit_selection_point
+      if act_sp.HasField("unit_selection_point"):
+        select_point = act_sp.unit_selection_point
         coord = point.Point.build(select_point.selection_screen_coord)
         return func_call_name("select_point", [[select_point.type - 1], coord])
-      if act_fl.HasField("unit_selection_rect"):
-        select_rect = act_fl.unit_selection_rect
+      if act_sp.HasField("unit_selection_rect"):
+        select_rect = act_sp.unit_selection_rect
         if len(select_rect.selection_screen_coord) > 1:
           # TODO(tewalds): After looking at some replays we should decide if
           # this is good enough. Maybe we need to simulate multiple actions or
@@ -528,8 +666,8 @@ class Features(object):
         br = point.Point.build(select_rect.selection_screen_coord[0].p1)
         return func_call_name("select_rect", [[select_rect.selection_add],
                                               [tl.x, tl.y], [br.x, br.y]])
-      if act_fl.HasField("unit_command"):
-        cmd = act_fl.unit_command
+      if act_sp.HasField("unit_command"):
+        cmd = act_sp.unit_command
         queue = [int(cmd.queue_command)]
         if cmd.HasField("target_screen_coord"):
           coord = point.Point.build(cmd.target_screen_coord)
@@ -550,9 +688,9 @@ class Features(object):
   def _init_valid_functions(self):
     """Initialize ValidFunctions and set up the callbacks."""
     sizes = {
-        "screen": tuple(int(i) for i in self._screen_size_px),
-        "minimap": tuple(int(i) for i in self._minimap_size_px),
-        "screen2": tuple(int(i) for i in self._screen_size_px),
+        "screen": tuple(int(i) for i in self._action_screen_px),
+        "screen2": tuple(int(i) for i in self._action_screen_px),
+        "minimap": tuple(int(i) for i in self._action_minimap_px),
     }
 
     types = actions.Arguments(*[

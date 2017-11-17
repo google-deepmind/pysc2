@@ -28,13 +28,29 @@ from absl.testing import absltest as basetest
 
 class TestRandomAgent(utils.TestCase):
 
-  def test_random_agent(self):
-    steps = 100
-    step_mul = 50
+  def test_random_agent_feature_layer(self):
+    steps = 500
+    step_mul = 8
     with sc2_env.SC2Env(
         map_name="Simple64",
+        feature_screen_size=84,
+        feature_minimap_size=64,
         step_mul=step_mul,
-        game_steps_per_episode=steps * step_mul) as env:
+        game_steps_per_episode=steps * step_mul//3) as env:
+      agent = random_agent.RandomAgent()
+      run_loop.run_loop([agent], env, steps)
+
+    self.assertEqual(agent.steps, steps)
+
+  def test_random_agent_rgb(self):
+    steps = 50
+    step_mul = 8
+    with sc2_env.SC2Env(
+        map_name="Simple64",
+        rgb_screen_size=128,
+        rgb_minimap_size=64,
+        step_mul=step_mul,
+        game_steps_per_episode=steps * step_mul//3) as env:
       agent = random_agent.RandomAgent()
       run_loop.run_loop([agent], env, steps)
 

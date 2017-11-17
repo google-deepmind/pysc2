@@ -64,17 +64,15 @@ class Config(object):
   def __init__(self):
     # Environment.
     self.map_name = 'NewkirkPrecinct'
-    self.screen_size_px = (32, 32)
-    self.minimap_size_px = (32, 32)
+    screen_resolution = point.Point(32, 32)
+    minimap_resolution = point.Point(32, 32)
     self.camera_width = 24
     self.random_seed = 42
 
     self.interface = sc_pb.InterfaceOptions(
         raw=True, score=True,
         feature_layer=sc_pb.SpatialCameraSetup(width=self.camera_width))
-    resolution = point.Point(*self.screen_size_px)
-    resolution.assign_to(self.interface.feature_layer.resolution)
-    minimap_resolution = point.Point(*self.minimap_size_px)
+    screen_resolution.assign_to(self.interface.feature_layer.resolution)
     minimap_resolution.assign_to(
         self.interface.feature_layer.minimap_resolution)
 
@@ -190,14 +188,14 @@ class ReplayObsTest(utils.TestCase):
 
   def _get_replay_data(self, controller, config):
     """Runs a replay to get the replay data."""
-    f = features.Features(controller.game_info())
+    f = features.Features(game_info=controller.game_info())
 
     observations = {}
     for _ in range(config.num_observations):
       o = controller.observe().observation
       obs = f.transform_obs(o)
 
-      unit_type = obs['screen'][config.unit_type_id]
+      unit_type = obs['feature_screen'][config.unit_type_id]
       observations[o.game_loop] = unit_type
 
       if o.game_loop in config.actions:
@@ -232,7 +230,7 @@ class ReplayObsTest(utils.TestCase):
     return replay_data, observations
 
   def _process_replay(self, controller, observations, config):
-    f = features.Features(controller.game_info())
+    f = features.Features(game_info=controller.game_info())
 
     while True:
       o = controller.observe()
@@ -241,7 +239,7 @@ class ReplayObsTest(utils.TestCase):
       if o.player_result:  # end of game
         break
 
-      unit_type = obs['screen'][config.unit_type_id]
+      unit_type = obs['feature_screen'][config.unit_type_id]
       self.assertEqual(
           tuple(observations[o.observation.game_loop].flatten()),
           tuple(unit_type.flatten()))

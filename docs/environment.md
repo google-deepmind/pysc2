@@ -153,7 +153,7 @@ passing a screen coordinate to an action:
 
 ```python
     # Spatial observations have the y-coordinate first:
-    y, x = (obs.observation["screen"][_PLAYER_RELATIVE] == _PLAYER_NEUTRAL).nonzero()
+    y, x = (obs.observation["feature_screen"][_PLAYER_RELATIVE] == _PLAYER_NEUTRAL).nonzero()
 
     # Actions expect x-coordinate first:
     target = [int(x.mean()), int(y.mean())]
@@ -166,12 +166,18 @@ passing a screen coordinate to an action:
 
 ##### RGB Pixels
 
-This is still work in progress but will be available in the future.
+RGB pixels are available for both the main screen area as well as for the
+minimap at a resolution of your choice. This uses the same perspective camera as
+a human would see, but doesn't include all the extra chrome around the screen
+like the command card, selection box, build queue, etc. They are exposed as
+`rgb_screen` and `rgb_minimap`.
 
 ##### Feature layers
 
-Instead of normal RGB pixels, the game exposes feature layers. There are ~20 of
-them broken down between the screen and minimap.
+The game also exposes feature layers. They represent roughly the same
+information as RGB pixels except that the information is decomposed and
+structured. There are ~20 feature layers broken down between the screen and
+minimap and exposed as `feature_screen` and `feature_minimap`.
 
 The full list is defined in `pysc2.lib.features`.
 
@@ -431,16 +437,17 @@ actions:
 
 ## RL Environment
 
-The main SC2 environment is at `pysc2.env.sc2_env`, with the action and observation
-space defined in `pysc2.lib.features`.
+The main SC2 environment is at `pysc2.env.sc2_env`, with the action and
+observation space defined in `pysc2.lib.features`.
 
 The most important argument is `map_name`, which is how to find the map.
 Find the names by using `pysc2.bin.map_list` or by looking in `pysc2/maps/*.py`.
 
-`screen_size_px` and `minimap_size_px` let you specify the resolution of the
-features layers you get in the observations. Higher resolution obviously gives
-higher location precision, at the cost of larger observations as well as a
-larger action space.
+`feature_screen_size`, `feature_minimap_size`, `rgb_screen_size`,
+`rgb_minimap_size`, and the `_width` and `_height` variants let you specify the
+resolution of the spatial observations. Higher resolution obviously gives higher
+location precision, at the cost of larger observations as well as a larger
+action space.
 
 `step_mul` let's you skip observations and actions. For example a `step_mul` of
 16 means that the environment gets stepped forward 16 times in between the

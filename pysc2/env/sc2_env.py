@@ -22,8 +22,8 @@ from absl import logging
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.env import environment
+from pysc2.lib import actions as actions_lib
 from pysc2.lib import features
-from pysc2.lib import point
 from pysc2.lib import renderer_human
 from pysc2.lib import run_parallel
 from pysc2.lib import stopwatch
@@ -61,6 +61,9 @@ difficulties = {
     "A": sc_pb.CheatInsane,
 }
 
+# Re-export this enum to make it easy to construct the environment.
+ActionSpace = actions_lib.ActionSpace  # pylint: disable=invalid-name
+
 
 class SC2Env(environment.Base):
   """A Starcraft II environment.
@@ -78,13 +81,35 @@ class SC2Env(environment.Base):
     # pylint: disable=g-doc-args
     """Create a SC2 Env.
 
+    You must pass a resolution that you want to play at. You can send either
+    feature layer resolution or rgb resolution or both. If you send both you
+    must also choose which to use as your action space. Regardless of which you
+    choose you must send both the screen and minimap resolutions.
+
+    For each of the 4 resolutions, either specify size or both width and
+    height. If you specify size then both width and height will take that value.
+
     Args:
       _only_use_kwargs: Don't pass args, only kwargs.
       map_name: Name of a SC2 map. Run bin/map_list to get the full list of
           known maps. Alternatively, pass a Map instance. Take a look at the
           docs in maps/README.md for more information on available maps.
-      screen_size_px: The size of your screen output in pixels.
-      minimap_size_px: The size of your minimap output in pixels.
+      feature_screen_size: Sets feature_screen_width and feature_screen_width.
+      feature_screen_width: The width of the feature layer screen observation.
+      feature_screen_height: The height of the feature layer screen observation.
+      feature_minimap_size: Sets feature_minimap_width and
+          feature_minimap_height.
+      feature_minimap_width: The width of the feature layer minimap observation.
+      feature_minimap_height: The height of the feature layer minimap
+          observation.
+      rgb_screen_size: Sets rgb_screen_width and rgb_screen_height.
+      rgb_screen_width: The width of the rgb screen observation.
+      rgb_screen_height: The height of the rgb screen observation.
+      rgb_minimap_size: Sets rgb_minimap_width and rgb_minimap_height.
+      rgb_minimap_width: The width of the rgb minimap observation.
+      rgb_minimap_height: The height of the rgb minimap observation.
+      action_space: If you pass both feature and rgb sizes, then you must also
+          specify which you want to use for your actions as an ActionSpace enum.
       camera_width_world_units: The width of your screen in world units. If your
           screen_size_px=(64, 48) and camera_width is 24, then each px
           represents 24 / 64 = 0.375 world units in each of x and y. It'll then
@@ -112,6 +137,7 @@ class SC2Env(environment.Base):
 
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
+      ValueError: if the resolutions aren't specified correctly.
     """
     # pylint: enable=g-doc-args
     if _only_use_kwargs:
@@ -136,8 +162,21 @@ class SC2Env(environment.Base):
   def _setup(self,
              player_setup,
              map_name,
-             screen_size_px=(64, 64),
-             minimap_size_px=(64, 64),
+             screen_size_px=None,  # deprecated
+             minimap_size_px=None,  # deprecated
+             feature_screen_size=None,
+             feature_screen_width=None,
+             feature_screen_height=None,
+             feature_minimap_size=None,
+             feature_minimap_width=None,
+             feature_minimap_height=None,
+             rgb_screen_size=None,
+             rgb_screen_width=None,
+             rgb_screen_height=None,
+             rgb_minimap_size=None,
+             rgb_minimap_width=None,
+             rgb_minimap_height=None,
+             action_space=None,
              camera_width_world_units=None,
              discount=1.,
              visualize=False,
@@ -148,6 +187,29 @@ class SC2Env(environment.Base):
              score_index=None,
              score_multiplier=None,
              random_seed=None):
+
+    if screen_size_px or minimap_size_px:
+      raise DeprecationWarning(
+          "screen_size_px and minimap_size_px are deprecated. Use the feature "
+          "or rgb variants instead. Make sure to check your observations too "
+          "since they also switched from screen/minimap to feature and rgb "
+          "variants.")
+
+    feature_screen_px = features.point_from_size_width_height(
+        feature_screen_size, feature_screen_width, feature_screen_height)
+    feature_minimap_px = features.point_from_size_width_height(
+        feature_minimap_size, feature_minimap_width, feature_minimap_height)
+    rgb_screen_px = features.point_from_size_width_height(
+        rgb_screen_size, rgb_screen_width, rgb_screen_height)
+    rgb_minimap_px = features.point_from_size_width_height(
+        rgb_minimap_size, rgb_minimap_width, rgb_minimap_height)
+
+    if bool(feature_screen_px) != bool(feature_minimap_px):
+      raise ValueError("Must set all the feature layer sizes.")
+    if bool(rgb_screen_px) != bool(rgb_minimap_px):
+      raise ValueError("Must set all the rgb sizes.")
+    if not feature_screen_px and not rgb_screen_px:
+      raise ValueError("Must set either the feature layer or rgb sizes.")
 
     if save_replay_episodes and not replay_dir:
       raise ValueError("Missing replay_dir")
@@ -178,21 +240,27 @@ class SC2Env(environment.Base):
     self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
 
-    screen_size_px = point.Point(*screen_size_px)
-    minimap_size_px = point.Point(*minimap_size_px)
-    interface = sc_pb.InterfaceOptions(
-        raw=visualize, score=True,
-        feature_layer=sc_pb.SpatialCameraSetup(
-            width=camera_width_world_units or 24))
-    screen_size_px.assign_to(interface.feature_layer.resolution)
-    minimap_size_px.assign_to(interface.feature_layer.minimap_resolution)
+    interface = sc_pb.InterfaceOptions(raw=visualize, score=True)
+    if feature_screen_px:
+      interface.feature_layer.width = camera_width_world_units or 24
+      feature_screen_px.assign_to(interface.feature_layer.resolution)
+      feature_minimap_px.assign_to(interface.feature_layer.minimap_resolution)
+    if rgb_screen_px:
+      rgb_screen_px.assign_to(interface.render.resolution)
+      rgb_minimap_px.assign_to(interface.render.minimap_resolution)
 
     self._launch(interface, player_setup)
 
     game_info = self._controllers[0].game_info()
     static_data = self._controllers[0].data()
 
-    self._features = features.Features(game_info)
+    if game_info.options != interface:
+      logging.warning(
+          "Actual interface options don't match requested options:\n"
+          "Requested:\n%s\n\nActual:\n%s", game_info.options, interface)
+
+    self._features = features.Features(game_info=game_info,
+                                       action_space=action_space)
     if visualize:
       self._renderer_human = renderer_human.RendererHuman()
       self._renderer_human.init(game_info, static_data)

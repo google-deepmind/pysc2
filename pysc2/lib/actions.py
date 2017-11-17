@@ -20,6 +20,7 @@ from __future__ import print_function
 import collections
 import numbers
 
+import enum
 import six
 from pysc2.lib import point
 
@@ -27,25 +28,40 @@ from s2clientprotocol import spatial_pb2 as sc_spatial
 from s2clientprotocol import ui_pb2 as sc_ui
 
 
-def no_op(action):
-  del action
+class ActionSpace(enum.Enum):
+  FEATURES = 1
+  RGB = 2
 
 
-def move_camera(action, minimap):
+def spatial(action, action_space):
+  """Choose the action space for the action proto."""
+  if action_space == ActionSpace.FEATURES:
+    return action.action_feature_layer
+  elif action_space == ActionSpace.RGB:
+    return action.action_render
+  else:
+    raise ValueError("Unexpected value for action_space: %s" % action_space)
+
+
+def no_op(action, action_space):
+  del action, action_space
+
+
+def move_camera(action, action_space, minimap):
   """Move the camera."""
-  minimap.assign_to(action.action_feature_layer.camera_move.center_minimap)
+  minimap.assign_to(spatial(action, action_space).camera_move.center_minimap)
 
 
-def select_point(action, select_point_act, screen):
+def select_point(action, action_space, select_point_act, screen):
   """Select a unit at a point."""
-  select = action.action_feature_layer.unit_selection_point
+  select = spatial(action, action_space).unit_selection_point
   screen.assign_to(select.selection_screen_coord)
   select.type = select_point_act
 
 
-def select_rect(action, select_add, screen, screen2):
+def select_rect(action, action_space, select_add, screen, screen2):
   """Select units within a rectangle."""
-  select = action.action_feature_layer.unit_selection_rect
+  select = spatial(action, action_space).unit_selection_rect
   out_rect = select.selection_screen_coord.add()
   screen_rect = point.Rect(screen, screen2)
   screen_rect.tl.assign_to(out_rect.p0)
@@ -53,75 +69,84 @@ def select_rect(action, select_add, screen, screen2):
   select.selection_add = bool(select_add)
 
 
-def select_idle_worker(action, select_worker):
+def select_idle_worker(action, action_space, select_worker):
   """Select an idle worker."""
+  del action_space
   action.action_ui.select_idle_worker.type = select_worker
 
 
-def select_army(action, select_add):
+def select_army(action, action_space, select_add):
   """Select the entire army."""
+  del action_space
   action.action_ui.select_army.selection_add = select_add
 
 
-def select_warp_gates(action, select_add):
+def select_warp_gates(action, action_space, select_add):
   """Select all warp gates."""
+  del action_space
   action.action_ui.select_warp_gates.selection_add = select_add
 
 
-def select_larva(action):
+def select_larva(action, action_space):
   """Select all larva."""
+  del action_space
   action.action_ui.select_larva.SetInParent()  # Adds the empty proto field.
 
 
-def select_unit(action, select_unit_act, select_unit_id):
+def select_unit(action, action_space, select_unit_act, select_unit_id):
   """Select a specific unit from the multi-unit selection."""
+  del action_space
   select = action.action_ui.multi_panel
   select.type = select_unit_act
   select.unit_index = select_unit_id
 
 
-def control_group(action, control_group_act, control_group_id):
+def control_group(action, action_space, control_group_act, control_group_id):
   """Act on a control group, selecting, setting, etc."""
+  del action_space
   select = action.action_ui.control_group
   select.action = control_group_act
   select.control_group_index = control_group_id
 
 
-def unload(action, unload_id):
+def unload(action, action_space, unload_id):
   """Unload a unit from a transport/bunker/nydus/etc."""
+  del action_space
   action.action_ui.cargo_panel.unit_index = unload_id
 
 
-def build_queue(action, build_queue_id):
+def build_queue(action, action_space, build_queue_id):
   """Cancel a unit in the build queue."""
+  del action_space
   action.action_ui.production_panel.unit_index = build_queue_id
 
 
-def cmd_quick(action, ability_id, queued):
+def cmd_quick(action, action_space, ability_id, queued):
   """Do a quick command like 'Stop' or 'Stim'."""
-  action_cmd = action.action_feature_layer.unit_command
+  action_cmd = spatial(action, action_space).unit_command
   action_cmd.ability_id = ability_id
   action_cmd.queue_command = queued
 
 
-def cmd_screen(action, ability_id, queued, screen):
+def cmd_screen(action, action_space, ability_id, queued, screen):
   """Do a command that needs a point on the screen."""
-  action_cmd = action.action_feature_layer.unit_command
+  action_cmd = spatial(action, action_space).unit_command
   action_cmd.ability_id = ability_id
   action_cmd.queue_command = queued
   screen.assign_to(action_cmd.target_screen_coord)
 
 
-def cmd_minimap(action, ability_id, queued, minimap):
+def cmd_minimap(action, action_space, ability_id, queued, minimap):
   """Do a command that needs a point on the minimap."""
-  action_cmd = action.action_feature_layer.unit_command
+  action_cmd = spatial(action, action_space).unit_command
   action_cmd.ability_id = ability_id
   action_cmd.queue_command = queued
   minimap.assign_to(action_cmd.target_minimap_coord)
 
 
-def autocast(action, ability_id):
+def autocast(action, action_space, ability_id):
   """Toggle autocast."""
+  del action_space
   action.action_ui.toggle_autocast.ability_id = ability_id
 
 
