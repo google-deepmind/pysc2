@@ -58,7 +58,6 @@ flags.DEFINE_integer("screen_resolution", 16,
                      "Resolution for screen feature layers.")
 flags.DEFINE_integer("minimap_resolution", 16,
                      "Resolution for minimap feature layers.")
-FLAGS(sys.argv)
 
 interface = sc_pb.InterfaceOptions()
 interface.raw = True
