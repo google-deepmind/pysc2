@@ -439,3 +439,24 @@ There are a couple basic agents.
 
 *   `random_agent`: Just plays randomly, shows how to make valid moves.
 *   `scripted_agent`: These are scripted for a single easy map.
+
+## Replay Parsers
+
+Custom replay parsers can be built to collect data from replay files. Two example 
+replay parsers can be found in the replay_parsers folder:  
+
+*   `action_parser`: Collects statistics about actions and general replay stats and prints to console
+*   `player_info_parser`: Collects General player info at each replay step and saves to file
+
+To build a custom replay parser, a class that inherits from BaseParser needs to be defined. 
+The main method of the replay parser is the `parse_step` method. This function must take as arguments:
+`obs`,`feat` and `info` which are the game observations, feature layers and replay information at a single
+step in the replay, which is passed to the parser from `process_replays` script for each step in the
+replay file. This information is used to parse the desired data. If the `parse_step` function returns,
+the returned value is appended to a list containing the parsed data for each step in the replay. Once the
+replay is finished, this list is saved to a data file in the supplied `data_dir` directory.
+If no directory is supplied, the data is not saved to a file.  
+
+The `valid_replay` method of the parent BaseParser class can be overridden to supply a custom
+definition for valid replays (ie. filter out replays having players with small MMR). The `valid_replay`
+method must take as arguments `info` and `ping` supplied from `process_replays` and return a boolean. 

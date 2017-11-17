@@ -146,20 +146,6 @@ The left side is a basic rendering (which will likely be replaced by a proper
 rendering some day). The right side is the feature layers that the agent
 receives, with some coloring to make it more useful to us.
 
-## Watch a replay
-
-Running the random agent and playing as a human save a replay by default. You
-can watch that replay by running:
-
-```shell
-$ python -m pysc2.bin.play --replay <path-to-replay>
-```
-
-This works for any replay as long as the map can be found by the game.
-
-The same controls work as for playing the game, so `F4` to exit, `pgup`/`pgdn`
-to control the speed, etc.
-
 ## List the maps
 
 [Maps](docs/maps.md) need to be configured before they're known to the
@@ -190,11 +176,6 @@ configure your own, take a look [here](docs/maps.md).
 A replay lets you review what happened during a game. You can see the actions
 and observations that each player made as they played.
 
-Blizzard is releasing a large number of anonymized 1v1 replays played on the
-ladder. You can find instructions for how to get the
-[replay files](https://github.com/Blizzard/s2client-proto#downloads) on their
-site. You can also review your own replays.
-
 Replays can be played back to get the observations and actions made during that
 game. The observations are rendered at the resolution you request, so may differ
 from what the human actually saw. Similarly the actions specify a point, which
@@ -203,6 +184,55 @@ match in our observations, though they should be fairly similar.
 
 Replays are version dependent, so a 3.15 replay will fail in a 3.16 binary.
 
+## Watch a replay
+
+Running the random agent and playing as a human will save a replay by default. You
+can watch that replay by running:
+
+```shell
+$ python -m pysc2.bin.play --replay <path-to-replay>
+```
+
+This works for any replay as long as the map can be found by the game.
+
+The same controls work as for playing the game, so `F4` to exit, `pgup`/`pgdn`
+to control the speed, etc.
+
 You can visualize the replays with the full game, or with `pysc2.bin.play`.
-Alternatively you can run `pysc2.bin.replay_actions` to process many replays
-in parallel.
+Alternatively you can run `pysc2.bin.process_replays` to process many replays
+in parallel by supplying a replay directory. Each replay in the supplied directory
+will be processed.
+
+```shell
+$ python -m pysc2.bin.process_replays --replays <path-to-replay-directory>
+```
+The default number of instances to run in parallel is 1, but can be changed using
+the `parallel` argument.
+
+```shell
+$ python -m pysc2.bin.process_replays --replays <path-to-replay-directory> --parallel <number-of-parallel-instances>
+```
+
+## Parse a replay
+
+To collect data from one or more replays, a replay parser can be used. Two example 
+replay parsers can be found in the replay_parsers folder:  
+
+*   `action_parser`: Collects statistics about actions and general replay stats and prints to console
+*   `player_info_parser`: Collects General player info at each replay step and saves to file
+
+To run a specific replay parser, pass the parser as the `parser` argument. If the replay parser
+returns data to be stored in a file, a directory must be supplied to the `data_dir` argument
+
+```shell
+$ python -m pysc2.bin.process_replays --replays <path-to-replay-directory> --parser pysc2.replay_parsers.action_parser.ActionParser --data_dir <path-to-save-directory>
+```
+
+Details on how to implement a custom replay parser can be found in the [here](docs/environment.md#replay-parsers).
+
+## Public Replays
+
+Blizzard is releasing a large number of anonymized 1v1 replays played on the
+ladder. You can find instructions for how to get the
+[replay files](https://github.com/Blizzard/s2client-proto#downloads) on their
+site.
