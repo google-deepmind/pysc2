@@ -54,6 +54,7 @@ class ActionParser(base_parser.BaseParser):
     merge_dict(self.made_actions, other.made_actions)
 
   def valid_replay(self, info, ping):
+    return True
     """Make sure the replay isn't corrupt, and is worth looking at."""
     if (info.HasField("error") or
     info.base_build != ping.base_build or  # different game version

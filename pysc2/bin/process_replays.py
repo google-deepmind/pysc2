@@ -122,34 +122,7 @@ class ReplayProcessor(multiprocessing.Process):
               self._print("Empty queue, returning")
               return
             try:
-              replay_name = os.path.basename(replay_path)
-              self.stats.replay = replay_name
-              self._print("Got replay: %s" % replay_path)
-              self._update_stage("open replay file")
-              replay_data = self.run_config.replay_data(replay_path)
-              self._update_stage("replay_info")
-              info = controller.replay_info(replay_data)
-              self._print((" Replay Info %s " % replay_name).center(60, "-"))
-              self._print(info)
-              self._print("-" * 60)
-              if self.stats.parser.valid_replay(info, ping):
-                self.stats.parser.maps[info.map_name] += 1
-                for player_info in info.player_info:
-                  race_name = sc_common.Race.Name(
-                      player_info.player_info.race_actual)
-                  self.stats.parser.races[race_name] += 1
-                map_data = None
-                if info.local_map_path:
-                  self._update_stage("open map file")
-                  map_data = self.run_config.map_data(info.local_map_path)
-                for player_id in [1, 2]:
-                  self._print("Starting %s from player %s's perspective" % (
-                      replay_name, player_id))
-                  self.process_replay(controller, replay_data, map_data,
-                                      player_id, info, replay_name)
-              else:
-                self._print("Replay is invalid.")
-                self.stats.parser.invalid_replays.add(replay_name)
+              self.load_replay(replay_path, controller, ping)
             finally:
               self.replay_queue.task_done()
           self._update_stage("shutdown")
@@ -158,6 +131,36 @@ class ReplayProcessor(multiprocessing.Process):
         self.stats.parser.crashing_replays.add(replay_name)
       except KeyboardInterrupt:
         return
+
+  def load_replay(self, replay_path, controller, ping):
+    replay_name = os.path.basename(replay_path)
+    self.stats.replay = replay_name
+    self._print("Got replay: %s" % replay_path)
+    self._update_stage("open replay file")
+    replay_data = self.run_config.replay_data(replay_path)
+    self._update_stage("replay_info")
+    info = controller.replay_info(replay_data)
+    self._print((" Replay Info %s " % replay_name).center(60, "-"))
+    self._print(info)
+    self._print("-" * 60)
+    if self.stats.parser.valid_replay(info, ping):
+      self.stats.parser.maps[info.map_name] += 1
+      for player_info in info.player_info:
+        race_name = sc_common.Race.Name(
+            player_info.player_info.race_actual)
+        self.stats.parser.races[race_name] += 1
+      map_data = None
+      if info.local_map_path:
+        self._update_stage("open map file")
+        map_data = self.run_config.map_data(info.local_map_path)
+      for player_id in [1, 2]:
+        self._print("Starting %s from player %s's perspective" % (
+            replay_name, player_id))
+        self.process_replay(controller, replay_data, map_data,
+                            player_id, info, replay_name)
+    else:
+      self._print("Replay is invalid.")
+      self.stats.parser.invalid_replays.add(replay_name)
 
   def _print(self, s):
     for line in str(s).strip().splitlines():
