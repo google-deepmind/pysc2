@@ -409,10 +409,10 @@ class Features(object):
           for f in MINIMAP_FEATURES)
     if self._rgb_screen_px:
       out["rgb_screen"] = Feature.unpack_rgb_image(
-          obs.render_data.map)
+          obs.render_data.map).astype(np.int32)
     if self._rgb_minimap_px:
       out["rgb_minimap"] = Feature.unpack_rgb_image(
-          obs.render_data.minimap)
+          obs.render_data.minimap).astype(np.int32)
 
     out["game_loop"] = np.array([obs.game_loop], dtype=np.int32)
     out["score_cumulative"] = np.array([
