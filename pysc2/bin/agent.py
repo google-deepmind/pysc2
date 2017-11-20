@@ -35,10 +35,16 @@ from absl import flags
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("render", True, "Whether to render with pygame.")
-flags.DEFINE_integer("screen_resolution", 84,
+flags.DEFINE_integer("feature_screen_size", 84,
                      "Resolution for screen feature layers.")
-flags.DEFINE_integer("minimap_resolution", 64,
+flags.DEFINE_integer("feature_minimap_size", 64,
                      "Resolution for minimap feature layers.")
+flags.DEFINE_integer("rgb_screen_size", None,
+                     "Resolution for rendered screen.")
+flags.DEFINE_integer("rgb_minimap_size", None,
+                     "Resolution for rendered minimap.")
+flags.DEFINE_enum("action_space", None, sc2_env.ActionSpace._member_names_,  # pylint: disable=protected-access
+                  "Resolution for rendered minimap.")
 
 flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
 flags.DEFINE_integer("game_steps_per_episode", 0, "Game steps per episode.")
@@ -69,8 +75,12 @@ def run_thread(agent_cls, map_name, visualize):
       difficulty=FLAGS.difficulty,
       step_mul=FLAGS.step_mul,
       game_steps_per_episode=FLAGS.game_steps_per_episode,
-      screen_size_px=(FLAGS.screen_resolution, FLAGS.screen_resolution),
-      minimap_size_px=(FLAGS.minimap_resolution, FLAGS.minimap_resolution),
+      feature_screen_size=FLAGS.feature_screen_size,
+      feature_minimap_size=FLAGS.feature_minimap_size,
+      rgb_screen_size=FLAGS.rgb_screen_size,
+      rgb_minimap_size=FLAGS.rgb_minimap_size,
+      action_space=(FLAGS.action_space and
+                    sc2_env.ActionSpace[FLAGS.action_space]),
       visualize=visualize) as env:
     env = available_actions_printer.AvailableActionsPrinter(env)
     agent = agent_cls()

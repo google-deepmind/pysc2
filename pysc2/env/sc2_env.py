@@ -111,7 +111,7 @@ class SC2Env(environment.Base):
       action_space: If you pass both feature and rgb sizes, then you must also
           specify which you want to use for your actions as an ActionSpace enum.
       camera_width_world_units: The width of your screen in world units. If your
-          screen_size_px=(64, 48) and camera_width is 24, then each px
+          feature_screen=(64, 48) and camera_width is 24, then each px
           represents 24 / 64 = 0.375 world units in each of x and y. It'll then
           represent a camera of size (24, 0.375 * 48) = (24, 18) world units.
       discount: Returned as part of the observation.
@@ -210,6 +210,15 @@ class SC2Env(environment.Base):
       raise ValueError("Must set all the rgb sizes.")
     if not feature_screen_px and not rgb_screen_px:
       raise ValueError("Must set either the feature layer or rgb sizes.")
+
+    if rgb_screen_px and (rgb_screen_px.x < rgb_minimap_px.x or
+                          rgb_screen_px.y < rgb_minimap_px.y):
+      raise ValueError("Screen (%s) can't be smaller than the minimap (%s)." % (
+          rgb_screen_px, rgb_minimap_px))
+
+    if feature_screen_px and rgb_screen_px and not action_space:
+      raise ValueError(
+          "You must specify the action space if you have both observations.")
 
     if save_replay_episodes and not replay_dir:
       raise ValueError("Missing replay_dir")
