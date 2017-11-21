@@ -21,27 +21,29 @@ import copy
 import os
 import platform
 
+from pysc2.lib import sc_process
 from pysc2.run_configs import lib
 
 from absl import flags
 
 # https://github.com/Blizzard/s2client-proto/blob/master/buildinfo/versions.json
-VERSIONS = {  # Map of game version to build and data versions.
-    "3.16.1": (55958, "5BD7C31B44525DAB46E64C4602A81DC2"),
-    "3.17.0": (56787, "DFD1F6607F2CF19CB4E1C996B2563D9B"),
-    "3.17.1": (56787, "3F2FCED08798D83B873B5543BEFA6C4B"),
-    "3.17.2": (56787, "C690FC543082D35EA0AAA876B8362BEA"),
-    "3.18.0": (57507, "1659EF34997DA3470FF84A14431E3A86"),
-    "3.19.0": (58400, "2B06AEE58017A7DF2A3D452D733F1019"),
-    "3.19.1": (58400, "D9B568472880CC4719D1B698C0D86984"),
-}
+VERSIONS = {ver.game_version: ver for ver in [
+    lib.Version("3.16.1", 55958, "5BD7C31B44525DAB46E64C4602A81DC2", None),
+    lib.Version("3.17.0", 56787, "DFD1F6607F2CF19CB4E1C996B2563D9B", None),
+    lib.Version("3.17.1", 56787, "3F2FCED08798D83B873B5543BEFA6C4B", None),
+    lib.Version("3.17.2", 56787, "C690FC543082D35EA0AAA876B8362BEA", None),
+    lib.Version("3.18.0", 57507, "1659EF34997DA3470FF84A14431E3A86", None),
+    lib.Version("3.19.0", 58400, "2B06AEE58017A7DF2A3D452D733F1019", None),
+    lib.Version("3.19.1", 58400, "D9B568472880CC4719D1B698C0D86984", None),
+    lib.Version("4.0.0", 59587, "9B4FD995C61664831192B7DA46F8C1A1", None),
+]}
 
 flags.DEFINE_enum("sc2_version", None, sorted(VERSIONS.keys()),
                   "Which version of the game to use.")
 FLAGS = flags.FLAGS
 
 
-def get_version(game_version):
+def _get_version(game_version):
   if game_version.count(".") == 1:
     game_version += ".0"
   if game_version not in VERSIONS:
@@ -50,7 +52,7 @@ def get_version(game_version):
   return VERSIONS[game_version]
 
 
-def read_execute_info(path, parents):
+def _read_execute_info(path, parents):
   """Read the ExecuteInfo.txt file and return the base directory."""
   path = os.path.join(path, "StarCraft II/ExecuteInfo.txt")
   if os.path.exists(path):
@@ -75,31 +77,35 @@ class LocalBase(lib.RunConfig):
         data_dir=base_dir, tmp_dir=None, cwd=cwd, env=env)
     self._exec_name = exec_name
 
-  def exec_path(self, game_version=None):
-    """Get the exec_path for this platform. Possibly find the latest build."""
-    build_version = get_version(game_version)[0] if game_version else None
+  def start(self, version=None, **kwargs):
+    """Launch the game."""
+    if not os.path.isdir(self.data_dir):
+      raise lib.SC2LaunchError(
+          "Expected to find StarCraft II installed at '%s'. If it's not "
+          "installed, do that and run it once so auto-detection works. If "
+          "auto-detection failed repeatedly, then set the SC2PATH environment "
+          "variable with the correct location." % self.data_dir)
 
-    if not build_version:
+    version = version or FLAGS.sc2_version
+    if isinstance(version, lib.Version) and not version.data_version:
+      # This is for old replays that don't have the embedded data_version.
+      version = _get_version(version.game_version)
+    elif isinstance(version, str):
+      version = _get_version(version)
+    elif not version:
       versions_dir = os.path.join(self.data_dir, "Versions")
-      if not os.path.isdir(versions_dir):
-        raise lib.SC2LaunchError(
-            "Expected to find StarCraft II installed at '%s'. Either install "
-            "it there or set the SC2PATH environment variable." % self.data_dir)
       build_version = max(int(v[4:]) for v in os.listdir(versions_dir)
                           if v.startswith("Base"))
-      if build_version < 55958:
-        raise lib.SC2LaunchError(
-            "Your SC2 binary is too old. Upgrade to 3.16.1 or newer.")
-    return os.path.join(
-        self.data_dir, "Versions/Base%s" % build_version, self._exec_name)
+      version = lib.Version(None, build_version, None, None)
+    if version.build_version < VERSIONS["3.16.1"].build_version:
+      raise lib.SC2LaunchError(
+          "SC2 Binaries older than 3.16.1 don't support the api.")
+    exec_path = os.path.join(
+        self.data_dir, "Versions/Base%s" % version.build_version,
+        self._exec_name)
 
-  def start(self, game_version=None, data_version=None, **kwargs):
-    """Launch the game."""
-    game_version = game_version or FLAGS.sc2_version
-    if game_version and not data_version:
-      data_version = get_version(game_version)[1]
-    return super(LocalBase, self).start(game_version=game_version,
-                                        data_version=data_version, **kwargs)
+    return sc_process.StarcraftProcess(
+        self, exec_path=exec_path, data_version=version.data_version, **kwargs)
 
 
 class Windows(LocalBase):
@@ -107,7 +113,7 @@ class Windows(LocalBase):
 
   def __init__(self):
     exec_path = (os.environ.get("SC2PATH") or
-                 read_execute_info(os.path.expanduser("~/Documents"), 3) or
+                 _read_execute_info(os.path.expanduser("~/Documents"), 3) or
                  "C:/Program Files (x86)/StarCraft II")
     super(Windows, self).__init__(exec_path, "SC2_x64.exe", "Support64")
 
@@ -122,7 +128,7 @@ class MacOS(LocalBase):
 
   def __init__(self):
     exec_path = (os.environ.get("SC2PATH") or
-                 read_execute_info(os.path.expanduser(
+                 _read_execute_info(os.path.expanduser(
                      "~/Library/Application Support/Blizzard"), 6) or
                  "/Applications/StarCraft II")
     super(MacOS, self).__init__(exec_path, "SC2.app/Contents/MacOS/SC2")

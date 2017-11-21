@@ -17,12 +17,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import collections
 import datetime
 import os
 
-from pysc2.lib import sc_process
-
 from pysc2.lib import gfile
+
+
+class Version(collections.namedtuple("Version", [
+    "game_version", "build_version", "data_version", "binary"])):
+  """Represents a single version of the game."""
+  __slots__ = ()
 
 
 class SC2LaunchError(Exception):
@@ -47,10 +52,6 @@ class RunConfig(object):
     self.tmp_dir = tmp_dir
     self.cwd = cwd
     self.env = env
-
-  def exec_path(self, game_version=None):
-    """Get the exec_path for this platform. Possibly find the latest build."""
-    raise NotImplementedError()
 
   def map_data(self, map_name):
     """Return the map data for a map by name or path."""
@@ -99,9 +100,9 @@ class RunConfig(object):
       f.write(replay_data)
     return replay_path
 
-  def start(self, **kwargs):
-    """Launch the game."""
-    return sc_process.StarcraftProcess(self, **kwargs)
+  def start(self, version=None, **kwargs):
+    """Launch the game. Find the version and run sc_process.StarcraftProcess."""
+    raise NotImplementedError()
 
   @classmethod
   def all_subclasses(cls):
