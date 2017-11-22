@@ -18,14 +18,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from absl.testing import absltest
 from future.builtins import range  # pylint: disable=redefined-builtin
 import six
 
 from pysc2.agents import random_agent
 from pysc2.env import sc2_env
 from pysc2.tests import utils
-
-from absl.testing import absltest as basetest
 
 
 class TestObservationSpec(utils.TestCase):
@@ -63,4 +62,4 @@ class TestObservationSpec(utils.TestCase):
         raw_obs = env.step([act])[0]
 
 if __name__ == "__main__":
-  basetest.main()
+  absltest.main()

@@ -23,6 +23,8 @@ import platform
 import sys
 import time
 
+from absl import app
+from absl import flags
 import mpyq
 import six
 from pysc2 import maps
@@ -32,8 +34,6 @@ from pysc2.lib import renderer_human
 from pysc2.lib import stopwatch
 from pysc2.run_configs import lib as run_configs_lib
 
-from absl import app
-from absl import flags
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 FLAGS = flags.FLAGS

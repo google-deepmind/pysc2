@@ -17,10 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from absl import flags
+
 from pysc2.run_configs import platforms
 from pysc2.run_configs import lib
-
-from absl import flags
 
 flags.DEFINE_string("sc2_run_config", None,
                     "Which run_config to use to spawn the binary.")
@@ -43,4 +43,3 @@ def get():
   except KeyError:
     raise lib.SC2LaunchError("Invalid run_config. Valid configs are: %s" % (
         ", ".join(sorted(configs.keys()))))
-

@@ -26,6 +26,8 @@ import sys
 import threading
 import time
 
+from absl import app
+from absl import flags
 from future.builtins import range  # pylint: disable=redefined-builtin
 import six
 from six.moves import queue
@@ -36,8 +38,6 @@ from pysc2.lib import point
 from pysc2.lib import protocol
 from pysc2.lib import remote_controller
 
-from absl import app
-from absl import flags
 from pysc2.lib import gfile
 from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb

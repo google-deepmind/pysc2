@@ -18,6 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from absl.testing import absltest
 from future.builtins import range  # pylint: disable=redefined-builtin
 
 import numpy as np
@@ -27,7 +28,6 @@ from pysc2 import run_configs
 from pysc2.lib import features
 from pysc2.tests import utils
 
-from absl.testing import absltest as basetest
 from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
@@ -95,4 +95,4 @@ class TestRender(utils.TestCase):
           break
 
 if __name__ == "__main__":
-  basetest.main()
+  absltest.main()

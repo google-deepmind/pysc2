@@ -20,6 +20,7 @@ from __future__ import print_function
 
 import pickle
 
+from absl.testing import absltest
 from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy
 import six
@@ -28,7 +29,6 @@ from pysc2.lib import features
 from pysc2.lib import point
 
 from google.protobuf import text_format
-from absl.testing import absltest as basetest
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
@@ -51,7 +51,7 @@ game_loop: 20
 """
 
 
-class AvailableActionsTest(basetest.TestCase):
+class AvailableActionsTest(absltest.TestCase):
 
   always_expected = {
       "no_op", "move_camera", "select_point", "select_rect",
@@ -199,7 +199,7 @@ class AvailableActionsTest(basetest.TestCase):
     ])
 
 
-class FeaturesTest(basetest.TestCase):
+class FeaturesTest(absltest.TestCase):
 
   def testFunctionsIdsAreConsistent(self):
     for i, f in enumerate(actions.FUNCTIONS):
@@ -387,4 +387,4 @@ class FeaturesTest(basetest.TestCase):
 
 
 if __name__ == "__main__":
-  basetest.main()
+  absltest.main()

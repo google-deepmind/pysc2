@@ -20,12 +20,11 @@ from __future__ import print_function
 
 import itertools
 
+from absl.testing import absltest
 from future.builtins import range  # pylint: disable=redefined-builtin
 
 import mock
 from pysc2.lib import stopwatch
-
-from absl.testing import absltest as basetest
 
 
 def ham_dist(str1, str2):
@@ -34,7 +33,7 @@ def ham_dist(str1, str2):
   return sum(c1 != c2 for c1, c2 in itertools.izip(str1, str2))
 
 
-class StatTest(basetest.TestCase):
+class StatTest(absltest.TestCase):
 
   def testRange(self):
     stat = stopwatch.Stat()
@@ -58,7 +57,7 @@ class StatTest(basetest.TestCase):
     self.assertLess(ham_dist(out, str(stopwatch.Stat.parse(out))), 5)
 
 
-class StopwatchTest(basetest.TestCase):
+class StopwatchTest(absltest.TestCase):
 
   @mock.patch("time.time")
   def testStopwatch(self, mock_time):
@@ -136,4 +135,4 @@ class StopwatchTest(basetest.TestCase):
 
 
 if __name__ == "__main__":
-  basetest.main()
+  absltest.main()

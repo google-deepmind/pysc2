@@ -26,6 +26,7 @@ import sys
 import tempfile
 import time
 
+from absl import flags
 from future.builtins import range  # pylint: disable=redefined-builtin
 
 import portpicker
@@ -33,8 +34,6 @@ from pysc2.lib import protocol
 from pysc2.lib import remote_controller
 from pysc2.lib import stopwatch
 import websocket
-
-from absl import flags
 
 flags.DEFINE_bool("sc2_verbose", False, "Enable SC2 verbose logging.")
 FLAGS = flags.FLAGS

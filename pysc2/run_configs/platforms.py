@@ -21,10 +21,10 @@ import copy
 import os
 import platform
 
+from absl import flags
+
 from pysc2.lib import sc_process
 from pysc2.run_configs import lib
-
-from absl import flags
 
 # https://github.com/Blizzard/s2client-proto/blob/master/buildinfo/versions.json
 VERSIONS = {ver.game_version: ver for ver in [
@@ -164,4 +164,3 @@ class Linux(LocalBase):
         "-osmesapath", "libOSMesa.so.6",
     ]
     return super(Linux, self).start(extra_args=extra_args, **kwargs)
-

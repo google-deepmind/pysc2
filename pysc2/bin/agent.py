@@ -21,6 +21,8 @@ from __future__ import print_function
 import importlib
 import threading
 
+from absl import app
+from absl import flags
 from future.builtins import range  # pylint: disable=redefined-builtin
 
 from pysc2 import maps
@@ -28,9 +30,6 @@ from pysc2.env import available_actions_printer
 from pysc2.env import run_loop
 from pysc2.env import sc2_env
 from pysc2.lib import stopwatch
-
-from absl import app
-from absl import flags
 
 
 FLAGS = flags.FLAGS

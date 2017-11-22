@@ -20,9 +20,8 @@ from __future__ import print_function
 
 import threading
 
+from absl.testing import absltest
 from pysc2.lib import run_parallel
-
-from absl.testing import absltest as basetest
 
 
 class Barrier(object):
@@ -54,7 +53,7 @@ def bad():
   raise ValueError()
 
 
-class RunParallelTest(basetest.TestCase):
+class RunParallelTest(absltest.TestCase):
 
   def test_returns_expected_values(self):
     pool = run_parallel.RunParallel()
@@ -94,4 +93,4 @@ class RunParallelTest(basetest.TestCase):
 
 
 if __name__ == "__main__":
-  basetest.main()
+  absltest.main()

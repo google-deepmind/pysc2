@@ -18,12 +18,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from absl.testing import absltest
+
 from pysc2.agents import scripted_agent
 from pysc2.env import run_loop
 from pysc2.env import sc2_env
 from pysc2.tests import utils
-
-from absl.testing import absltest as basetest
 
 
 class TestEasy(utils.TestCase):
@@ -74,4 +74,4 @@ class TestEasy(utils.TestCase):
 
 
 if __name__ == "__main__":
-  basetest.main()
+  absltest.main()

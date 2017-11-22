@@ -18,11 +18,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from pysc2.lib import actions
-from pysc2.lib import features
-
 from absl import app
 from absl import flags
+
+from pysc2.lib import actions
+from pysc2.lib import features
 
 FLAGS = flags.FLAGS
 flags.DEFINE_int("screen_size", 84, "Resolution for screen actions.")

@@ -24,11 +24,11 @@ import socket
 import sys
 import time
 
+from absl import flags
 import enum
 from pysc2.lib import stopwatch
 import websocket
 
-from absl import flags
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
