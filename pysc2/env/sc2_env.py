@@ -263,7 +263,7 @@ class SC2Env(environment.Base):
     game_info = self._controllers[0].game_info()
     static_data = self._controllers[0].data()
 
-    if game_info.options != interface:
+    if game_info.options.render != interface.render:
       logging.warning(
           "Actual interface options don't match requested options:\n"
           "Requested:\n%s\n\nActual:\n%s", game_info.options, interface)
