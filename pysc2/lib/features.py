@@ -90,7 +90,7 @@ class Feature(collections.namedtuple(
   @sw.decorate
   def unpack_rgb_image(plane):
     """Return a correctly shaped numpy array given the image bytes."""
-    assert plane.bits_per_pixel == 24
+    assert plane.bits_per_pixel == 24, "{} != 24".format(plane.bits_per_pixel)
     size = point.Point.build(plane.size)
     data = np.fromstring(plane.data, dtype=np.uint8)
     return data.reshape(size.y, size.x, 3)
