@@ -56,9 +56,11 @@ flags.DEFINE_integer("rgb_minimap_size", 128,
 flags.DEFINE_integer("max_game_steps", 0, "Total game steps to run.")
 flags.DEFINE_integer("max_episode_steps", 0, "Total game steps per episode.")
 
-flags.DEFINE_enum("user_race", "R", sc2_env.races.keys(), "User's race.")
-flags.DEFINE_enum("bot_race", "R", sc2_env.races.keys(), "AI race.")
-flags.DEFINE_enum("difficulty", "1", sc2_env.difficulties.keys(),
+flags.DEFINE_enum("user_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
+                  "User's race.")
+flags.DEFINE_enum("bot_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
+                  "AI race.")
+flags.DEFINE_enum("difficulty", "very_easy", sc2_env.Difficulty._member_names_,  # pylint: disable=protected-access
                   "Bot's strength.")
 flags.DEFINE_bool("disable_fog", False, "Disable fog of war.")
 flags.DEFINE_integer("observed_player", 1, "Which player to observe.")
@@ -129,9 +131,9 @@ def main(unused_argv):
                                  map_data=map_inst.data(run_config)))
     create.player_setup.add(type=sc_pb.Participant)
     create.player_setup.add(type=sc_pb.Computer,
-                            race=sc2_env.races[FLAGS.bot_race],
-                            difficulty=sc2_env.difficulties[FLAGS.difficulty])
-    join = sc_pb.RequestJoinGame(race=sc2_env.races[FLAGS.user_race],
+                            race=sc2_env.Race[FLAGS.bot_race],
+                            difficulty=sc2_env.Difficulty[FLAGS.difficulty])
+    join = sc_pb.RequestJoinGame(race=sc2_env.Race[FLAGS.user_race],
                                  options=interface)
     version = None
   else:

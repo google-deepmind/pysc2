@@ -50,11 +50,15 @@ flags.DEFINE_integer("game_steps_per_episode", 0, "Game steps per episode.")
 flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
 
 flags.DEFINE_string("agent", "pysc2.agents.random_agent.RandomAgent",
-                    "Which agent to run")
-flags.DEFINE_enum("agent_race", None, sc2_env.races.keys(), "Agent's race.")
-flags.DEFINE_enum("bot_race", None, sc2_env.races.keys(), "Bot's race.")
-flags.DEFINE_enum("difficulty", None, sc2_env.difficulties.keys(),
-                  "Bot's strength.")
+                    "Which agent to run, as a python path to an Agent class.")
+flags.DEFINE_enum("agent_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
+                  "Agent 1's race.")
+
+flags.DEFINE_string("agent2", "Bot", "Second agent, either Bot or agent class.")
+flags.DEFINE_enum("agent2_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
+                  "Agent 2's race.")
+flags.DEFINE_enum("difficulty", "very_easy", sc2_env.Difficulty._member_names_,  # pylint: disable=protected-access
+                  "If agent2 is a built-in Bot, it's strength.")
 
 flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
 flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
@@ -66,12 +70,10 @@ flags.DEFINE_string("map", None, "Name of a map to use.")
 flags.mark_flag_as_required("map")
 
 
-def run_thread(agent_cls, map_name, visualize):
+def run_thread(agent_classes, players, map_name, visualize):
   with sc2_env.SC2Env(
       map_name=map_name,
-      agent_race=FLAGS.agent_race,
-      bot_race=FLAGS.bot_race,
-      difficulty=FLAGS.difficulty,
+      players=players,
       step_mul=FLAGS.step_mul,
       game_steps_per_episode=FLAGS.game_steps_per_episode,
       feature_screen_size=FLAGS.feature_screen_size,
@@ -82,10 +84,10 @@ def run_thread(agent_cls, map_name, visualize):
                     sc2_env.ActionSpace[FLAGS.action_space]),
       visualize=visualize) as env:
     env = available_actions_printer.AvailableActionsPrinter(env)
-    agent = agent_cls()
-    run_loop.run_loop([agent], env, FLAGS.max_agent_steps)
+    agents = [agent_cls() for agent_cls in agent_classes]
+    run_loop.run_loop(agents, env, FLAGS.max_agent_steps)
     if FLAGS.save_replay:
-      env.save_replay(agent_cls.__name__)
+      env.save_replay(agent_classes[0].__name__)
 
 
 def main(unused_argv):
@@ -95,16 +97,31 @@ def main(unused_argv):
 
   maps.get(FLAGS.map)  # Assert the map exists.
 
+  agent_classes = []
+  players = []
+
   agent_module, agent_name = FLAGS.agent.rsplit(".", 1)
   agent_cls = getattr(importlib.import_module(agent_module), agent_name)
+  agent_classes.append(agent_cls)
+  players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent_race]))
+
+  if FLAGS.agent2 == "Bot":
+    players.append(sc2_env.Bot(sc2_env.Race[FLAGS.agent2_race],
+                               sc2_env.Difficulty[FLAGS.difficulty]))
+  else:
+    agent_module, agent_name = FLAGS.agent2.rsplit(".", 1)
+    agent_cls = getattr(importlib.import_module(agent_module), agent_name)
+    agent_classes.append(agent_cls)
+    players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent2_race]))
 
   threads = []
   for _ in range(FLAGS.parallel - 1):
-    t = threading.Thread(target=run_thread, args=(agent_cls, FLAGS.map, False))
+    t = threading.Thread(target=run_thread,
+                         args=(agent_classes, players, FLAGS.map, False))
     threads.append(t)
     t.start()
 
-  run_thread(agent_cls, FLAGS.map, FLAGS.render)
+  run_thread(agent_classes, players, FLAGS.map, FLAGS.render)
 
   for t in threads:
     t.join()

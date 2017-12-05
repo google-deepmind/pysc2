@@ -19,6 +19,9 @@ from __future__ import print_function
 
 from absl import logging
 
+import enum
+import portpicker
+
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.env import environment
@@ -41,28 +44,48 @@ _possible_results = {
     sc_pb.Undecided: 0,
 }
 
-races = {
-    "R": sc_common.Random,
-    "P": sc_common.Protoss,
-    "T": sc_common.Terran,
-    "Z": sc_common.Zerg,
-}
 
-difficulties = {
-    "1": sc_pb.VeryEasy,
-    "2": sc_pb.Easy,
-    "3": sc_pb.Medium,
-    "4": sc_pb.MediumHard,
-    "5": sc_pb.Hard,
-    "6": sc_pb.Harder,
-    "7": sc_pb.VeryHard,
-    "8": sc_pb.CheatVision,
-    "9": sc_pb.CheatMoney,
-    "A": sc_pb.CheatInsane,
-}
+class Race(enum.IntEnum):
+  random = sc_common.Random
+  protoss = sc_common.Protoss
+  terran = sc_common.Terran
+  zerg = sc_common.Zerg
+
+
+class Difficulty(enum.IntEnum):
+  """Bot difficulties."""
+  very_easy = sc_pb.VeryEasy
+  easy = sc_pb.Easy
+  medium = sc_pb.Medium
+  medium_hard = sc_pb.MediumHard
+  hard = sc_pb.Hard
+  harder = sc_pb.Harder
+  very_hard = sc_pb.VeryHard
+  cheat_vision = sc_pb.CheatVision
+  cheat_money = sc_pb.CheatMoney
+  cheat_insane = sc_pb.CheatInsane
 
 # Re-export this enum to make it easy to construct the environment.
 ActionSpace = actions_lib.ActionSpace  # pylint: disable=invalid-name
+
+
+class Agent(object):
+
+  def __init__(self, race):
+    self.race = race
+
+  def __repr__(self):
+    return "Agent(%s)" % (self.race)
+
+
+class Bot(object):
+
+  def __init__(self, race, difficulty):
+    self.race = race
+    self.difficulty = difficulty
+
+  def __repr__(self):
+    return "Bot(%s, %s)" % (self.race, self.difficulty)
 
 
 class SC2Env(environment.Base):
@@ -74,11 +97,36 @@ class SC2Env(environment.Base):
 
   def __init__(self,  # pylint: disable=invalid-name
                _only_use_kwargs=None,
-               agent_race=None,
-               bot_race=None,
-               difficulty=None,
-               **kwargs):
-    # pylint: disable=g-doc-args
+               map_name=None,
+               players=None,
+               agent_race=None,  # deprecated
+               bot_race=None,  # deprecated
+               difficulty=None,  # deprecated
+               screen_size_px=None,  # deprecated
+               minimap_size_px=None,  # deprecated
+               feature_screen_size=None,
+               feature_screen_width=None,
+               feature_screen_height=None,
+               feature_minimap_size=None,
+               feature_minimap_width=None,
+               feature_minimap_height=None,
+               rgb_screen_size=None,
+               rgb_screen_width=None,
+               rgb_screen_height=None,
+               rgb_minimap_size=None,
+               rgb_minimap_width=None,
+               rgb_minimap_height=None,
+               action_space=None,
+               camera_width_world_units=None,
+               discount=1.,
+               visualize=False,
+               step_mul=None,
+               save_replay_episodes=0,
+               replay_dir=None,
+               game_steps_per_episode=None,
+               score_index=None,
+               score_multiplier=None,
+               random_seed=None):
     """Create a SC2 Env.
 
     You must pass a resolution that you want to play at. You can send either
@@ -94,6 +142,12 @@ class SC2Env(environment.Base):
       map_name: Name of a SC2 map. Run bin/map_list to get the full list of
           known maps. Alternatively, pass a Map instance. Take a look at the
           docs in maps/README.md for more information on available maps.
+      players: A list of Agent and Bot instances that specify who will play.
+      agent_race: Deprecated. Use players instead.
+      bot_race: Deprecated. Use players instead.
+      difficulty: Deprecated. Use players instead.
+      screen_size_px: Deprecated. Use feature_screen_... instead.
+      minimap_size_px: Deprecated. Use feature_minimap_... instead.
       feature_screen_size: Sets feature_screen_width and feature_screen_width.
       feature_screen_width: The width of the feature layer screen observation.
       feature_screen_height: The height of the feature layer screen observation.
@@ -117,10 +171,6 @@ class SC2Env(environment.Base):
       discount: Returned as part of the observation.
       visualize: Whether to pop up a window showing the camera and feature
           layers. This won't work without access to a window manager.
-      agent_race: One of P,T,Z,R default random. This is the race you control.
-      bot_race: One of P,T,Z,R default random. This is the race controlled by
-          the built-in bot.
-      difficulty: One of 1-9,A. How strong should the bot be?
       step_mul: How many game steps per agent step (action/observation). None
           means use the map default.
       save_replay_episodes: Save a replay after this many episodes. Default of 0
@@ -138,55 +188,11 @@ class SC2Env(environment.Base):
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
       ValueError: if the resolutions aren't specified correctly.
+      DeprecationWarning: if screen_size_px or minimap_size_px are sent.
+      DeprecationWarning: if agent_race, bot_race or difficulty are sent.
     """
-    # pylint: enable=g-doc-args
     if _only_use_kwargs:
       raise ValueError("All arguments must be passed as keyword arguments.")
-
-    agent_race = agent_race or "R"
-    if agent_race not in races:
-      raise ValueError("Bad agent_race args")
-
-    bot_race = bot_race or "R"
-    if bot_race not in races:
-      raise ValueError("Bad bot_race args")
-
-    difficulty = difficulty and str(difficulty) or "1"
-    if difficulty not in difficulties:
-      raise ValueError("Bad difficulty")
-
-    self._num_players = 1
-
-    self._setup((agent_race, bot_race, difficulty), **kwargs)
-
-  def _setup(self,
-             player_setup,
-             map_name,
-             screen_size_px=None,  # deprecated
-             minimap_size_px=None,  # deprecated
-             feature_screen_size=None,
-             feature_screen_width=None,
-             feature_screen_height=None,
-             feature_minimap_size=None,
-             feature_minimap_width=None,
-             feature_minimap_height=None,
-             rgb_screen_size=None,
-             rgb_screen_width=None,
-             rgb_screen_height=None,
-             rgb_minimap_size=None,
-             rgb_minimap_width=None,
-             rgb_minimap_height=None,
-             action_space=None,
-             camera_width_world_units=None,
-             discount=1.,
-             visualize=False,
-             step_mul=None,
-             save_replay_episodes=0,
-             replay_dir=None,
-             game_steps_per_episode=None,
-             score_index=None,
-             score_multiplier=None,
-             random_seed=None):
 
     if screen_size_px or minimap_size_px:
       raise DeprecationWarning(
@@ -194,6 +200,24 @@ class SC2Env(environment.Base):
           "or rgb variants instead. Make sure to check your observations too "
           "since they also switched from screen/minimap to feature and rgb "
           "variants.")
+
+    if agent_race or bot_race or difficulty:
+      raise DeprecationWarning(
+          "Explicit agent and bot races are deprecated. Pass an array of "
+          "sc2_env.Bot and sc2_env.Agent instances instead.")
+
+    if not players:
+      players = [Agent(Race.random), Bot(Race.random, Difficulty.very_easy)]
+
+    for p in players:
+      if not isinstance(p, (Agent, Bot)):
+        raise ValueError("Expected players to be of type Agent or Bot.")
+
+    self._num_players = sum(1 for p in players if isinstance(p, Agent))
+    self._players = players
+
+    if not 1 <= len(players) <= 2 or not 1 <= self._num_players <= 2:
+      raise ValueError("Only 1 or 2 players is supported at the moment.")
 
     feature_screen_px = features.point_from_size_width_height(
         feature_screen_size, feature_screen_width, feature_screen_height)
@@ -258,7 +282,10 @@ class SC2Env(environment.Base):
       rgb_screen_px.assign_to(interface.render.resolution)
       rgb_minimap_px.assign_to(interface.render.minimap_resolution)
 
-    self._launch(interface, player_setup)
+    if self._num_players == 1:
+      self._launch_sp(interface)
+    else:
+      self._launch_mp(interface)
 
     game_info = self._controllers[0].game_info()
     static_data = self._controllers[0].data()
@@ -281,9 +308,7 @@ class SC2Env(environment.Base):
     self._state = environment.StepType.LAST  # Want to jump to `reset`.
     logging.info("Environment is ready.")
 
-  def _launch(self, interface, player_setup):
-    agent_race, bot_race, difficulty = player_setup
-
+  def _launch_sp(self, interface):
     self._sc2_procs = [self._run_config.start()]
     self._controllers = [p.controller for p in self._sc2_procs]
 
@@ -291,15 +316,75 @@ class SC2Env(environment.Base):
     create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
         map_path=self._map.path,
         map_data=self._run_config.map_data(self._map.path)))
-    create.player_setup.add(type=sc_pb.Participant)
-    create.player_setup.add(type=sc_pb.Computer, race=races[bot_race],
-                            difficulty=difficulties[difficulty])
+    agent_race = Race.random
+    for p in self._players:
+      if isinstance(p, Agent):
+        create.player_setup.add(type=sc_pb.Participant)
+        agent_race = p.race
+      else:
+        create.player_setup.add(type=sc_pb.Computer, race=p.race,
+                                difficulty=p.difficulty)
     if self._random_seed is not None:
       create.random_seed = self._random_seed
     self._controllers[0].create_game(create)
 
-    join = sc_pb.RequestJoinGame(race=races[agent_race], options=interface)
+    join = sc_pb.RequestJoinGame(race=agent_race, options=interface)
     self._controllers[0].join_game(join)
+
+  def _launch_mp(self, interface):
+    # Reserve a whole bunch of ports for the weird multiplayer implementation.
+    self._ports = [portpicker.pick_unused_port()
+                   for _ in range(1 + self._num_players * 2)]
+    assert len(self._ports) == len(set(self._ports))  # Ports must be unique.
+
+    # Actually launch the game processes.
+    self._sc2_procs = [self._run_config.start(extra_ports=self._ports)
+                       for _ in range(self._num_players)]
+    self._controllers = [p.controller for p in self._sc2_procs]
+
+    # Save the maps so they can access it.
+    self._parallel.run(
+        (c.save_map, self._map.path, self._run_config.map_data(self._map.path))
+        for c in self._controllers)
+
+    # Create the game. Set the first instance as the host.
+    create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
+        map_path=self._map.path))
+    if self._random_seed is not None:
+      create.random_seed = self._random_seed
+    for p in self._players:
+      if isinstance(p, Agent):
+        create.player_setup.add(type=sc_pb.Participant)
+      else:
+        create.player_setup.add(type=sc_pb.Computer, race=p.race,
+                                difficulty=p.difficulty)
+    self._controllers[0].create_game(create)
+
+    # Create the join request.
+    join = sc_pb.RequestJoinGame(options=interface)
+    join.shared_port = self._ports.pop()
+    join.server_ports.game_port = self._ports.pop()
+    join.server_ports.base_port = self._ports.pop()
+    for _ in range(self._num_players - 1):
+      join.client_ports.add(game_port=self._ports.pop(),
+                            base_port=self._ports.pop())
+
+    join_reqs = []
+    for p in self._players:
+      if isinstance(p, Agent):
+        j = sc_pb.RequestJoinGame()
+        j.CopyFrom(join)
+        j.race = p.race
+        join_reqs.append(j)
+
+    # Join the game. This must be run in parallel because Join is a blocking
+    # call to the game that waits until all clients have joined.
+    self._parallel.run((c.join_game, join)
+                       for c, join in zip(self._controllers, join_reqs))
+
+    # Save them for restart.
+    self._create_req = create
+    self._join_reqs = join_reqs
 
   def observation_spec(self):
     """Look at Features for full specs."""
@@ -310,7 +395,13 @@ class SC2Env(environment.Base):
     return self._features.action_spec()
 
   def _restart(self):
-    self._controllers[0].restart()
+    if len(self._controllers) == 1:
+      self._controllers[0].restart()
+    else:
+      self._parallel.run(c.leave for c in self._controllers)
+      self._controllers[0].create_game(self._create_req)
+      self._parallel.run((c.join_game, j)
+                         for c, j in zip(self._controllers, self._join_reqs))
 
   @sw.decorate
   def reset(self):
@@ -422,5 +513,10 @@ class SC2Env(environment.Base):
       for p in self._sc2_procs:
         p.close()
       self._sc2_procs = None
+
+    if hasattr(self, "_ports") and self._ports:
+      for port in self._ports:
+        portpicker.return_port(port)
+      self._ports = None
 
     logging.info(sw)
