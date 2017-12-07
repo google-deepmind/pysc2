@@ -330,11 +330,11 @@ class SC2Env(environment.Base):
       self._renderer_human = None
 
     # Don't use parallel since it might be broken by an exception.
-    if hasattr(self, "_controller") and self._controller:
+    if hasattr(self, "_controllers") and self._controllers:
       for c in self._controllers:
         c.quit()
       self._controllers = None
-    if hasattr(self, "_sc2_proc") and self._sc2_proc:
+    if hasattr(self, "_sc2_procs") and self._sc2_procs:
       for p in self._sc2_procs:
         p.close()
       self._sc2_procs = None
