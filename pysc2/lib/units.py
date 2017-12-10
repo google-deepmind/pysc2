@@ -18,215 +18,220 @@ from __future__ import division
 from __future__ import print_function
 
 # pylint: disable=line-too-long
-TYPES = {
-    Protoss_Colossus: 4,
-    Terran_TechLab: 5,
-    Terran_Reactor: 6,
-    Zerg_InfestorTerran: 7,
-    Zerg_BanelingCocoon: 8,
-    Zerg_Baneling: 9,
-    Protoss_Mothership: 10,
-    Terran_PointDefenseDrone: 11,
-    Zerg_Changeling: 12,
-    Zerg_ChangelingZealot: 13,
-    Zerg_ChangelingMarineShield: 14,
-    Zerg_ChangelingMarine: 15,
-    Zerg_ChangelingZerglingWings: 16,
-    Zerg_ChangelingZergling: 17,
-    Terran_CommandCenter: 18,
-    Terran_SupplyDepot: 19,
-    Terran_Refinery: 20,
-    Terran_Barracks: 21,
-    Terran_EngineeringBay: 22,
-    Terran_MissileTurret: 23,
-    Terran_Bunker: 24,
-    Terran_SensorTower: 25,
-    Terran_GhostAcademy: 26,
-    Terran_Factory: 27,
-    Terran_Starport: 28,
-    Terran_Armory: 29,
-    Terran_FusionCore: 30,
-    Terran_AutoTurret: 31,
-    Terran_SiegeTankSieged: 32,
-    Terran_SiegeTank: 33,
-    Terran_VikingAssault: 34,
-    Terran_VikingFighter: 35,
-    Terran_CommandCenterFlying: 36,
-    Terran_BarracksTechLab: 37,
-    Terran_BarracksReactor: 38,
-    Terran_FactoryTechLab: 39,
-    Terran_FactoryReactor: 40,
-    Terran_StarportTechLab: 41,
-    Terran_StarportReactor: 42,
-    Terran_FactoryFlying: 43,
-    Terran_StarportFlying: 44,
-    Terran_SCV: 45,
-    Terran_BarracksFlying: 46,
-    Terran_SupplyDepotLowered: 47,
-    Terran_Marine: 48,
-    Terran_Reaper: 49,
-    Terran_Ghost: 50,
-    Terran_Marauder: 51,
-    Terran_Thor: 52,
-    Terran_Hellion: 53,
-    Terran_Medivac: 54,
-    Terran_Banshee: 55,
-    Terran_Raven: 56,
-    Terran_Battlecruiser: 57,
-    Terran_Nuke: 58,
-    Protoss_Nexus: 59,
-    Protoss_Pylon: 60,
-    Protoss_Assimilator: 61,
-    Protoss_Gateway: 62,
-    Protoss_Forge: 63,
-    Protoss_FleetBeacon: 64,
-    Protoss_TwilightCouncil: 65,
-    Protoss_PhotonCannon: 66,
-    Protoss_Stargate: 67,
-    Protoss_TemplarArchive: 68,
-    Protoss_DarkShrine: 69,
-    Protoss_RoboticsBay: 70,
-    Protoss_RoboticsFacility: 71,
-    Protoss_CyberneticsCore: 72,
-    Protoss_Zealot: 73,
-    Protoss_Stalker: 74,
-    Protoss_HighTemplar: 75,
-    Protoss_DarkTemplar: 76,
-    Protoss_Sentry: 77,
-    Protoss_Phoenix: 78,
-    Protoss_Carrier: 79,
-    Protoss_VoidRay: 80,
-    Protoss_WarpPrism: 81,
-    Protoss_Observer: 82,
-    Protoss_Immortal: 83,
-    Protoss_Probe: 84,
-    Protoss_Interceptor: 85,
-    Zerg_Hatchery: 86,
-    Zerg_CreepTumor: 87,
-    Zerg_Extractor: 88,
-    Zerg_SpawningPool: 89,
-    Zerg_EvolutionChamber: 90,
-    Zerg_HydraliskDen: 91,
-    Zerg_Spire: 92,
-    Zerg_UltraliskCavern: 93,
-    Zerg_InfestationPit: 94,
-    Zerg_NydusNetwork: 95,
-    Zerg_BanelingNest: 96,
-    Zerg_RoachWarren: 97,
-    Zerg_SpineCrawler: 98,
-    Zerg_SporeCrawler: 99,
-    Zerg_Lair: 100,
-    Zerg_Hive: 101,
-    Zerg_GreaterSpire: 102,
-    Zerg_Egg: 103,
-    Zerg_Drone: 104,
-    Zerg_Zergling: 105,
-    Zerg_Overlord: 106,
-    Zerg_Hydralisk: 107,
-    Zerg_Mutalisk: 108,
-    Zerg_Ultralisk: 109,
-    Zerg_Roach: 110,
-    Zerg_Infestor: 111,
-    Zerg_Corruptor: 112,
-    Zerg_BroodLordCocoon: 113,
-    Zerg_BroodLord: 114,
-    Zerg_BanelingBurrowed: 115,
-    Zerg_DroneBurrowed: 116,
-    Zerg_HydraliskBurrowed: 117,
-    Zerg_RoachBurrowed: 118,
-    Zerg_ZerglingBurrowed: 119,
-    Zerg_QueenBurrowed: 125,
-    Zerg_Queen: 126,
-    Zerg_InfestorBurrowed: 127,
-    Zerg_OverlordCocoon: 128,
-    Zerg_Overseer: 129,
-    Terran_PlanetaryFortress: 130,
-    Terran_OrbitalCommand: 132,
-    Protoss_WarpGate: 133,
-    Terran_OrbitalCommandFlying: 134,
-    Neutral_ForceField: 135,
-    Protoss_WarpPrismPhasing: 136,
-    Zerg_CreepTumorBurrowed: 137,
-    Zerg_CreepTumorQueen: 138,
-    Zerg_SpineCrawlerUprooted: 139,
-    Zerg_SporeCrawlerUprooted: 140,
-    Protoss_Archon: 141,
-    Zerg_NydusCanal: 142,
-    Neutral_RichMineralField: 146,
-    Neutral_RichMineralField750: 147,
-    Neutral_XelNagaTower: 149,
-    Zerg_InfestedTerransEgg: 150,
-    Zerg_Larva: 151,
-    Terran_MULE: 268,
-    Zerg_Broodling: 289,
-    Protoss_Adept: 311,
-    Neutral_KarakFemale: 324,
-    Neutral_UtilityBot: 330,
-    Neutral_Scantipede: 335,
-    Neutral_MineralField: 341,
-    Neutral_VespeneGeyser: 342,
-    Neutral_SpacePlatformGeyser: 343,
-    Neutral_RichVespeneGeyser: 344,
-    Neutral_DestructibleDebris6x6: 365,
-    Neutral_DestructibleRock6x6: 371,
-    Neutral_DestructibleDebrisRampDiagonalHugeULBR: 376,
-    Neutral_DestructibleDebrisRampDiagonalHugeBLUR: 377,
-    Neutral_UnbuildableBricksDestructible: 473,
-    Neutral_UnbuildablePlatesDestructible: 474,
-    Neutral_MineralField750: 483,
-    Terran_HellionTank: 484,
-    Neutral_CollapsibleTerranTowerDebris: 485,
-    Neutral_DebrisRampLeft: 486,
-    Neutral_DebrisRampRight: 487,
-    Protoss_MothershipCore: 488,
-    Zerg_LocustMP: 489,
-    Neutral_CollapsibleRockTowerDebris: 490,
-    Zerg_SwarmHostBurrowedMP: 493,
-    Zerg_SwarmHostMP: 494,
-    Protoss_Oracle: 495,
-    Protoss_Tempest: 496,
-    Terran_WidowMine: 498,
-    Zerg_Viper: 499,
-    Terran_WidowMineBurrowed: 500,
-    Zerg_LurkerMPEgg: 501,
-    Zerg_LurkerMP: 502,
-    Zerg_LurkerMPBurrowed: 503,
-    Zerg_LurkerDenMP: 504,
-    Neutral_CollapsibleTerranTowerPushUnitRampLeft: 559,
-    Neutral_CollapsibleTerranTowerPushUnitRampRight: 560,
-    Neutral_CollapsibleRockTowerPushUnit: 561,
-    Neutral_CollapsibleTerranTowerPushUnit: 562,
-    Neutral_CollapsibleRockTowerDiagonal: 588,
-    Neutral_CollapsibleTerranTowerDiagonal: 589,
-    Neutral_CollapsibleTerranTowerRampLeft: 590,
-    Neutral_CollapsibleTerranTowerRampRight: 591,
-    Neutral_ProtossVespeneGeyser: 608,
-    Neutral_DestructibleRockEx1DiagonalHugeBLUR: 641,
-    Neutral_LabMineralField: 665,
-    Neutral_LabMineralField750: 666,
-    Zerg_RavagerCocoon: 687,
-    Zerg_Ravager: 688,
-    Terran_Liberator: 689,
-    Terran_ThorAP: 691,
-    Terran_Cyclone: 692,
-    Zerg_LocustMPFlying: 693,
-    Protoss_Disruptor: 694,
-    Protoss_OracleStasisTrap: 732,
-    Protoss_DisruptorPhased: 733,
-    Terran_LiberatorAG: 734,
-    Neutral_PurifierRichMineralField: 796,
-    Neutral_PurifierRichMineralField750: 797,
-    Protoss_AdeptPhaseShift: 801,
-    Zerg_ParasiticBombDummy: 824,
-    Terran_KD8Charge: 830,
-    Neutral_PurifierVespeneGeyser: 880,
-    Neutral_ShakurasVespeneGeyser: 881,
-    Neutral_PurifierMineralField: 884,
-    Neutral_PurifierMineralField750: 885,
-    Neutral_BattleStationMineralField: 886,
-    Neutral_BattleStationMineralField750: 887,
-    Zerg_TransportOverlordCocoon: 892,
-    Zerg_OverlordTransport: 893,
-    Protoss_PylonOvercharged: 894,
-}
+class Terran(enum.IntEnum):
+    Armory = 29
+    AutoTurret = 31
+    Banshee = 55
+    Barracks = 21
+    BarracksFlying = 46
+    BarracksReactor = 38
+    BarracksTechLab = 37
+    Battlecruiser = 57
+    Bunker = 24
+    CommandCenter = 18
+    CommandCenterFlying = 36
+    Cyclone = 692
+    EngineeringBay = 22
+    Factory = 27
+    FactoryFlying = 43
+    FactoryReactor = 40
+    FactoryTechLab = 39
+    FusionCore = 30
+    Ghost = 50
+    GhostAcademy = 26
+    Hellion = 53
+    HellionTank = 484
+    KD8Charge = 830
+    Liberator = 689
+    LiberatorAG = 734
+    MULE = 268
+    Marauder = 51
+    Marine = 48
+    Medivac = 54
+    MissileTurret = 23
+    Nuke = 58
+    OrbitalCommand = 132
+    OrbitalCommandFlying = 134
+    PlanetaryFortress = 130
+    PointDefenseDrone = 11
+    Raven = 56
+    Reactor = 6
+    Reaper = 49
+    Refinery = 20
+    SCV = 45
+    SensorTower = 25
+    SiegeTank = 33
+    SiegeTankSieged = 32
+    Starport = 28
+    StarportFlying = 44
+    StarportReactor = 42
+    StarportTechLab = 41
+    SupplyDepot = 19
+    SupplyDepotLowered = 47
+    TechLab = 5
+    Thor = 52
+    ThorAP = 691
+    VikingAssault = 34
+    VikingFighter = 35
+    WidowMine = 498
+    WidowMineBurrowed = 500
+
+class Zerg(enum.IntEnum):
+    Baneling = 9
+    BanelingBurrowed = 115
+    BanelingCocoon = 8
+    BanelingNest = 96
+    BroodLord = 114
+    BroodLordCocoon = 113
+    Broodling = 289
+    Changeling = 12
+    ChangelingMarine = 15
+    ChangelingMarineShield = 14
+    ChangelingZealot = 13
+    ChangelingZergling = 17
+    ChangelingZerglingWings = 16
+    Corruptor = 112
+    CreepTumor = 87
+    CreepTumorBurrowed = 137
+    CreepTumorQueen = 138
+    Drone = 104
+    DroneBurrowed = 116
+    Egg = 103
+    EvolutionChamber = 90
+    Extractor = 88
+    GreaterSpire = 102
+    Hatchery = 86
+    Hive = 101
+    Hydralisk = 107
+    HydraliskBurrowed = 117
+    HydraliskDen = 91
+    InfestationPit = 94
+    InfestedTerransEgg = 150
+    Infestor = 111
+    InfestorBurrowed = 127
+    InfestorTerran = 7
+    Lair = 100
+    Larva = 151
+    LocustMP = 489
+    LocustMPFlying = 693
+    LurkerDenMP = 504
+    LurkerMP = 502
+    LurkerMPBurrowed = 503
+    LurkerMPEgg = 501
+    Mutalisk = 108
+    NydusCanal = 142
+    NydusNetwork = 95
+    Overlord = 106
+    OverlordCocoon = 128
+    OverlordTransport = 893
+    Overseer = 129
+    ParasiticBombDummy = 824
+    Queen = 126
+    QueenBurrowed = 125
+    Ravager = 688
+    RavagerCocoon = 687
+    Roach = 110
+    RoachBurrowed = 118
+    RoachWarren = 97
+    SpawningPool = 89
+    SpineCrawler = 98
+    SpineCrawlerUprooted = 139
+    Spire = 92
+    SporeCrawler = 99
+    SporeCrawlerUprooted = 140
+    SwarmHostBurrowedMP = 493
+    SwarmHostMP = 494
+    TransportOverlordCocoon = 892
+    Ultralisk = 109
+    UltraliskCavern = 93
+    Viper = 499
+    Zergling = 105
+    ZerglingBurrowed = 119
+
+class Protoss(enum.IntEnum):
+    Adept = 311
+    AdeptPhaseShift = 801
+    Archon = 141
+    Assimilator = 61
+    Carrier = 79
+    Colossus = 4
+    CyberneticsCore = 72
+    DarkShrine = 69
+    DarkTemplar = 76
+    Disruptor = 694
+    DisruptorPhased = 733
+    FleetBeacon = 64
+    Forge = 63
+    Gateway = 62
+    HighTemplar = 75
+    Immortal = 83
+    Interceptor = 85
+    Mothership = 10
+    MothershipCore = 488
+    Nexus = 59
+    Observer = 82
+    Oracle = 495
+    OracleStasisTrap = 732
+    Phoenix = 78
+    PhotonCannon = 66
+    Probe = 84
+    Pylon = 60
+    PylonOvercharged = 894
+    RoboticsBay = 70
+    RoboticsFacility = 71
+    Sentry = 77
+    Stalker = 74
+    Stargate = 67
+    Tempest = 496
+    TemplarArchive = 68
+    TwilightCouncil = 65
+    VoidRay = 80
+    WarpGate = 133
+    WarpPrism = 81
+    WarpPrismPhasing = 136
+    Zealot = 73
+
+class Neutral(enum.IntEnum):
+    BattleStationMineralField = 886
+    BattleStationMineralField750 = 887
+    CollapsibleRockTowerDebris = 490
+    CollapsibleRockTowerDiagonal = 588
+    CollapsibleRockTowerPushUnit = 561
+    CollapsibleTerranTowerDebris = 485
+    CollapsibleTerranTowerDiagonal = 589
+    CollapsibleTerranTowerPushUnit = 562
+    CollapsibleTerranTowerPushUnitRampLeft = 559
+    CollapsibleTerranTowerPushUnitRampRight = 560
+    CollapsibleTerranTowerRampLeft = 590
+    CollapsibleTerranTowerRampRight = 591
+    DebrisRampLeft = 486
+    DebrisRampRight = 487
+    DestructibleDebris6x6 = 365
+    DestructibleDebrisRampDiagonalHugeBLUR = 377
+    DestructibleDebrisRampDiagonalHugeULBR = 376
+    DestructibleRock6x6 = 371
+    DestructibleRockEx1DiagonalHugeBLUR = 641
+    ForceField = 135
+    KarakFemale = 324
+    LabMineralField = 665
+    LabMineralField750 = 666
+    MineralField = 341
+    MineralField750 = 483
+    ProtossVespeneGeyser = 608
+    PurifierMineralField = 884
+    PurifierMineralField750 = 885
+    PurifierRichMineralField = 796
+    PurifierRichMineralField750 = 797
+    PurifierVespeneGeyser = 880
+    RichMineralField = 146
+    RichMineralField750 = 147
+    RichVespeneGeyser = 344
+    Scantipede = 335
+    ShakurasVespeneGeyser = 881
+    SpacePlatformGeyser = 343
+    UnbuildableBricksDestructible = 473
+    UnbuildablePlatesDestructible = 474
+    UtilityBot = 330
+    VespeneGeyser = 342
+    XelNagaTower = 149
 # pylint: enable=line-too-long

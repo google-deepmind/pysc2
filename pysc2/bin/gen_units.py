@@ -54,18 +54,43 @@ def generate_py_units(data):
   def print_unit(un_id, name, race):
     print("    %s_%s: %s," % (race, name, un_id))
   
-  for un_id in six.iterkeys(data.units):
+  terran = []
+  zerg = []
+  protoss = []
+  neutral = []
+  
+  for un_id in sorted(six.iterkeys(data.units), key=lambda a: data.units[a]):
     if un_id in terran_units:
-      print_unit(un_id, data.units[un_id], 'Terran')
+      terran.append(un_id)
       
     if un_id in zerg_units:
-      print_unit(un_id, data.units[un_id], 'Zerg')
+      zerg.append(un_id)
       
     if un_id in protoss_units:
-      print_unit(un_id, data.units[un_id], 'Protoss')
+      protoss.append(un_id)
       
     if un_id in neutral_units:
-      print_unit(un_id, data.units[un_id], 'Neutral')
+      neutral.append(un_id)
+      
+  print("class Terran(enum.IntEnum):")
+  for un_id in terran:
+      print("    %s = %s" % (data.units[un_id], str(un_id)))
+      
+  print()
+  print("class Zerg(enum.IntEnum):")
+  for un_id in zerg:
+      print("    %s = %s" % (data.units[un_id], str(un_id)))
+      
+  print()
+  print("class Protoss(enum.IntEnum):")
+  for un_id in protoss:
+      print("    %s = %s" % (data.units[un_id], str(un_id)))
+      
+  print()
+  print("class Neutral(enum.IntEnum):")
+  for un_id in neutral:
+      print("    %s = %s" % (data.units[un_id], str(un_id)))
+
 
 def main(unused_argv):
   data = get_data()
