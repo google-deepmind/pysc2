@@ -20,6 +20,7 @@ from __future__ import print_function
 import copy
 import os
 import platform
+import sys
 
 from absl import flags
 
@@ -120,6 +121,21 @@ class Windows(LocalBase):
   @classmethod
   def priority(cls):
     if platform.system() == "Windows":
+      return 1
+
+
+class Cygwin(LocalBase):
+  """Run on Cygwin. This runs the windows binary within a cygwin terminal."""
+
+  def __init__(self):
+    super(Cygwin, self).__init__(
+        os.environ.get("SC2PATH",
+                       "/cygdrive/c/Program Files (x86)/StarCraft II"),
+        "SC2_x64.exe", "Support64")
+
+  @classmethod
+  def priority(cls):
+    if sys.platform == "cygwin":
       return 1
 
 
