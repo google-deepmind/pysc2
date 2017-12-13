@@ -30,30 +30,22 @@ from pysc2 import run_configs
 from pysc2.lib import actions
 from pysc2.lib import features
 from pysc2.lib import point
+from pysc2.lib import units
 from pysc2.tests import utils
 
 from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
-# TODO(tewalds): define unit types in static data?
 _EMPTY = 0
-_COMMANDCENTER = 18
-_SUPPLYDEPOT = 19
-_BARRACKS = 21
-_SCV = 45
-_MINERALFIELD = 341
-_GEYSER = 343
-_MINERALFIELD750 = 483
-
 printable_unit_types = {
     _EMPTY: '.',
-    _COMMANDCENTER: 'C',
-    _SUPPLYDEPOT: 'D',
-    _BARRACKS: 'B',
-    _SCV: 's',
-    _MINERALFIELD: 'M',
-    _GEYSER: 'G',
-    _MINERALFIELD750: 'm',
+    units.Neutral.MineralField: 'M',
+    units.Neutral.MineralField750: 'm',
+    units.Neutral.SpacePlatformGeyser: 'G',
+    units.Terran.Barracks: 'B',
+    units.Terran.CommandCenter: 'C',
+    units.Terran.SCV: 's',
+    units.Terran.SupplyDepot: 'D',
 }
 
 
@@ -84,12 +76,12 @@ def avg_point(unit_type, obs):
 
 
 def select_command_center(obs):
-  x, y = avg_point(_COMMANDCENTER, obs)
+  x, y = avg_point(units.Terran.CommandCenter, obs)
   return action_to_function_call('select_point', [[0], [x, y]])
 
 
 def select_scv(obs):
-  x, y = any_point(_SCV, obs)
+  x, y = any_point(units.Terran.SCV, obs)
   return action_to_function_call('select_point', [[1], [x, y]])
 
 
@@ -227,7 +219,7 @@ class ReplayObsTest(utils.TestCase):
         func = config.actions[o.game_loop](obs)
         print(str(func))
         print(_layer_string(unit_type))
-        scv_y, scv_x = (_SCV == unit_type).nonzero()
+        scv_y, scv_x = (units.Terran.SCV == unit_type).nonzero()
         print('scv locations: ', zip(scv_x, scv_y))
 
         # Ensure action is available.
@@ -237,7 +229,8 @@ class ReplayObsTest(utils.TestCase):
         if func.function == actions.FUNCTIONS.select_point.id:
           # Ensure we have selected an SCV or the command center.
           x, y = func.arguments[1]
-          self.assertIn(unit_type[y, x], (_SCV, _COMMANDCENTER))
+          self.assertIn(unit_type[y, x], (units.Terran.SCV,
+                                          units.Terran.CommandCenter))
         elif (func.function in
               (actions.FUNCTIONS.Build_SupplyDepot_screen.id,
                actions.FUNCTIONS.Build_Barracks_screen.id)):
