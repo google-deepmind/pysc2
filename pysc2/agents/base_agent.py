@@ -21,7 +21,10 @@ from pysc2.lib import actions
 
 
 class BaseAgent(object):
-  """A base agent to write custom scripted agents."""
+  """A base agent to write custom scripted agents.
+
+  It can also act as a passive agent that does nothing but no-ops.
+  """
 
   def __init__(self):
     self.reward = 0
@@ -40,4 +43,4 @@ class BaseAgent(object):
   def step(self, obs):
     self.steps += 1
     self.reward += obs.reward
-    return actions.FunctionCall(0, [])
+    return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
