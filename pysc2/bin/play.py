@@ -52,6 +52,7 @@ flags.DEFINE_integer("rgb_screen_size", 256,
                      "Resolution for rendered screen.")
 flags.DEFINE_integer("rgb_minimap_size", 128,
                      "Resolution for rendered minimap.")
+flags.DEFINE_string("video", None, "Path to render a video of observations.")
 
 flags.DEFINE_integer("max_game_steps", 0, "Total game steps to run.")
 flags.DEFINE_integer("max_episode_steps", 0, "Total game steps per episode.")
@@ -163,7 +164,7 @@ def main(unused_argv):
     if FLAGS.render:
       renderer = renderer_human.RendererHuman(
           fps=FLAGS.fps, step_mul=FLAGS.step_mul,
-          render_sync=FLAGS.render_sync)
+          render_sync=FLAGS.render_sync, video=FLAGS.video)
       renderer.run(
           run_config, controller, max_game_steps=FLAGS.max_game_steps,
           game_steps_per_episode=max_episode_steps,

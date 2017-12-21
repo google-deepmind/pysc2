@@ -69,6 +69,7 @@ setup(
         'pygame',
         's2clientprotocol>=3.19.0.58400.0',
         'six',
+        'sk-video',
         'websocket-client',
     ],
     entry_points={

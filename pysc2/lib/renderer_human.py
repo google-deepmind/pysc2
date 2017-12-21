@@ -39,6 +39,7 @@ from pysc2.lib import remote_controller
 from pysc2.lib import stopwatch
 from pysc2.lib import transform
 
+from pysc2.lib import video_writer
 from s2clientprotocol import data_pb2 as sc_data
 from s2clientprotocol import sc2api_pb2 as sc_pb
 from s2clientprotocol import spatial_pb2 as sc_spatial
@@ -205,7 +206,7 @@ class RendererHuman(object):
       ("?", "This help screen"),
   ]
 
-  def __init__(self, fps=22.4, step_mul=1, render_sync=False):
+  def __init__(self, fps=22.4, step_mul=1, render_sync=False, video=None):
     """Create a renderer for use by humans.
 
     Make sure to call `init` with the game info, or just use `run`.
@@ -214,10 +215,11 @@ class RendererHuman(object):
       fps: How fast should the game be run.
       step_mul: How many game steps to take per observation.
       render_sync: Whether to wait for the obs to render before continuing.
+      video: A filename to write the video to. Implicitly enables render_sync.
     """
     self._fps = fps
     self._step_mul = step_mul
-    self._render_sync = render_sync
+    self._render_sync = render_sync or bool(video)
     self._render_rgb = None
     self._window = None
     self._obs_queue = queue.Queue()
@@ -229,6 +231,7 @@ class RendererHuman(object):
     self._last_time = time.time()
     self._last_game_loop = 0
     self._name_lengths = {}
+    self._video_writer = video_writer.VideoWriter(video, fps) if video else None
 
   def close(self):
     if self._obs_queue:
@@ -236,6 +239,9 @@ class RendererHuman(object):
       self._render_thread.join()
       self._obs_queue = None
       self._render_thread = None
+    if self._video_writer:
+      self._video_writer.close()
+      self._video_writer = None
 
   def init(self, game_info, static_data):
     """Take the game info and the static data needed to set up the game.
@@ -1110,6 +1116,9 @@ class RendererHuman(object):
       if obs and self._obs_queue.empty():
         # Only render the latest observation so we keep up with the game.
         self.render_obs(obs)
+      if self._video_writer:
+        self._video_writer.add(np.transpose(
+            pygame.surfarray.pixels3d(self._window), axes=(1, 0, 2)))
       self._obs_queue.task_done()
 
   @with_lock(render_lock)
