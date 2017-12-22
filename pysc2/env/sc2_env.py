@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import collections
 from absl import logging
 
 import enum
@@ -69,23 +70,8 @@ class Difficulty(enum.IntEnum):
 ActionSpace = actions_lib.ActionSpace  # pylint: disable=invalid-name
 
 
-class Agent(object):
-
-  def __init__(self, race):
-    self.race = race
-
-  def __repr__(self):
-    return "Agent(%s)" % (self.race)
-
-
-class Bot(object):
-
-  def __init__(self, race, difficulty):
-    self.race = race
-    self.difficulty = difficulty
-
-  def __repr__(self):
-    return "Bot(%s, %s)" % (self.race, self.difficulty)
+Agent = collections.namedtuple("Agent", ["race"])
+Bot = collections.namedtuple("Bot", ["race", "difficulty"])
 
 
 class SC2Env(environment.Base):
