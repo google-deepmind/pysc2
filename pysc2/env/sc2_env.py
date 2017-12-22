@@ -480,9 +480,10 @@ class SC2Env(environment.Base):
       if (self._save_replay_episodes > 0 and
           self._episode_count % self._save_replay_episodes == 0):
         self.save_replay(self._replay_dir)
-      logging.info(
-          "Episode finished. Outcome: %s, reward: %s, score: %s",
-          outcome, reward, [o["score_cumulative"][0] for o in agent_obs])
+      logging.info(("Episode %s finished after %s game steps. "
+                    "Outcome: %s, reward: %s, score: %s"),
+                   self._episode_count, self._episode_steps, outcome, reward,
+                   [o["score_cumulative"][0] for o in agent_obs])
 
     return tuple(environment.TimeStep(step_type=self._state,
                                       reward=r * self._score_multiplier,
