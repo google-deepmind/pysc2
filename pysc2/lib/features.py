@@ -590,16 +590,15 @@ class Features(object):
     Raises:
       ValueError: if it doesn't know how to transform this action.
     """
-    def func_call(func_id, args):
-      return actions.FunctionCall(func_id, [[int(v) for v in a] for a in args])
+    FUNCTIONS = actions.FUNCTIONS  # pylint: disable=invalid-name
 
-    def func_call_ability(ability_id, cmd_type, args):
+    def func_call_ability(ability_id, cmd_type, *args):
       """Get the function id for a specific ability id and action type."""
       if ability_id not in actions.ABILITY_IDS:
         logging.warning("Unknown ability_id: %s. This is probably dance or "
                         "cheer, or some unknown new or map specific ability. "
                         "Treating it as a no-op.", ability_id)
-        return func_call_name("no_op", [])
+        return FUNCTIONS.no_op()
 
       if self._hide_specific_actions:
         general_id = next(iter(actions.ABILITY_IDS[ability_id])).general_id
@@ -608,52 +607,46 @@ class Features(object):
 
       for func in actions.ABILITY_IDS[ability_id]:
         if func.function_type is cmd_type:
-          return func_call(func.id, args)
+          return FUNCTIONS[func.id](*args)
       raise ValueError("Unknown ability_id: %s, type: %s. Likely a bug." % (
           ability_id, cmd_type.__name__))
-
-    def func_call_name(name, args):
-      return func_call(actions.FUNCTIONS[name].id, args)
 
     if action.HasField("action_ui"):
       act_ui = action.action_ui
       if act_ui.HasField("multi_panel"):
-        return func_call_name("select_unit", [[act_ui.multi_panel.type - 1],
-                                              [act_ui.multi_panel.unit_index]])
+        return FUNCTIONS.select_unit(act_ui.multi_panel.type - 1,
+                                     act_ui.multi_panel.unit_index)
       if act_ui.HasField("control_group"):
-        return func_call_name("select_control_group",
-                              [[act_ui.control_group.action - 1],
-                               [act_ui.control_group.control_group_index]])
+        return FUNCTIONS.select_control_group(
+            act_ui.control_group.action - 1,
+            act_ui.control_group.control_group_index)
       if act_ui.HasField("select_idle_worker"):
-        return func_call_name("select_idle_worker",
-                              [[act_ui.select_idle_worker.type - 1]])
+        return FUNCTIONS.select_idle_worker(act_ui.select_idle_worker.type - 1)
       if act_ui.HasField("select_army"):
-        return func_call_name("select_army",
-                              [[act_ui.select_army.selection_add]])
+        return FUNCTIONS.select_army(act_ui.select_army.selection_add)
       if act_ui.HasField("select_warp_gates"):
-        return func_call_name("select_warp_gates",
-                              [[act_ui.select_warp_gates.selection_add]])
+        return FUNCTIONS.select_warp_gates(
+            act_ui.select_warp_gates.selection_add)
       if act_ui.HasField("select_larva"):
-        return func_call_name("select_larva", [])
+        return FUNCTIONS.select_larva()
       if act_ui.HasField("cargo_panel"):
-        return func_call_name("unload", [[act_ui.cargo_panel.unit_index]])
+        return FUNCTIONS.unload(act_ui.cargo_panel.unit_index)
       if act_ui.HasField("production_panel"):
-        return func_call_name("build_queue",
-                              [[act_ui.production_panel.unit_index]])
+        return FUNCTIONS.build_queue(act_ui.production_panel.unit_index)
       if act_ui.HasField("toggle_autocast"):
         return func_call_ability(act_ui.toggle_autocast.ability_id,
-                                 actions.autocast, [])
+                                 actions.autocast)
 
     if (action.HasField("action_feature_layer") or
         action.HasField("action_render")):
       act_sp = actions.spatial(action, self._action_space)
       if act_sp.HasField("camera_move"):
         coord = point.Point.build(act_sp.camera_move.center_minimap)
-        return func_call_name("move_camera", [coord])
+        return FUNCTIONS.move_camera(coord)
       if act_sp.HasField("unit_selection_point"):
         select_point = act_sp.unit_selection_point
         coord = point.Point.build(select_point.selection_screen_coord)
-        return func_call_name("select_point", [[select_point.type - 1], coord])
+        return FUNCTIONS.select_point(select_point.type - 1, coord)
       if act_sp.HasField("unit_selection_rect"):
         select_rect = act_sp.unit_selection_rect
         if len(select_rect.selection_screen_coord) > 1:
@@ -664,26 +657,25 @@ class Features(object):
                        select_rect.selection_screen_coord)
         tl = point.Point.build(select_rect.selection_screen_coord[0].p0)
         br = point.Point.build(select_rect.selection_screen_coord[0].p1)
-        return func_call_name("select_rect", [[select_rect.selection_add],
-                                              [tl.x, tl.y], [br.x, br.y]])
+        return FUNCTIONS.select_rect(select_rect.selection_add, tl, br)
       if act_sp.HasField("unit_command"):
         cmd = act_sp.unit_command
-        queue = [int(cmd.queue_command)]
+        queue = int(cmd.queue_command)
         if cmd.HasField("target_screen_coord"):
           coord = point.Point.build(cmd.target_screen_coord)
           return func_call_ability(cmd.ability_id, actions.cmd_screen,
-                                   [queue, coord])
+                                   queue, coord)
         elif cmd.HasField("target_minimap_coord"):
           coord = point.Point.build(cmd.target_minimap_coord)
           return func_call_ability(cmd.ability_id, actions.cmd_minimap,
-                                   [queue, coord])
+                                   queue, coord)
         else:
-          return func_call_ability(cmd.ability_id, actions.cmd_quick, [queue])
+          return func_call_ability(cmd.ability_id, actions.cmd_quick, queue)
 
     if action.HasField("action_raw") or action.HasField("action_render"):
       raise ValueError("Unknown action:\n%s" % action)
 
-    return func_call_name("no_op", [])  # No-op
+    return FUNCTIONS.no_op()
 
   def _init_valid_functions(self):
     """Initialize ValidFunctions and set up the callbacks."""

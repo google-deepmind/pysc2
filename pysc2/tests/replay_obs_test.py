@@ -49,14 +49,8 @@ printable_unit_types = {
 }
 
 
-def action_to_function_call(name, args):
-  return actions.FunctionCall(getattr(actions.FUNCTIONS, name).id, args)
-
-
 def identity_function(name, args):
-  def _identity(unused_obs):
-    return action_to_function_call(name, args)
-  return _identity
+  return lambda _: actions.FUNCTIONS[name](*args)
 
 
 def any_point(unit_type, obs):
@@ -64,7 +58,7 @@ def any_point(unit_type, obs):
   y, x = (unit_layer == unit_type).nonzero()
   if not y.any():
     return None, None
-  return x[-1], y[-1]
+  return [x[-1], y[-1]]
 
 
 def avg_point(unit_type, obs):
@@ -76,13 +70,13 @@ def avg_point(unit_type, obs):
 
 
 def select_command_center(obs):
-  x, y = avg_point(units.Terran.CommandCenter, obs)
-  return action_to_function_call('select_point', [[0], [x, y]])
+  return actions.FUNCTIONS.select_point(
+      'select', avg_point(units.Terran.CommandCenter, obs))
 
 
 def select_scv(obs):
-  x, y = any_point(units.Terran.SCV, obs)
-  return action_to_function_call('select_point', [[1], [x, y]])
+  return actions.FUNCTIONS.select_point(
+      'toggle', any_point(units.Terran.SCV, obs))
 
 
 class Config(object):
@@ -113,16 +107,16 @@ class Config(object):
     # need to be dynamically determined.
     self.actions = {
         507: select_scv,
-        963: identity_function('Build_SupplyDepot_screen', [[0], [4, 19]]),
+        963: identity_function('Build_SupplyDepot_screen', ['now', [4, 19]]),
         1152: select_command_center,
-        1320: identity_function('Train_SCV_quick', [[0]]),
-        1350: identity_function('Train_SCV_quick', [[0]]),
-        1393: identity_function('Train_SCV_quick', [[0]]),
-        1437: identity_function('Train_SCV_quick', [[0]]),
-        1564: identity_function('Train_SCV_quick', [[0]]),
-        1602: identity_function('Train_SCV_quick', [[0]]),
+        1320: identity_function('Train_SCV_quick', ['now']),
+        1350: identity_function('Train_SCV_quick', ['now']),
+        1393: identity_function('Train_SCV_quick', ['now']),
+        1437: identity_function('Train_SCV_quick', ['now']),
+        1564: identity_function('Train_SCV_quick', ['now']),
+        1602: identity_function('Train_SCV_quick', ['now']),
         1822: select_scv,
-        2848: identity_function('Build_Barracks_screen', [[0], [22, 22]])
+        2848: identity_function('Build_Barracks_screen', ['now', [22, 22]])
     }
 
 

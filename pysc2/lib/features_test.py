@@ -290,6 +290,10 @@ class FeaturesTest(absltest.TestCase):
     self.assertEqual(observation_spec,
                      pickle.loads(pickle.dumps(observation_spec)))
 
+  def testCanPickleFunctionCall(self):
+    func = actions.FUNCTIONS.select_point("select", [1, 2])
+    self.assertEqual(func, pickle.loads(pickle.dumps(func)))
+
   def testSizeConstructors(self):
     feats = features.Features(feature_screen_size=84, feature_minimap_size=64)
     spec = feats.action_spec()

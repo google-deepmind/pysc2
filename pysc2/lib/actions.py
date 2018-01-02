@@ -151,7 +151,7 @@ def autocast(action, action_space, ability_id):
 
 
 class ArgumentType(collections.namedtuple(
-    "ArgumentType", ["id", "name", "sizes", "fn"])):
+    "ArgumentType", ["id", "name", "sizes", "fn", "values"])):
   """Represents a single argument type.
 
   Attributes:
@@ -160,6 +160,8 @@ class ArgumentType(collections.namedtuple(
     sizes: The max+1 of each of the dimensions this argument takes.
     fn: The function to convert the list of integers into something more
         meaningful to be set in the protos to send to the game.
+    values: An enum representing the values this argument type could hold. None
+        if this isn't an enum argument type.
   """
   __slots__ = ()
 
@@ -169,22 +171,28 @@ class ArgumentType(collections.namedtuple(
   @classmethod
   def enum(cls, options):
     """Create an ArgumentType where you choose one of a set of known values."""
-    return cls(-1, "<none>", (len(options),), lambda a: options[a[0]])
+    names, real = zip(*options)
+    def factory(i, name):
+      values = type(name, (enum.IntEnum,), {n: i for i, n in enumerate(names)})
+      return cls(i, name, (len(real),), lambda a: real[a[0]], values)
+    return factory
 
   @classmethod
   def scalar(cls, value):
     """Create an ArgumentType with a single scalar in range(value)."""
-    return cls(-1, "<none>", (value,), lambda a: a[0])
+    return lambda i, name: cls(i, name, (value,), lambda a: a[0], None)
 
   @classmethod
   def point(cls):  # No range because it's unknown at this time.
     """Create an ArgumentType that is represented by a point.Point."""
-    return cls(-1, "<none>", (0, 0), lambda a: point.Point(*a).floor())
+    def factory(i, name):
+      return cls(i, name, (0, 0), lambda a: point.Point(*a).floor(), None)
+    return factory
 
   @classmethod
   def spec(cls, id_, name, sizes):
     """Create an ArgumentType to be used in ValidActions."""
-    return cls(id_, name, sizes, None)
+    return cls(id_, name, sizes, None, None)
 
 
 class Arguments(collections.namedtuple("Arguments", [
@@ -216,8 +224,8 @@ class Arguments(collections.namedtuple("Arguments", [
   @classmethod
   def types(cls, **kwargs):
     """Create an Arguments of the possible Types."""
-    named = {name: type_._replace(id=Arguments._fields.index(name), name=name)
-             for name, type_ in six.iteritems(kwargs)}
+    named = {name: factory(Arguments._fields.index(name), name)
+             for name, factory in six.iteritems(kwargs)}
     return cls(**named)
 
 
@@ -226,34 +234,40 @@ TYPES = Arguments.types(
     screen=ArgumentType.point(),
     minimap=ArgumentType.point(),
     screen2=ArgumentType.point(),
-    queued=ArgumentType.enum([False, True]),  # (now vs add to queue)
+    queued=ArgumentType.enum([
+        ("now", False),
+        ("queued", True),
+    ]),
     control_group_act=ArgumentType.enum([
-        sc_ui.ActionControlGroup.Recall,
-        sc_ui.ActionControlGroup.Set,
-        sc_ui.ActionControlGroup.Append,
-        sc_ui.ActionControlGroup.SetAndSteal,
-        sc_ui.ActionControlGroup.AppendAndSteal,
+        ("recall", sc_ui.ActionControlGroup.Recall),
+        ("set", sc_ui.ActionControlGroup.Set),
+        ("append", sc_ui.ActionControlGroup.Append),
+        ("set_and_steal", sc_ui.ActionControlGroup.SetAndSteal),
+        ("append_and_steal", sc_ui.ActionControlGroup.AppendAndSteal),
     ]),
     control_group_id=ArgumentType.scalar(10),
     select_point_act=ArgumentType.enum([
-        sc_spatial.ActionSpatialUnitSelectionPoint.Select,
-        sc_spatial.ActionSpatialUnitSelectionPoint.Toggle,
-        sc_spatial.ActionSpatialUnitSelectionPoint.AllType,
-        sc_spatial.ActionSpatialUnitSelectionPoint.AddAllType,
+        ("select", sc_spatial.ActionSpatialUnitSelectionPoint.Select),
+        ("toggle", sc_spatial.ActionSpatialUnitSelectionPoint.Toggle),
+        ("select_all_type", sc_spatial.ActionSpatialUnitSelectionPoint.AllType),
+        ("add_all_type", sc_spatial.ActionSpatialUnitSelectionPoint.AddAllType),
     ]),
-    select_add=ArgumentType.enum([False, True]),  # (select vs select_add)
+    select_add=ArgumentType.enum([
+        ("select", False),
+        ("add", True),
+    ]),
     select_unit_act=ArgumentType.enum([
-        sc_ui.ActionMultiPanel.SingleSelect,
-        sc_ui.ActionMultiPanel.DeselectUnit,
-        sc_ui.ActionMultiPanel.SelectAllOfType,
-        sc_ui.ActionMultiPanel.DeselectAllOfType,
+        ("select", sc_ui.ActionMultiPanel.SingleSelect),
+        ("deselect", sc_ui.ActionMultiPanel.DeselectUnit),
+        ("select_all_type", sc_ui.ActionMultiPanel.SelectAllOfType),
+        ("deselect_all_type", sc_ui.ActionMultiPanel.DeselectAllOfType),
     ]),
     select_unit_id=ArgumentType.scalar(500),  # Depends on current selection.
     select_worker=ArgumentType.enum([
-        sc_ui.ActionSelectIdleWorker.Set,
-        sc_ui.ActionSelectIdleWorker.Add,
-        sc_ui.ActionSelectIdleWorker.All,
-        sc_ui.ActionSelectIdleWorker.AddAll,
+        ("select", sc_ui.ActionSelectIdleWorker.Set),
+        ("add", sc_ui.ActionSelectIdleWorker.Add),
+        ("select_all", sc_ui.ActionSelectIdleWorker.All),
+        ("add_all", sc_ui.ActionSelectIdleWorker.AddAll),
     ]),
     build_queue_id=ArgumentType.scalar(10),  # Depends on current build queue.
     unload_id=ArgumentType.scalar(500),  # Depends on the current loaded units.
@@ -333,6 +347,14 @@ class Function(collections.namedtuple(
   def __str__(self):
     return self.str()
 
+  def __call__(self, *args):
+    """A convenient way to create a FunctionCall from this Function."""
+    return FunctionCall.init_with_validation(self.id, args)
+
+  def __reduce__(self):
+    """Reduce to a picklable value since the id enums aren't pickable."""
+    return (self.__class__, tuple(self._replace(id=int(self.id))))
+
   def str(self, space=False):
     """String version. Set space=True to line them all up nicely."""
     return "%s/%s (%s)" % (str(self.id).rjust(space and 4),
@@ -348,6 +370,13 @@ class Functions(object):
   """
 
   def __init__(self, functions):
+    # Create an IntEnum of the function names/ids so that printing the id will
+    # show something useful.
+    self._func_enum = type("Function", (enum.IntEnum,),
+                           {f.name: f.id for f in functions})
+    for i, f in enumerate(functions):
+      functions[i] = f._replace(id=self._func_enum(f.id))
+
     self._func_list = functions
     self._func_dict = {f.name: f for f in functions}
     if len(self._func_dict) != len(self._func_list):
@@ -371,6 +400,10 @@ class Functions(object):
 
   def __eq__(self, other):
     return self._func_list == other._func_list  # pylint: disable=protected-access
+
+  def __reduce__(self):
+    """Return just the list, which is all that's needed for pickling."""
+    return (self.__class__, (self._func_list,))
 
 
 # pylint: disable=line-too-long
@@ -912,9 +945,9 @@ FUNCTIONS = Functions([
 
 # Some indexes to support features.py and action conversion.
 ABILITY_IDS = collections.defaultdict(set)  # {ability_id: {funcs}}
-for func in FUNCTIONS:
-  if func.ability_id >= 0:
-    ABILITY_IDS[func.ability_id].add(func)
+for _func in FUNCTIONS:
+  if _func.ability_id >= 0:
+    ABILITY_IDS[_func.ability_id].add(_func)
 ABILITY_IDS = {k: frozenset(v) for k, v in six.iteritems(ABILITY_IDS)}
 FUNCTIONS_AVAILABLE = {f.id: f for f in FUNCTIONS if f.avail_fn}
 
@@ -929,6 +962,47 @@ class FunctionCall(collections.namedtuple(
         ints. For select_point this could be: [[0], [23, 38]].
   """
   __slots__ = ()
+
+  @classmethod
+  def init_with_validation(cls, function, arguments):
+    """Return a `FunctionCall` given some validation for the function and args.
+
+    Args:
+      function: A function name or id, to be converted into a function id enum.
+      arguments: An iterable of function arguments. Arguments that are enum
+          types can be passed by name. Arguments that only take one value (ie
+          not a point) don't need to be wrapped in a list.
+
+    Returns:
+      A new `FunctionCall` instance.
+
+    Raises:
+      KeyError: if the enum name doesn't exist.
+      ValueError: if the enum id doesn't exist.
+    """
+    func = FUNCTIONS[function]
+    args = []
+    for arg, arg_type in zip(arguments, func.args):
+      if arg_type.values:  # Allow enum values by name or int.
+        if isinstance(arg, str):
+          try:
+            args.append([arg_type.values[arg]])
+          except KeyError:
+            raise KeyError("Unknown argument value: %s, valid values: %s" % (
+                arg, [v.name for v in arg_type.values]))
+        else:
+          if isinstance(arg, (list, tuple)):
+            arg = arg[0]
+          try:
+            args.append([arg_type.values(arg)])
+          except ValueError:
+            raise ValueError("Unknown argument value: %s, valid values: %s" % (
+                arg, list(arg_type.values)))
+      elif isinstance(arg, int):  # Allow bare ints.
+        args.append([arg])
+      else:  # Allow tuples or iterators.
+        args.append(list(arg))
+    return cls(func.id, args)
 
   @classmethod
   def all_arguments(cls, function, arguments):
@@ -949,6 +1023,11 @@ class FunctionCall(collections.namedtuple(
     elif not isinstance(arguments, Arguments):
       arguments = Arguments(*arguments)
     return cls(function, arguments)
+
+  def __reduce__(self):
+    """Turn the enums into raw ints for pickling."""
+    return (self.__class__, (int(self.function), [[int(a) for a in args]
+                                                  for args in self.arguments]))
 
 
 class ValidActions(collections.namedtuple(
