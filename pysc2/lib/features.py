@@ -26,6 +26,7 @@ import six
 from pysc2.lib import actions
 from pysc2.lib import colors
 from pysc2.lib import point
+from pysc2.lib import static_data
 from pysc2.lib import stopwatch
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
@@ -156,7 +157,8 @@ SCREEN_FEATURES = ScreenFeatures(
                colors.PLAYER_ABSOLUTE_PALETTE, False),
     player_relative=(5, FeatureType.CATEGORICAL,
                      colors.PLAYER_RELATIVE_PALETTE, False),
-    unit_type=(1850, FeatureType.CATEGORICAL, colors.unit_type, False),
+    unit_type=(max(static_data.UNIT_TYPES) + 1, FeatureType.CATEGORICAL,
+               colors.unit_type, False),
     selected=(2, FeatureType.CATEGORICAL, colors.SELECTED_PALETTE, False),
     unit_hit_points=(1600, FeatureType.SCALAR, colors.hot, True),
     unit_hit_points_ratio=(256, FeatureType.SCALAR, colors.hot, False),
