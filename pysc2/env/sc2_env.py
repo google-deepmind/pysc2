@@ -107,6 +107,9 @@ class SC2Env(environment.Base):
           score_cumulative with 0 being the curriculum score. None means use
           the map default.
       score_multiplier: How much to multiply the score by. Useful for negating.
+      remote: Disables launching binary.
+      host: Remote server IP address. Must be used with port.
+      port: Remote server listening port. Must be used with host.
 
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
@@ -144,7 +147,10 @@ class SC2Env(environment.Base):
              replay_dir=None,
              game_steps_per_episode=None,
              score_index=None,
-             score_multiplier=None):
+             score_multiplier=None,
+             port=None,
+             host=None,
+             remote=None):
 
     if save_replay_episodes and not replay_dir:
       raise ValueError("Missing replay_dir")
@@ -171,6 +177,10 @@ class SC2Env(environment.Base):
     self._episode_steps = 0
 
     self._run_config = run_configs.get()
+
+    self._host_info = { 'port': port, 'host': host, 'remote': remote }
+    self._filtered_host = dict(filter(lambda item: item[1] is not None, self._host_info.items()))
+
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
 
     screen_size_px = point.Point(*screen_size_px)
@@ -201,8 +211,7 @@ class SC2Env(environment.Base):
 
   def _launch(self, interface, player_setup):
     agent_race, bot_race, difficulty = player_setup
-
-    self._sc2_procs = [self._run_config.start()]
+    self._sc2_procs = [self._run_config.start(**self._filtered_host)]
     self._controllers = [p.controller for p in self._sc2_procs]
 
     # Create the game.
