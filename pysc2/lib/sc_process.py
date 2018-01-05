@@ -58,19 +58,22 @@ class StarcraftProcess(object):
   """
 
   def __init__(self, run_config, full_screen=False, game_version=None,
-               data_version=None, verbose=False, **kwargs):
+               data_version=None, verbose=False, port=(portpicker.pick_unused_port(), False),
+               host='127.0.0.1', remote=False, **kwargs):
     self._proc = None
     self._sock = None
     self._controller = None
     self._tmp_dir = tempfile.mkdtemp(prefix="sc-", dir=run_config.tmp_dir)
-    self._port = portpicker.pick_unused_port()
+    self._host = host
+    self._port = port
+    self._remote = remote
     exec_path = run_config.exec_path(game_version)
     self._check_exists(exec_path)
 
     args = [
         exec_path,
         "-listen", "127.0.0.1",
-        "-port", str(self._port),
+        "-port", str(self._port[0]),
         "-dataDir", os.path.join(run_config.data_dir, ""),
         "-tempDir", os.path.join(self._tmp_dir, ""),
         "-displayMode", "1" if full_screen else "0",
@@ -80,8 +83,9 @@ class StarcraftProcess(object):
     if data_version:
       args += ["-dataVersion", data_version.upper()]
     try:
-      self._proc = self._launch(run_config, args, **kwargs)
-      self._sock = self._connect(self._port)
+      if not self._remote:
+        self._proc = self._launch(run_config, args, **kwargs)
+      self._sock = self._connect(self._port[0])
       client = protocol.StarcraftProtocol(self._sock)
       self._controller = remote_controller.RemoteController(client)
       with sw("startup"):
@@ -97,8 +101,10 @@ class StarcraftProcess(object):
     self._proc = None
     self._sock = None
     self._controller = None
-    if hasattr(self, "_port") and self._port:
-      portpicker.return_port(self._port)
+    if hasattr(self, "_port") and not self._port[1]:
+      portpicker.return_port(self._port[0])
+      self._port = None
+    elif hasattr(self, "_port") and self._port[1]:
       self._port = None
     if os.path.exists(self._tmp_dir):
       shutil.rmtree(self._tmp_dir)
@@ -148,7 +154,7 @@ class StarcraftProcess(object):
       logging.info("Connection attempt %s (running: %s)", i, is_running)
       time.sleep(1)
       try:
-        return websocket.create_connection("ws://127.0.0.1:%s/sc2api" % port,
+        return websocket.create_connection("ws://%s:%s/sc2api" % (self._host, self._port[0]),
                                            timeout=2 * 60)  # 2 minutes
       except socket.error:
         pass  # SC2 hasn't started listening yet.

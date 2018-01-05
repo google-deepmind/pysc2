@@ -60,8 +60,29 @@ flags.DEFINE_bool("save_replay", True, "Whether to save a replay at the end.")
 flags.DEFINE_string("map", None, "Name of a map to use.")
 flags.mark_flag_as_required("map")
 
+flags.DEFINE_boolean("remote", False, "disables launching binary.")
+flags.DEFINE_string("host", None, "host to remotely connect to.")
+flags.DEFINE_string("port", None, "port to connect.")
+
+@flags.multi_flags_validator(['remote', 'port', 'host'], message="--remote must be used with host and/or port")
+def _CheckRemote(flags_dict):
+  if flags_dict['remote']:
+    if any([flags_dict['host'], flags_dict['port']]):
+      return True
+    else:
+      return False
+  else:
+    return True
 
 def run_thread(agent_cls, map_name, visualize):
+  if any([FLAGS.host, FLAGS.port]):
+    FLAGS.remote = True
+
+  if FLAGS.port:
+        port=(FLAGS.port, True)
+  else:
+        port=None
+
   with sc2_env.SC2Env(
       map_name=map_name,
       agent_race=FLAGS.agent_race,
@@ -71,7 +92,10 @@ def run_thread(agent_cls, map_name, visualize):
       game_steps_per_episode=FLAGS.game_steps_per_episode,
       screen_size_px=(FLAGS.screen_resolution, FLAGS.screen_resolution),
       minimap_size_px=(FLAGS.minimap_resolution, FLAGS.minimap_resolution),
-      visualize=visualize) as env:
+      visualize=visualize,
+      port = port,
+      host=FLAGS.host,
+      remote=FLAGS.remote) as env:
     env = available_actions_printer.AvailableActionsPrinter(env)
     agent = agent_cls()
     run_loop.run_loop([agent], env, FLAGS.max_agent_steps)
