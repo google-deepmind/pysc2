@@ -18,8 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
+from absl import logging
 import os
 import platform
+import subprocess
 import sys
 
 from absl import flags
@@ -178,9 +180,17 @@ class Linux(LocalBase):
 
   def start(self, **kwargs):
     extra_args = kwargs.pop("extra_args", [])
-    extra_args += [
-        # Defaults on Ubuntu. These can be a full paths.
-        "-eglpath", "libEGL.so.1",
-        "-osmesapath", "libOSMesa.so.6",
-    ]
+
+    # Figure out whether the various GL libraries exist since SC2 sometimes
+    # fails if you ask to use a library that doesn't exist.
+    libs = subprocess.check_output(["ldconfig", "-p"])
+    libs = {lib.strip().split()[0] for lib in libs.split("\n") if lib}
+    if "libEGL.so" in libs:
+      extra_args += ["-eglpath", "libEGL.so"]
+    elif "libOSMesa.so.6" in libs:
+      extra_args += ["-osmesapath", "libOSMesa.so.6"]
+    else:
+      logging.info("No GL library found, so RGB rendering will be disabled. "
+                   "For software rendering install libosmesa.")
+
     return super(Linux, self).start(extra_args=extra_args, **kwargs)
