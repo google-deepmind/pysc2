@@ -169,11 +169,12 @@ class ArgumentType(collections.namedtuple(
     return "%s/%s %s" % (self.id, self.name, list(self.sizes))
 
   @classmethod
-  def enum(cls, options):
+  def enum(cls, options, values):
     """Create an ArgumentType where you choose one of a set of known values."""
     names, real = zip(*options)
+    del names  # unused
+
     def factory(i, name):
-      values = type(name, (enum.IntEnum,), {n: i for i, n in enumerate(names)})
       return cls(i, name, (len(real),), lambda a: real[a[0]], values)
     return factory
 
@@ -229,46 +230,89 @@ class Arguments(collections.namedtuple("Arguments", [
     return cls(**named)
 
 
+def _define_enum(name, cls_dict):
+  cls = type(name, (enum.IntEnum,), cls_dict)
+  # Change the __module__ from "enum" to the correct module to support pickle.
+  cls.__module__ = __name__
+  return cls
+
+
+def _define_position_based_enum(name, options):
+  return _define_enum(
+      name, {opt_name: i for i, (opt_name, _) in enumerate(options)})
+
+
+def _define_id_based_enum(name, functions):
+  return _define_enum(name, {f.name: f.id for f in functions})
+
+
+QUEUED_OPTIONS = [
+    ("now", False),
+    ("queued", True),
+]
+Queued = _define_position_based_enum(  # pylint: disable=invalid-name
+    "Queued", QUEUED_OPTIONS)
+
+CONTROL_GROUP_ACT_OPTIONS = [
+    ("recall", sc_ui.ActionControlGroup.Recall),
+    ("set", sc_ui.ActionControlGroup.Set),
+    ("append", sc_ui.ActionControlGroup.Append),
+    ("set_and_steal", sc_ui.ActionControlGroup.SetAndSteal),
+    ("append_and_steal", sc_ui.ActionControlGroup.AppendAndSteal),
+]
+ControlGroupAct = _define_position_based_enum(  # pylint: disable=invalid-name
+    "ControlGroupAct", CONTROL_GROUP_ACT_OPTIONS)
+
+SELECT_POINT_ACT_OPTIONS = [
+    ("select", sc_spatial.ActionSpatialUnitSelectionPoint.Select),
+    ("toggle", sc_spatial.ActionSpatialUnitSelectionPoint.Toggle),
+    ("select_all_type", sc_spatial.ActionSpatialUnitSelectionPoint.AllType),
+    ("add_all_type", sc_spatial.ActionSpatialUnitSelectionPoint.AddAllType),
+]
+SelectPointAct = _define_position_based_enum(  # pylint: disable=invalid-name
+    "SelectPointAct", SELECT_POINT_ACT_OPTIONS)
+
+SELECT_ADD_OPTIONS = [
+    ("select", False),
+    ("add", True),
+]
+SelectAdd = _define_position_based_enum(  # pylint: disable=invalid-name
+    "SelectAdd", SELECT_ADD_OPTIONS)
+
+SELECT_UNIT_ACT_OPTIONS = [
+    ("select", sc_ui.ActionMultiPanel.SingleSelect),
+    ("deselect", sc_ui.ActionMultiPanel.DeselectUnit),
+    ("select_all_type", sc_ui.ActionMultiPanel.SelectAllOfType),
+    ("deselect_all_type", sc_ui.ActionMultiPanel.DeselectAllOfType),
+]
+SelectUnitAct = _define_position_based_enum(  # pylint: disable=invalid-name
+    "SelectUnitAct", SELECT_UNIT_ACT_OPTIONS)
+
+SELECT_WORKER_OPTIONS = [
+    ("select", sc_ui.ActionSelectIdleWorker.Set),
+    ("add", sc_ui.ActionSelectIdleWorker.Add),
+    ("select_all", sc_ui.ActionSelectIdleWorker.All),
+    ("add_all", sc_ui.ActionSelectIdleWorker.AddAll),
+]
+SelectWorker = _define_position_based_enum(  # pylint: disable=invalid-name
+    "SelectWorker", SELECT_WORKER_OPTIONS)
+
+
 # The list of known types.
 TYPES = Arguments.types(
     screen=ArgumentType.point(),
     minimap=ArgumentType.point(),
     screen2=ArgumentType.point(),
-    queued=ArgumentType.enum([
-        ("now", False),
-        ("queued", True),
-    ]),
-    control_group_act=ArgumentType.enum([
-        ("recall", sc_ui.ActionControlGroup.Recall),
-        ("set", sc_ui.ActionControlGroup.Set),
-        ("append", sc_ui.ActionControlGroup.Append),
-        ("set_and_steal", sc_ui.ActionControlGroup.SetAndSteal),
-        ("append_and_steal", sc_ui.ActionControlGroup.AppendAndSteal),
-    ]),
+    queued=ArgumentType.enum(QUEUED_OPTIONS, Queued),
+    control_group_act=ArgumentType.enum(
+        CONTROL_GROUP_ACT_OPTIONS, ControlGroupAct),
     control_group_id=ArgumentType.scalar(10),
-    select_point_act=ArgumentType.enum([
-        ("select", sc_spatial.ActionSpatialUnitSelectionPoint.Select),
-        ("toggle", sc_spatial.ActionSpatialUnitSelectionPoint.Toggle),
-        ("select_all_type", sc_spatial.ActionSpatialUnitSelectionPoint.AllType),
-        ("add_all_type", sc_spatial.ActionSpatialUnitSelectionPoint.AddAllType),
-    ]),
-    select_add=ArgumentType.enum([
-        ("select", False),
-        ("add", True),
-    ]),
-    select_unit_act=ArgumentType.enum([
-        ("select", sc_ui.ActionMultiPanel.SingleSelect),
-        ("deselect", sc_ui.ActionMultiPanel.DeselectUnit),
-        ("select_all_type", sc_ui.ActionMultiPanel.SelectAllOfType),
-        ("deselect_all_type", sc_ui.ActionMultiPanel.DeselectAllOfType),
-    ]),
+    select_point_act=ArgumentType.enum(
+        SELECT_POINT_ACT_OPTIONS, SelectPointAct),
+    select_add=ArgumentType.enum(SELECT_ADD_OPTIONS, SelectAdd),
+    select_unit_act=ArgumentType.enum(SELECT_UNIT_ACT_OPTIONS, SelectUnitAct),
     select_unit_id=ArgumentType.scalar(500),  # Depends on current selection.
-    select_worker=ArgumentType.enum([
-        ("select", sc_ui.ActionSelectIdleWorker.Set),
-        ("add", sc_ui.ActionSelectIdleWorker.Add),
-        ("select_all", sc_ui.ActionSelectIdleWorker.All),
-        ("add_all", sc_ui.ActionSelectIdleWorker.AddAll),
-    ]),
+    select_worker=ArgumentType.enum(SELECT_WORKER_OPTIONS, SelectWorker),
     build_queue_id=ArgumentType.scalar(10),  # Depends on current build queue.
     unload_id=ArgumentType.scalar(500),  # Depends on the current loaded units.
 )
@@ -351,10 +395,6 @@ class Function(collections.namedtuple(
     """A convenient way to create a FunctionCall from this Function."""
     return FunctionCall.init_with_validation(self.id, args)
 
-  def __reduce__(self):
-    """Reduce to a picklable value since the id enums aren't pickable."""
-    return (self.__class__, tuple(self._replace(id=int(self.id))))
-
   def str(self, space=False):
     """String version. Set space=True to line them all up nicely."""
     return "%s/%s (%s)" % (str(self.id).rjust(space and 4),
@@ -371,13 +411,9 @@ class Functions(object):
 
   def __init__(self, functions):
     functions = sorted(functions, key=lambda f: f.id)
-
-    # Create an IntEnum of the function names/ids so that printing the id will
-    # show something useful.
-    self._func_enum = type("Function", (enum.IntEnum,),
-                           {f.name: f.id for f in functions})
-    for i, f in enumerate(functions):
-      functions[i] = f._replace(id=self._func_enum(f.id))
+    # Convert each int id to the equivalent IntEnum.
+    functions = [f._replace(id=_Functions(f.id))
+                 for f in functions]
 
     self._func_list = functions
     self._func_dict = {f.name: f for f in functions}
@@ -403,13 +439,9 @@ class Functions(object):
   def __eq__(self, other):
     return self._func_list == other._func_list  # pylint: disable=protected-access
 
-  def __reduce__(self):
-    """Return just the list, which is all that's needed for pickling."""
-    return (self.__class__, (self._func_list,))
-
 
 # pylint: disable=line-too-long
-FUNCTIONS = Functions([
+_FUNCTIONS = [
     Function.ui_func(0, "no_op", no_op),
     Function.ui_func(1, "move_camera", move_camera),
     Function.ui_func(2, "select_point", select_point),
@@ -959,8 +991,15 @@ FUNCTIONS = Functions([
     Function.ability(521, "UnloadAllAt_Overlord_minimap", cmd_minimap, 1408, 3669),
     Function.ability(522, "UnloadAllAt_WarpPrism_screen", cmd_screen, 913, 3669),
     Function.ability(523, "UnloadAllAt_WarpPrism_minimap", cmd_minimap, 913, 3669),
-])
+]
 # pylint: enable=line-too-long
+
+
+# Create an IntEnum of the function names/ids so that printing the id will
+# show something useful.
+_Functions = _define_id_based_enum(  # pylint: disable=invalid-name
+    "_Functions", _FUNCTIONS)
+FUNCTIONS = Functions(_FUNCTIONS)
 
 # Some indexes to support features.py and action conversion.
 ABILITY_IDS = collections.defaultdict(set)  # {ability_id: {funcs}}
@@ -1042,11 +1081,6 @@ class FunctionCall(collections.namedtuple(
     elif not isinstance(arguments, Arguments):
       arguments = Arguments(*arguments)
     return cls(function, arguments)
-
-  def __reduce__(self):
-    """Turn the enums into raw ints for pickling."""
-    return (self.__class__, (int(self.function), [[int(a) for a in args]
-                                                  for args in self.arguments]))
 
 
 class ValidActions(collections.namedtuple(

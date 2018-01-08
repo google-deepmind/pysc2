@@ -18,6 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import copy
 import pickle
 
 from absl.testing import absltest
@@ -293,6 +294,13 @@ class FeaturesTest(absltest.TestCase):
   def testCanPickleFunctionCall(self):
     func = actions.FUNCTIONS.select_point("select", [1, 2])
     self.assertEqual(func, pickle.loads(pickle.dumps(func)))
+
+  def testCanDeepcopyNumpyFunctionCall(self):
+    arguments = [numpy.float32] * len(actions.Arguments._fields)
+    dtypes = actions.FunctionCall(
+        function=numpy.float32,
+        arguments=actions.Arguments(*arguments))
+    self.assertEqual(dtypes, copy.deepcopy(dtypes))
 
   def testSizeConstructors(self):
     feats = features.Features(feature_screen_size=84, feature_minimap_size=64)
