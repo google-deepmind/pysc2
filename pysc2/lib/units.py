@@ -175,6 +175,7 @@ class Zerg(enum.IntEnum):
   BroodLord = 114
   BroodLordCocoon = 113
   Broodling = 289
+  BroodlingEscort = 143
   Changeling = 12
   ChangelingMarine = 15
   ChangelingMarineShield = 14
@@ -198,6 +199,7 @@ class Zerg(enum.IntEnum):
   HydraliskDen = 91
   InfestationPit = 94
   InfestedTerran = 7
+  InfestedTerranBurrowed = 120
   InfestedTerranCocoon = 150
   Infestor = 111
   InfestorBurrowed = 127
@@ -221,6 +223,7 @@ class Zerg(enum.IntEnum):
   Queen = 126
   QueenBurrowed = 125
   Ravager = 688
+  RavagerBurrowed = 690
   RavagerCocoon = 687
   Roach = 110
   RoachBurrowed = 118
@@ -234,6 +237,7 @@ class Zerg(enum.IntEnum):
   SwarmHost = 494
   SwarmHostBurrowed = 493
   Ultralisk = 109
+  UltraliskBurrowed = 131
   UltraliskCavern = 93
   Viper = 499
   Zergling = 105
