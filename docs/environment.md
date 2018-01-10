@@ -93,10 +93,10 @@ precision.
 To at least resemble playing fairly it is a good idea to artificially limit the
 APM. The easy way is to limit how often the agent gets observations and can make
 an action, and limit it to one action per observation. For example you can do
-this by only taking every Nth observation, where N is up for debate. A value of
-20 is roughly equal to 50 apm while 5 is roughly 200 apm, so that's a reasonable
-range to play with. A more sophisticated way is to give the agent every
-observation but limit the number of actions that actually have an effect,
+this by only taking every `N`th observation, where `N` is up for debate. A value
+of 20 is roughly equal to 50 apm while 5 is roughly 200 apm, so that's a
+reasonable range to play with. A more sophisticated way is to give the agent
+every observation but limit the number of actions that actually have an effect,
 forcing it to mainly make no-ops which wouldn't count as actions.
 
 It's probably better to consider all actions as equivalent, including camera
@@ -157,7 +157,7 @@ passing a screen coordinate to an action:
 
     # Actions expect x-coordinate first:
     target = [int(x.mean()), int(y.mean())]
-    action = actions.FunctionCall(_MOVE_SCREEN, [_NOT_QUEUED, target])
+    action = actions.FunctionCall.Move_screen("now", target)
 ```
 
 ### Observation
@@ -176,7 +176,7 @@ like the command card, selection box, build queue, etc. They are exposed as
 
 The game also exposes feature layers. They represent roughly the same
 information as RGB pixels except that the information is decomposed and
-structured. There are ~20 feature layers broken down between the screen and
+structured. There are ~25 feature layers broken down between the screen and
 minimap and exposed as `feature_screen` and `feature_minimap`.
 
 The full list is defined in `pysc2.lib.features`.
@@ -234,7 +234,7 @@ These are the screen feature layers:
 *   **player_relative**: Which units are friendly vs hostile. Takes values in
     [0, 4], denoting [background, self, ally, neutral, enemy] units
     respectively.
-*   **unit_type**: A unit type id
+*   **unit_type**: A unit type id, which can be looked up in pysc2/lib/units.py.
 *   **selected**: Which units are selected.
 *   **hit_points**: How many hit points the unit has.
 *   **energy**: How much energy the unit has.
@@ -330,8 +330,8 @@ Instead, we created function actions that are rich enough to give
 composability, without the complexity of an arbitrary hierarchy. This is based
 on the mental model of a C-style function call which can take some arguments of
 specific types. The full set of valid types and functions are defined in
-`ValidActions` in `pysc2.lib.actions`, and then each observation specifies which of
-the available function is valid this frame. Each action is a single
+`ValidActions` in `pysc2.lib.actions`, and then each observation specifies which
+of the available function is valid this frame. Each action is a single
 `FunctionCall` in `pysc2.lib.actions` with all its arguments filled.
 
 The full set of types and functions are defined in `pysc2.lib.actions`.
@@ -405,12 +405,12 @@ Some examples:
     84)` which represent a pixel on the screen.
 
 The function names should be unique, stable and meaningful. The function and
-type ids are the index into the list of `function_defs` and `types`.
+type ids are the index into the list of `functions` and `types`.
 
 The `types` are a predefined list of argument types that can be used in a
 function call. The exact definitions are in `pysc2.lib.actions.TYPES`
 
-Some actions are general. This is visible in actions.py through an extra param
+Some actions are general. This is visible in `actions.py` through an extra param
 at function construction. It's often exposed in the name as longer versions
 being the specific versions. Above you see `Attack_screen` (general),
 `Attack_Attack_screen` and `Scan_Move_screen` (specific). For now only
@@ -420,7 +420,7 @@ A `Morph` action transform a unit to a different unit, at least according to the
 unit_type in the observation. For example `Morph_Lair_quick` morphs a hatchery
 to a lair. `Morph_SiegeMode_quick` and `Morph_Unsiege_quick` morphs a siege tank
 between tank and siege mode. An `Effect` is a single effect, rarely cancelable.
-A `Behavior` can be turned on and off.
+A `Behavior` can be turned on and off but doesn't change the unit type.
 
 Take a look at the `random_agent` for an example of how to consume
 `ValidActions` and fill `FunctionCall`s.
@@ -443,11 +443,21 @@ observation space defined in `pysc2.lib.features`.
 The most important argument is `map_name`, which is how to find the map.
 Find the names by using `pysc2.bin.map_list` or by looking in `pysc2/maps/*.py`.
 
+`players` lets your specify the number and type of players. At the moment only
+one or two players are supported. Give it a list of `sc2_env.Agent` or
+`sc2_env.Bot` objects, specifying the race and difficulty. Specifying two agents
+will start up two instances of SC2 which communicate between themselves, and
+consume double the memory and cpu as playing single player.
+
 `feature_screen_size`, `feature_minimap_size`, `rgb_screen_size`,
 `rgb_minimap_size`, and the `_width` and `_height` variants let you specify the
 resolution of the spatial observations. Higher resolution obviously gives higher
 location precision, at the cost of larger observations as well as a larger
-action space.
+action space, and slower rendering time.
+
+If you ask for both feature and rgb observations you'll need to specify the
+action space that you want to use. This lets you act in one while learning from
+the other.
 
 `step_mul` let's you skip observations and actions. For example a `step_mul` of
 16 means that the environment gets stepped forward 16 times in between the
@@ -458,8 +468,6 @@ frames.
 
 `save_replay_episodes` and `replay_dir` specify how often to save replays and
 where to save them.
-
-Currently there is no multiplayer support.
 
 Use the `run_loop.py` to have your agent interact with the environment.
 

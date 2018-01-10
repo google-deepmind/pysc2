@@ -59,8 +59,10 @@ $ pip install pysc2
 ```
 
 That will install the `pysc2` package along with all the required dependencies.
-If you're running on an older system you may need to install `libsdl` libraries
-for the `pygame` dependency.
+[virtualenv](https://pypi.python.org/pypi/virtualenv) can help manage your
+dependencies. You may also need to upgrade pip: `pip install --upgrade pip`
+for the `pysc2` install to work. If you're running on an older system you may
+need to install `libsdl` libraries for the `pygame` dependency.
 
 Pip will install a few of the  binaries to your bin directory. `pysc2_play` can
 be used as a shortcut to `python -m pysc2.bin.play`.
@@ -92,7 +94,7 @@ environment variable or creating your own run_config.
 Install of the game as normal from [Battle.net](https://battle.net). Even the
 [Starter Edition](http://battle.net/sc2/en/legacy-of-the-void/) will work.
 If you used the default install location PySC2 should find the latest binary.
-If you changed the install location, you'll need to set the `SC2PATH`
+If you changed the install location, you might need to set the `SC2PATH`
 environment variable with the correct location.
 
 PySC2 should work on MacOS and Windows systems running Python 2.7+ or 3.4+,
@@ -124,6 +126,12 @@ including your own.
 $ python -m pysc2.bin.agent --map CollectMineralShards --agent pysc2.agents.scripted_agent.CollectMineralShards
 ```
 
+You can also run two agents against each other.
+
+```shell
+$ python -m pysc2.bin.agent --map Simple64 --agent2 pysc2.agents.random_agent.RandomAgent
+```
+
 To specify the agent's race, the opponent's difficulty, and more, you can pass
 additional flags. Run with `--help` to see what you can change.
 
@@ -142,14 +150,15 @@ quit, `F5` to restart, `F9` to save a replay, and `Pgup`/`Pgdn` to control the
 speed of the game. Otherwise use the mouse for selection and keyboard for
 commands listed on the left.
 
-The left side is a basic rendering (which will likely be replaced by a proper
-rendering some day). The right side is the feature layers that the agent
-receives, with some coloring to make it more useful to us.
+The left side is a basic rendering. The right side is the feature layers that
+the agent receives, with some coloring to make it more useful to us. You can
+enable or disable RGB or feature layer rendering and their resolutions with
+command-line flags.
 
 ## Watch a replay
 
-Running the random agent and playing as a human save a replay by default. You
-can watch that replay by running:
+Running an agent and playing as a human save a replay by default. You can watch
+that replay by running:
 
 ```shell
 $ python -m pysc2.bin.play --replay <path-to-replay>
@@ -159,6 +168,8 @@ This works for any replay as long as the map can be found by the game.
 
 The same controls work as for playing the game, so `F4` to exit, `pgup`/`pgdn`
 to control the speed, etc.
+
+You can save a video of the replay with the `--video` flag.
 
 ## List the maps
 
@@ -171,8 +182,9 @@ $ python -m pysc2.bin.map_list
 
 # Environment Details
 
-A full description of the specifics of how the environment is configured, the
-observations and action spaces work is available [here](docs/environment.md).
+For a full description of the specifics of how the environment is configured,
+the observations and action spaces work read the
+[environment documentation](docs/environment.md).
 
 # Mini-game maps
 
@@ -183,7 +195,7 @@ instructions above.
 Maps are configured in the Python files in `pysc2/maps/`. The configs can set
 player and time limits, whether to use the game outcome or curriculum score, and
 a handful of other things. For more information about the maps, and how to
-configure your own, take a look [here](docs/maps.md).
+configure your own, read the [maps documentation](docs/maps.md).
 
 # Replays
 
@@ -201,7 +213,8 @@ from what the human actually saw. Similarly the actions specify a point, which
 could reflect a different pixel on the human's screen, so may not have an exact
 match in our observations, though they should be fairly similar.
 
-Replays are version dependent, so a 3.15 replay will fail in a 3.16 binary.
+Replays are version dependent, so a 3.16 replay will fail in a 3.16.1 or 3.17
+binary.
 
 You can visualize the replays with the full game, or with `pysc2.bin.play`.
 Alternatively you can run `pysc2.bin.replay_actions` to process many replays
