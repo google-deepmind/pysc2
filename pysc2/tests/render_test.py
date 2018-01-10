@@ -65,7 +65,7 @@ class TestRender(utils.TestCase):
       game_info = controller.game_info()
 
       # Can fail if rendering is disabled.
-      self.assertEquals(interface, game_info.options)
+      self.assertEqual(interface, game_info.options)
 
       for _ in range(50):
         controller.step(8)
@@ -78,12 +78,12 @@ class TestRender(utils.TestCase):
         fl_minimap = np.stack(f.unpack(obs) for f in features.MINIMAP_FEATURES)
 
         # Right shapes.
-        self.assertEquals(rgb_screen.shape, (256, 256, 3))
-        self.assertEquals(rgb_minimap.shape, (128, 128, 3))
-        self.assertEquals(fl_screen.shape,
-                          (len(features.SCREEN_FEATURES), 84, 84))
-        self.assertEquals(fl_minimap.shape,
-                          (len(features.MINIMAP_FEATURES), 64, 64))
+        self.assertEqual(rgb_screen.shape, (256, 256, 3))
+        self.assertEqual(rgb_minimap.shape, (128, 128, 3))
+        self.assertEqual(fl_screen.shape,
+                         (len(features.SCREEN_FEATURES), 84, 84))
+        self.assertEqual(fl_minimap.shape,
+                         (len(features.MINIMAP_FEATURES), 64, 64))
 
         # Not all black.
         self.assertTrue(rgb_screen.any())
