@@ -39,6 +39,40 @@ class FeatureType(enum.Enum):
   CATEGORICAL = 2
 
 
+class PlayerRelative(enum.IntEnum):
+  """The values for the `player_relative` feature layers."""
+  NONE = 0
+  SELF = 1
+  ALLY = 2
+  NEUTRAL = 3
+  ENEMY = 4
+
+
+class Visibility(enum.IntEnum):
+  """Values for the `visibility` feature layers."""
+  HIDDEN = 0
+  SEEN = 1
+  VISIBLE = 2
+
+
+class Effects(enum.IntEnum):
+  """Values for the `effects` feature layer."""
+  # pylint: disable=invalid-name
+  PsiStorm = 1
+  GuardianShield = 2
+  TemporalFieldGrowing = 3
+  TemporalField = 4
+  ThermalLance = 5
+  ScannerSweep = 6
+  NukeDot = 7
+  LiberatorDefenderZoneSetup = 8
+  LiberatorDefenderZone = 9
+  BlindingCloud = 10
+  CorrosiveBile = 11
+  LurkerSpines = 12
+  # pylint: enable=invalid-name
+
+
 class Feature(collections.namedtuple(
     "Feature", ["index", "name", "layer_set", "full_name", "scale", "type",
                 "palette", "clip"])):

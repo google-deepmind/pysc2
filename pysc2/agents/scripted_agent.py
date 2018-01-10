@@ -24,9 +24,9 @@ from pysc2.lib import actions
 from pysc2.lib import features
 
 _PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
-_PLAYER_FRIENDLY = 1
-_PLAYER_NEUTRAL = 3  # beacon/minerals
-_PLAYER_HOSTILE = 4
+_PLAYER_SELF = features.PlayerRelative.SELF
+_PLAYER_NEUTRAL = features.PlayerRelative.NEUTRAL  # beacon/minerals
+_PLAYER_ENEMY = features.PlayerRelative.ENEMY
 
 FUNCTIONS = actions.FUNCTIONS
 
@@ -55,7 +55,7 @@ class CollectMineralShards(base_agent.BaseAgent):
     if FUNCTIONS.Move_screen.id in obs.observation["available_actions"]:
       player_relative = obs.observation["feature_screen"][_PLAYER_RELATIVE]
       neutral_y, neutral_x = (player_relative == _PLAYER_NEUTRAL).nonzero()
-      player_y, player_x = (player_relative == _PLAYER_FRIENDLY).nonzero()
+      player_y, player_x = (player_relative == _PLAYER_SELF).nonzero()
       if not neutral_y.any() or not player_y.any():
         return FUNCTIONS.no_op()
       player = [int(player_x.mean()), int(player_y.mean())]
@@ -76,7 +76,7 @@ class DefeatRoaches(base_agent.BaseAgent):
     super(DefeatRoaches, self).step(obs)
     if FUNCTIONS.Attack_screen.id in obs.observation["available_actions"]:
       player_relative = obs.observation["feature_screen"][_PLAYER_RELATIVE]
-      roach_y, roach_x = (player_relative == _PLAYER_HOSTILE).nonzero()
+      roach_y, roach_x = (player_relative == _PLAYER_ENEMY).nonzero()
       if not roach_y.any():
         return FUNCTIONS.no_op()
       index = numpy.argmax(roach_y)
