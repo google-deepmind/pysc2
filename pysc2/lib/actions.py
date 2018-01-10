@@ -230,20 +230,9 @@ class Arguments(collections.namedtuple("Arguments", [
     return cls(**named)
 
 
-def _define_enum(name, cls_dict):
-  cls = type(name, (enum.IntEnum,), cls_dict)
-  # Change the __module__ from "enum" to the correct module to support pickle.
-  cls.__module__ = __name__
-  return cls
-
-
 def _define_position_based_enum(name, options):
-  return _define_enum(
+  return enum.IntEnum(
       name, {opt_name: i for i, (opt_name, _) in enumerate(options)})
-
-
-def _define_id_based_enum(name, functions):
-  return _define_enum(name, {f.name: f.id for f in functions})
 
 
 QUEUED_OPTIONS = [
@@ -397,7 +386,7 @@ class Function(collections.namedtuple(
 
   def str(self, space=False):
     """String version. Set space=True to line them all up nicely."""
-    return "%s/%s (%s)" % (str(self.id).rjust(space and 4),
+    return "%s/%s (%s)" % (str(int(self.id)).rjust(space and 4),
                            self.name.ljust(space and 50),
                            "; ".join(str(a) for a in self.args))
 
@@ -997,8 +986,8 @@ _FUNCTIONS = [
 
 # Create an IntEnum of the function names/ids so that printing the id will
 # show something useful.
-_Functions = _define_id_based_enum(  # pylint: disable=invalid-name
-    "_Functions", _FUNCTIONS)
+_Functions = enum.IntEnum(  # pylint: disable=invalid-name
+    "_Functions", {f.name: f.id for f in _FUNCTIONS})
 FUNCTIONS = Functions(_FUNCTIONS)
 
 # Some indexes to support features.py and action conversion.

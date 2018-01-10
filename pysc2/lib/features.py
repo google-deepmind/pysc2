@@ -77,7 +77,7 @@ class Feature(collections.namedtuple(
     if size == (0, 0):
       # New layer that isn't implemented in this SC2 version.
       return None
-    data = np.fromstring(plane.data, dtype=Feature.dtypes[plane.bits_per_pixel])
+    data = np.frombuffer(plane.data, dtype=Feature.dtypes[plane.bits_per_pixel])
     if plane.bits_per_pixel == 1:
       data = np.unpackbits(data)
       if data.shape[0] != size.x * size.y:

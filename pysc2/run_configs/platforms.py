@@ -183,7 +183,7 @@ class Linux(LocalBase):
 
     # Figure out whether the various GL libraries exist since SC2 sometimes
     # fails if you ask to use a library that doesn't exist.
-    libs = subprocess.check_output(["ldconfig", "-p"])
+    libs = subprocess.check_output(["ldconfig", "-p"]).decode()
     libs = {lib.strip().split()[0] for lib in libs.split("\n") if lib}
     if "libEGL.so" in libs:
       extra_args += ["-eglpath", "libEGL.so"]

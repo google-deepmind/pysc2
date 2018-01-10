@@ -214,7 +214,7 @@ class ReplayObsTest(utils.TestCase):
         print(str(func))
         print(_layer_string(unit_type))
         scv_y, scv_x = (units.Terran.SCV == unit_type).nonzero()
-        print('scv locations: ', zip(scv_x, scv_y))
+        print('scv locations: ', list(zip(scv_x, scv_y)))
 
         # Ensure action is available.
         # If a build action is available, we have managed to target an SCV.
