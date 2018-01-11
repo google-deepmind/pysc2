@@ -107,6 +107,7 @@ class SC2Env(environment.Base):
           score_cumulative with 0 being the curriculum score. None means use
           the map default.
       score_multiplier: How much to multiply the score by. Useful for negating.
+      raw_features: Whether to include raw unit data in observations
 
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
@@ -144,8 +145,8 @@ class SC2Env(environment.Base):
              replay_dir=None,
              game_steps_per_episode=None,
              score_index=None,
-             score_multiplier=None):
-
+             score_multiplier=None,
+             raw_features=False):
     if save_replay_episodes and not replay_dir:
       raise ValueError("Missing replay_dir")
 
@@ -176,7 +177,8 @@ class SC2Env(environment.Base):
     screen_size_px = point.Point(*screen_size_px)
     minimap_size_px = point.Point(*minimap_size_px)
     interface = sc_pb.InterfaceOptions(
-        raw=True, score=True,
+        raw=(visualize or raw_features),
+        score=True,
         feature_layer=sc_pb.SpatialCameraSetup(
             width=camera_width_world_units or 24))
     screen_size_px.assign_to(interface.feature_layer.resolution)
