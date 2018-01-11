@@ -47,6 +47,7 @@ flags.DEFINE_integer("screen_resolution", 84,
                      "Resolution for screen feature layers.")
 flags.DEFINE_integer("minimap_resolution", 64,
                      "Resolution for minimap feature layers.")
+flags.DEFINE_bool("raw_features", False, "Whether to include raw features.")
 
 flags.DEFINE_integer("max_game_steps", 0, "Total game steps to run.")
 flags.DEFINE_integer("max_episode_steps", 0, "Total game steps per episode.")
@@ -96,7 +97,7 @@ def main(unused_argv):
   run_config = run_configs.get()
 
   interface = sc_pb.InterfaceOptions()
-  interface.raw = FLAGS.render
+  interface.raw = (FLAGS.render or FLAGS.raw_features)
   interface.score = True
   interface.feature_layer.width = 24
   interface.feature_layer.resolution.x = FLAGS.screen_resolution
