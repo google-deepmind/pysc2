@@ -147,6 +147,7 @@ class SC2Env(environment.Base):
              score_index=None,
              score_multiplier=None,
              raw_features=False):
+
     if save_replay_episodes and not replay_dir:
       raise ValueError("Missing replay_dir")
 
