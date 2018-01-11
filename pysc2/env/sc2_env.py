@@ -176,7 +176,7 @@ class SC2Env(environment.Base):
     screen_size_px = point.Point(*screen_size_px)
     minimap_size_px = point.Point(*minimap_size_px)
     interface = sc_pb.InterfaceOptions(
-        raw=visualize, score=True,
+        raw=True, score=True,
         feature_layer=sc_pb.SpatialCameraSetup(
             width=camera_width_world_units or 24))
     screen_size_px.assign_to(interface.feature_layer.resolution)
