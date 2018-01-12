@@ -41,7 +41,7 @@ class MoveToBeacon(base_agent.BaseAgent):
       neutral_y, neutral_x = (player_relative == _PLAYER_NEUTRAL).nonzero()
       if not neutral_y.any():
         return FUNCTIONS.no_op()
-      target = [int(neutral_x.mean()), int(neutral_y.mean())]
+      target = [round(neutral_x.mean()), round(neutral_y.mean())]
       return FUNCTIONS.Move_screen("now", target)
     else:
       return FUNCTIONS.select_army("select")
@@ -58,7 +58,7 @@ class CollectMineralShards(base_agent.BaseAgent):
       player_y, player_x = (player_relative == _PLAYER_SELF).nonzero()
       if not neutral_y.any() or not player_y.any():
         return FUNCTIONS.no_op()
-      player = [int(player_x.mean()), int(player_y.mean())]
+      player = [round(player_x.mean()), round(player_y.mean())]
       closest, min_dist = None, None
       for p in zip(neutral_x, neutral_y):
         dist = numpy.linalg.norm(numpy.array(player) - numpy.array(p))
