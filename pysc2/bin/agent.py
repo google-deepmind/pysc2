@@ -43,7 +43,8 @@ flags.DEFINE_integer("rgb_screen_size", None,
 flags.DEFINE_integer("rgb_minimap_size", None,
                      "Resolution for rendered minimap.")
 flags.DEFINE_enum("action_space", None, sc2_env.ActionSpace._member_names_,  # pylint: disable=protected-access
-                  "Resolution for rendered minimap.")
+                  "Which action space to use. Needed if you take both feature "
+                  "and rgb observations.")
 
 flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
 flags.DEFINE_integer("game_steps_per_episode", 0, "Game steps per episode.")
