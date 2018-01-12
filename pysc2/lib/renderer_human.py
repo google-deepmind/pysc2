@@ -979,7 +979,7 @@ class RendererHuman(object):
     hmap_feature = features.SCREEN_FEATURES.height_map
     hmap = hmap_feature.unpack(self._obs.observation)
     if not hmap.any():
-      hmap += 100
+      hmap = hmap + 100  # pylint: disable=g-no-augmented-assignment
     hmap_color = hmap_feature.color(hmap)
 
     creep_feature = features.SCREEN_FEATURES.creep
@@ -1017,7 +1017,7 @@ class RendererHuman(object):
       hmap_feature = features.MINIMAP_FEATURES.height_map
       hmap = hmap_feature.unpack(self._obs.observation)
       if not hmap.any():
-        hmap += 100
+        hmap = hmap + 100  # pylint: disable=g-no-augmented-assignment
       hmap_color = hmap_feature.color(hmap)
 
       creep_feature = features.MINIMAP_FEATURES.creep
