@@ -53,6 +53,7 @@ flags.DEFINE_integer("rgb_screen_size", 256,
 flags.DEFINE_integer("rgb_minimap_size", 128,
                      "Resolution for rendered minimap.")
 flags.DEFINE_string("video", None, "Path to render a video of observations.")
+flags.DEFINE_bool("feature_units", False, "Whether to include feature units.")
 
 flags.DEFINE_integer("max_game_steps", 0, "Total game steps to run.")
 flags.DEFINE_integer("max_episode_steps", 0, "Total game steps per episode.")
@@ -104,7 +105,7 @@ def main(unused_argv):
   run_config = run_configs.get()
 
   interface = sc_pb.InterfaceOptions()
-  interface.raw = FLAGS.render
+  interface.raw = (FLAGS.render or FLAGS.feature_units)
   interface.score = True
   interface.feature_layer.width = 24
   interface.feature_layer.resolution.x = FLAGS.feature_screen_size
