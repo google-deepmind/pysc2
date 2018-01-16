@@ -197,7 +197,8 @@ class SC2Env(environment.Base):
 
     for p in players:
       if not isinstance(p, (Agent, Bot)):
-        raise ValueError("Expected players to be of type Agent or Bot.")
+        raise ValueError(
+            "Expected players to be of type Agent or Bot. Got: %s." % p)
 
     self._num_players = sum(1 for p in players if isinstance(p, Agent))
     self._players = players
