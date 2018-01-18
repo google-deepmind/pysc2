@@ -482,10 +482,6 @@ class SC2Env(environment.Base):
         self._controllers[0].save_replay(), replay_dir, self._map.name)
     logging.info("Wrote replay to: %s", replay_path)
 
-  @property
-  def state(self):
-    return self._state
-
   def close(self):
     logging.info("Environment Close")
     if hasattr(self, "_renderer_human") and self._renderer_human:
