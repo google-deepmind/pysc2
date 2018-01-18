@@ -284,6 +284,10 @@ class SC2Env(environment.Base):
           "Requested:\n%s\n\nActual:\n%s", game_info.options, interface)
 
     self._features = features.Features(game_info=game_info,
+                                       map_size=game_info.start_raw.map_size,
+                                       camera_width_world_units=(
+                                           camera_width_world_units or
+                                           game_info.options.feature_layer.width),
                                        action_space=action_space)
     if visualize:
       self._renderer_human = renderer_human.RendererHuman()

@@ -74,6 +74,13 @@ class Effects(enum.IntEnum):
   # pylint: enable=invalid-name
 
 
+class DisplayType(enum.IntEnum):
+    """Values for the `display_type` feature unit layer"""
+    VISIBLE = 1
+    SNAPSHOT = 2
+    HIDDEN = 3
+
+
 class Feature(collections.namedtuple(
     "Feature", ["index", "name", "layer_set", "full_name", "scale", "type",
                 "palette", "clip"])):
@@ -258,6 +265,8 @@ class Features(object):
                rgb_minimap_size=None,
                rgb_minimap_width=None,
                rgb_minimap_height=None,
+               map_size=None,
+               camera_width_world_units=None,
                action_space=None,
                hide_specific_actions=True):
     """Initialize a Features instance.
@@ -284,6 +293,8 @@ class Features(object):
       rgb_minimap_size: Sets rgb_minimap_width and rgb_minimap_height.
       rgb_minimap_width: The width of the rgb minimap observation.
       rgb_minimap_height: The height of the rgb minimap observation.
+      map_size: The map size.
+      camera_width_world_units: The camera width in world units. 
       action_space: If you pass both feature and rgb sizes, then you must also
           specify which you want to use for your actions as an ActionSpace enum.
       hide_specific_actions: [bool] Some actions (eg cancel) have many
@@ -306,7 +317,6 @@ class Features(object):
     if _only_use_kwargs:
       raise ValueError("All arguments must be passed as keyword arguments.")
 
-    self._map_size = None
     if game_info:
       if any(
           (feature_screen_size, feature_screen_width, feature_screen_height,
@@ -320,25 +330,6 @@ class Features(object):
         fl_opts = game_info.options.feature_layer
         self._feature_screen_px = point.Point.build(fl_opts.resolution)
         self._feature_minimap_px = point.Point.build(fl_opts.minimap_resolution)
-        
-        # For feature units
-        self._map_size = point.Point.build(game_info.start_raw.map_size)
-        self._feature_camera_width_world_units = fl_opts.width
-        self._world_to_world_tl = transform.Linear(
-            point.Point(1, -1), point.Point(0, self._map_size.y))
-        feature_world_per_pixel = (self._feature_screen_px /
-                                   self._feature_camera_width_world_units)
-        self._world_tl_to_world_camera_rel = transform.Linear(
-            offset=-self._map_size / 4)
-        world_camera_rel_to_feature_screen = transform.Linear(
-            feature_world_per_pixel, self._feature_screen_px / 2)
-        world_to_feature_screen = transform.Chain(
-            self._world_to_world_tl,
-            self._world_tl_to_world_camera_rel,
-            world_camera_rel_to_feature_screen)
-        self._world_to_feature_screen_px = transform.Chain(
-            world_to_feature_screen,
-            transform.PixelToCoord())
       else:
         self._feature_screen_px = self._feature_minimap_px = None
       if game_info.options.HasField("render"):
@@ -389,23 +380,38 @@ class Features(object):
       self._action_screen_px = self._rgb_screen_px
       self._action_minimap_px = self._rgb_minimap_px
 
+    self._feature_units = (map_size and camera_width_world_units)
+    if self._feature_units:
+        self._map_size = point.Point.build(map_size)
+        self._camera_width_world_units = camera_width_world_units
+        self._init_camera()
+    else:
+        self._map_size = None
+        self._camera_width_world_units = None
+
     self._hide_specific_actions = hide_specific_actions
     self._valid_functions = self._init_valid_functions()
+    
+  def _init_camera(self):
+    self._world_to_world_tl = transform.Linear(
+        point.Point(1, -1), point.Point(0, self._map_size.y))
+    self._world_tl_to_world_camera_rel = transform.Linear(
+            offset=-self._map_size / 4)
+    self._world_to_feature_screen_px = transform.Chain(
+        transform.Chain(
+            self._world_to_world_tl,
+            self._world_tl_to_world_camera_rel,
+            transform.Linear((
+                self._feature_screen_px /
+                    self._camera_width_world_units),
+                self._feature_screen_px / 2)),
+        transform.PixelToCoord())
     
   def _update_camera(self, camera_center):
     """Update the camera transform based on the new camera center."""
     self._world_tl_to_world_camera_rel.offset = (
         -self._world_to_world_tl.fwd_pt(camera_center) *
         self._world_tl_to_world_camera_rel.scale)
-
-    if self._feature_screen_px:
-      camera_radius = (self._feature_screen_px / self._feature_screen_px.x *
-                       self._feature_camera_width_world_units / 2)
-      center = camera_center.bound(camera_radius,
-                                   self._map_size - camera_radius)
-      self._camera = point.Rect(
-          (center - camera_radius).bound(self._map_size),
-          (center + camera_radius).bound(self._map_size))
 
   def observation_spec(self):
     """The observation spec for the SC2 environment.
@@ -447,7 +453,7 @@ class Features(object):
       obs_spec["rgb_minimap"] = (self._rgb_minimap_px.y,
                                  self._rgb_minimap_px.x,
                                  3)
-    if self._map_size is not None:
+    if self._feature_units:
       obs_spec["feature_units"] = (0, 24)
     return obs_spec
 
@@ -465,7 +471,6 @@ class Features(object):
         "build_queue": empty,
         "cargo": empty,
         "cargo_slots_available": np.array([0], dtype=np.int32),
-        "feature_units": empty,
     }
 
     def or_zeros(layer, size):
@@ -555,52 +560,54 @@ class Features(object):
         out["build_queue"] = np.stack(unit_vec(u)
                                       for u in ui.production.build_queue)
 
-    def feature_unit_vec(u):
-      screen_pos = self._world_to_feature_screen_px.fwd_pt(point.Point.build(u.pos))
-      screen_radius = self._world_to_feature_screen_px.fwd_dist(u.radius)
-      return np.array((
-          # Match unit_vec order
-          u.unit_type,
-          u.alliance, # Self = 1, Ally = 2, Neutral = 3, Enemy = 4
-          u.health,
-          u.shield,
-          u.energy,
-          u.cargo_space_taken, 
-          int(u.build_progress * 100),  # discretize
+    if self._feature_units:
+      def feature_unit_vec(u):
+        screen_pos = self._world_to_feature_screen_px.fwd_pt(point.Point.build(u.pos))
+        screen_radius = self._world_to_feature_screen_px.fwd_dist(u.radius)
+        return np.array((
+            # Match unit_vec order
+            u.unit_type,
+            u.alliance,  # Self = 1, Ally = 2, Neutral = 3, Enemy = 4
+            u.health,
+            u.shield,
+            u.energy,
+            u.cargo_space_taken, 
+            int(u.build_progress * 100),  # discretize
 
-          # Resume API order
-          int(u.health / u.health_max * 255) if u.health_max > 0 else 0,
-          int(u.shield / u.shield_max * 255) if u.shield_max > 0 else 0,
-          int(u.energy / u.energy_max * 255) if u.energy_max > 0 else 0,
-          u.display_type, # Visible = 1, Snapshot = 2, Hidden = 3
-          u.owner, # 1-15, 16 = neutral
-          screen_pos.x,
-          screen_pos.y,
-          u.facing,
-          screen_radius,
-          u.cloak, # Cloaked = 1, CloakedDetected = 2, NotCloaked = 3
-          u.is_selected,
-          u.is_blip,
-          u.is_powered,
-          
-          # Not populated for enemies or neutral
-          u.cargo_space_max,
-          u.assigned_harvesters,
-          u.ideal_harvesters,
-          u.weapon_cooldown,
-      ), dtype=np.int32)
+            # Resume API order
+            int(u.health / u.health_max * 255) if u.health_max > 0 else 0,
+            int(u.shield / u.shield_max * 255) if u.shield_max > 0 else 0,
+            int(u.energy / u.energy_max * 255) if u.energy_max > 0 else 0,
+            u.display_type,  # Visible = 1, Snapshot = 2, Hidden = 3
+            u.owner,  # 1-15, 16 = neutral
+            screen_pos.x,
+            screen_pos.y,
+            u.facing,
+            screen_radius,
+            u.cloak,  # Cloaked = 1, CloakedDetected = 2, NotCloaked = 3
+            u.is_selected,
+            u.is_blip,
+            u.is_powered,
+            
+            # Not populated for enemies or neutral
+            u.cargo_space_max,
+            u.assigned_harvesters,
+            u.ideal_harvesters,
+            u.weapon_cooldown,
+        ), dtype=np.int32)
     
-    raw = obs.raw_data
+      raw = obs.raw_data
     
-    if len(raw.units) > 0 and self._map_size is not None:
-      with sw("raw_data"):
-        # Update the camera location so we can calculate world to screen positions
-        self._update_camera(point.Point.build(raw.player.camera))
-        feature_units = []
-        for u in raw.units:
-          if u.is_on_screen and u.display_type != 3: # Unit is on screen and not hidden
-            feature_units.append(feature_unit_vec(u))
-        out["feature_units"] = np.stack(feature_units)
+      if len(raw.units) > 0 and self._map_size is not None:
+        with sw("raw_data"):
+          # Update the camera location so we can calculate world to screen positions
+          self._update_camera(point.Point.build(raw.player.camera))
+          feature_units = []
+          for u in raw.units:
+            if u.is_on_screen and u.display_type != DisplayType.HIDDEN:
+              # If the unit is on screen and not hidden
+              feature_units.append(feature_unit_vec(u))
+          out["feature_units"] = np.stack(feature_units)
 
     out["available_actions"] = np.array(self.available_actions(obs),
                                         dtype=np.int32)
