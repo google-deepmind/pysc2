@@ -67,6 +67,7 @@ setup(
         'portpicker>=1.2.0',
         'protobuf>=2.6',
         'pygame',
+        'requests',
         's2clientprotocol>=3.19.0.58400.0',
         'six',
         'sk-video',
