@@ -396,15 +396,13 @@ class Features(object):
     self._world_to_world_tl = transform.Linear(
         point.Point(1, -1), point.Point(0, self._map_size.y))
     self._world_tl_to_world_camera_rel = transform.Linear(
-            offset=-self._map_size / 4)
+        offset=-self._map_size / 4)
     self._world_to_feature_screen_px = transform.Chain(
-        transform.Chain(
-            self._world_to_world_tl,
-            self._world_tl_to_world_camera_rel,
-            transform.Linear((
-                self._feature_screen_px /
-                    self._camera_width_world_units),
-                self._feature_screen_px / 2)),
+        self._world_to_world_tl,
+        self._world_tl_to_world_camera_rel,
+        transform.Linear(
+            (self._feature_screen_px / self._camera_width_world_units),
+            self._feature_screen_px / 2),
         transform.PixelToCoord())
     
   def _update_camera(self, camera_center):
