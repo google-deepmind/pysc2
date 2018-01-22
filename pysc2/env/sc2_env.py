@@ -173,6 +173,7 @@ class SC2Env(environment.Base):
 
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
+      ValueError: if too many players are requested for a map.
       ValueError: if the resolutions aren't specified correctly.
       DeprecationWarning: if screen_size_px or minimap_size_px are sent.
       DeprecationWarning: if agent_race, bot_race or difficulty are sent.
@@ -235,6 +236,12 @@ class SC2Env(environment.Base):
       raise ValueError("Missing replay_dir")
 
     self._map = maps.get(map_name)
+
+    if self._map.players and self._num_players > self._map.players:
+      raise ValueError(
+          "Map only supports %s players, but trying to join with %s" % (
+              self._map.players, self._num_players))
+
     self._discount = discount
     self._step_mul = step_mul or self._map.step_mul
     self._save_replay_episodes = save_replay_episodes
