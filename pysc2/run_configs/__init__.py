@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from absl import flags
 
+from pysc2.lib import sc_process
 from pysc2.run_configs import platforms
 from pysc2.run_configs import lib
 
@@ -41,5 +42,6 @@ def get():
   try:
     return configs[FLAGS.sc2_run_config]()
   except KeyError:
-    raise lib.SC2LaunchError("Invalid run_config. Valid configs are: %s" % (
-        ", ".join(sorted(configs.keys()))))
+    raise sc_process.SC2LaunchError(
+        "Invalid run_config. Valid configs are: %s" % (
+            ", ".join(sorted(configs.keys()))))

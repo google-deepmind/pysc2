@@ -88,7 +88,7 @@ class LocalBase(lib.RunConfig):
   def start(self, version=None, **kwargs):
     """Launch the game."""
     if not os.path.isdir(self.data_dir):
-      raise lib.SC2LaunchError(
+      raise sc_process.SC2LaunchError(
           "Expected to find StarCraft II installed at '%s'. If it's not "
           "installed, do that and run it once so auto-detection works. If "
           "auto-detection failed repeatedly, then set the SC2PATH environment "
@@ -106,14 +106,14 @@ class LocalBase(lib.RunConfig):
                           if v.startswith("Base"))
       version = lib.Version(None, build_version, None, None)
     if version.build_version < VERSIONS["3.16.1"].build_version:
-      raise lib.SC2LaunchError(
+      raise sc_process.SC2LaunchError(
           "SC2 Binaries older than 3.16.1 don't support the api.")
     exec_path = os.path.join(
         self.data_dir, "Versions/Base%s" % version.build_version,
         self._exec_name)
 
     if not os.path.exists(exec_path):
-      raise lib.SC2LaunchError("No SC2 binary found at: %s" % exec_path)
+      raise sc_process.SC2LaunchError("No SC2 binary found at: %s" % exec_path)
 
     return sc_process.StarcraftProcess(
         self, exec_path=exec_path, data_version=version.data_version, **kwargs)

@@ -30,10 +30,6 @@ class Version(collections.namedtuple("Version", [
   __slots__ = ()
 
 
-class SC2LaunchError(Exception):
-  pass
-
-
 class RunConfig(object):
   """Base class for different run configs."""
 

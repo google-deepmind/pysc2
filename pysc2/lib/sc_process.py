@@ -22,7 +22,6 @@ import os
 import shutil
 import socket
 import subprocess
-import sys
 import tempfile
 import time
 
@@ -39,6 +38,10 @@ flags.DEFINE_bool("sc2_verbose", False, "Enable SC2 verbose logging.")
 FLAGS = flags.FLAGS
 
 sw = stopwatch.sw
+
+
+class SC2LaunchError(Exception):
+  pass
 
 
 class StarcraftProcess(object):
@@ -132,7 +135,7 @@ class StarcraftProcess(object):
         return subprocess.Popen(args, cwd=run_config.cwd, env=run_config.env)
     except OSError:
       logging.exception("Failed to launch")
-      sys.exit("Failed to launch: " + str(args))
+      raise SC2LaunchError("Failed to launch: %s" % args)
 
   @sw.decorate
   def _connect(self, port):
@@ -157,7 +160,7 @@ class StarcraftProcess(object):
           pass  # SC2 is listening, but hasn't set up the /sc2api endpoint yet.
         else:
           raise
-    sys.exit("Failed to create the socket.")
+    raise SC2LaunchError("Failed to create the socket.")
 
   def _shutdown(self):
     """Terminate the sub-process."""
