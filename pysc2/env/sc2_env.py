@@ -382,11 +382,11 @@ class SC2Env(environment.Base):
 
   def observation_spec(self):
     """Look at Features for full specs."""
-    return self._features.observation_spec()
+    return (self._features.observation_spec(),) * self._num_players
 
   def action_spec(self):
     """Look at Features for full specs."""
-    return self._features.action_spec()
+    return (self._features.action_spec(),) * self._num_players
 
   def _restart(self):
     if len(self._controllers) == 1:

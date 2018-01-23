@@ -100,10 +100,10 @@ class TestTestEnvironment(_TestMixin, absltest.TestCase):
         action_spec=mock.sentinel.action_spec)
 
   def test_observation_spec(self):
-    self.assertEqual(self._env.observation_spec(), {'mock': [10, 1]})
+    self.assertEqual(self._env.observation_spec(), ({'mock': [10, 1]},))
 
   def test_action_spec(self):
-    self.assertEqual(self._env.action_spec(), mock.sentinel.action_spec)
+    self.assertEqual(self._env.action_spec(), (mock.sentinel.action_spec,))
 
   def test_default_observation(self):
     observation = self._env._default_observation()

@@ -113,7 +113,8 @@ class Base(object):
     """Defines the observations provided by the environment.
 
     Returns:
-      A dict of shape tuples.
+      A tuple of specs (one per agent), where each spec is a dict of shape
+        tuples.
     """
 
   @abc.abstractmethod
@@ -121,7 +122,8 @@ class Base(object):
     """Defines the actions that should be provided to `step`.
 
     Returns:
-      Something that defines the shape of the actions.
+      A tuple of specs (one per agent), where each spec is something that
+        defines the shape of the actions.
     """
 
   def close(self):

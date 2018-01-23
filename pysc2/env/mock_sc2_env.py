@@ -59,8 +59,8 @@ class _TestEnvironment(environment.Base):
       action_spec: The action spec for each player.
     """
     self._num_players = num_players
-    self._observation_spec = observation_spec
-    self._action_spec = action_spec
+    self._observation_spec = (observation_spec,) * self._num_players
+    self._action_spec = (action_spec,) * self._num_players
     self._episode_steps = 0
 
     self.next_timestep = environment.TimeStep(
@@ -108,7 +108,7 @@ class _TestEnvironment(environment.Base):
   def _default_observation(self):
     """Returns an observation based on the observation specs."""
     observation = {}
-    for key, spec in self._observation_spec.items():
+    for key, spec in self._observation_spec[0].items():
       observation[key] = np.zeros(shape=spec, dtype=np.int32)
     return observation
 
