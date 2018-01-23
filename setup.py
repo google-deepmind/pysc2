@@ -38,7 +38,7 @@ Read the README at https://github.com/deepmind/pysc2 for more information.
 
 setup(
     name='PySC2',
-    version='1.2',
+    version='2.0',
     description='Starcraft II environment and library for training agents.',
     long_description=description,
     author='DeepMind',
