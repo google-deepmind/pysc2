@@ -49,24 +49,29 @@ class MoveToBeacon(base_agent.BaseAgent):
 
 class CollectMineralShards(base_agent.BaseAgent):
   """An agent specifically for solving the CollectMineralShards map."""
+  current_player = 0
 
   def step(self, obs):
     super(CollectMineralShards, self).step(obs)
-    if FUNCTIONS.Move_screen.id in obs.observation["available_actions"]:
-      player_relative = obs.observation["feature_screen"][_PLAYER_RELATIVE]
-      neutral_y, neutral_x = (player_relative == _PLAYER_NEUTRAL).nonzero()
-      player_y, player_x = (player_relative == _PLAYER_SELF).nonzero()
-      if not neutral_y.any() or not player_y.any():
+    player_units = list(filter(lambda unit: unit[1] == _PLAYER_SELF, obs.observation['feature_units']))
+    if len(player_units) == 0:
+      return FUNCTIONS.no_op()
+    player_unit = player_units[self.current_player]
+    player_xy = [player_unit[12], player_unit[13]]
+    if player_unit[17] and FUNCTIONS.Move_screen.id in obs.observation["available_actions"]:
+      neutral_units = list(filter(lambda unit: unit[1] == _PLAYER_NEUTRAL, obs.observation['feature_units']))
+      if len(neutral_units) == 0:
         return FUNCTIONS.no_op()
-      player = [int(player_x.mean()), int(player_y.mean())]
       closest, min_dist = None, None
-      for p in zip(neutral_x, neutral_y):
-        dist = numpy.linalg.norm(numpy.array(player) - numpy.array(p))
+      for neutral_unit in neutral_units:
+        neutral_xy = [neutral_unit[12], neutral_unit[13]]
+        dist = numpy.linalg.norm(numpy.array(player_xy) - numpy.array(neutral_xy))
         if not min_dist or dist < min_dist:
-          closest, min_dist = p, dist
+          closest, min_dist = neutral_xy, dist
+      self.current_player = 1 if self.current_player == 0 else 0
       return FUNCTIONS.Move_screen("now", closest)
     else:
-      return FUNCTIONS.select_army("select")
+      return FUNCTIONS.select_point("select", player_xy)
 
 
 class DefeatRoaches(base_agent.BaseAgent):
