@@ -175,6 +175,7 @@ class SC2Env(environment.Base):
 
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
+      ValueError: if too many players are requested for a map.
       ValueError: if the resolutions aren't specified correctly.
       DeprecationWarning: if screen_size_px or minimap_size_px are sent.
       DeprecationWarning: if agent_race, bot_race or difficulty are sent.
@@ -199,7 +200,8 @@ class SC2Env(environment.Base):
 
     for p in players:
       if not isinstance(p, (Agent, Bot)):
-        raise ValueError("Expected players to be of type Agent or Bot.")
+        raise ValueError(
+            "Expected players to be of type Agent or Bot. Got: %s." % p)
 
     self._num_players = sum(1 for p in players if isinstance(p, Agent))
     self._players = players
@@ -236,6 +238,12 @@ class SC2Env(environment.Base):
       raise ValueError("Missing replay_dir")
 
     self._map = maps.get(map_name)
+
+    if self._map.players and self._num_players > self._map.players:
+      raise ValueError(
+          "Map only supports %s players, but trying to join with %s" % (
+              self._map.players, self._num_players))
+
     self._discount = discount
     self._step_mul = step_mul or self._map.step_mul
     self._save_replay_episodes = save_replay_episodes
@@ -486,10 +494,6 @@ class SC2Env(environment.Base):
     replay_path = self._run_config.save_replay(
         self._controllers[0].save_replay(), replay_dir, self._map.name)
     logging.info("Wrote replay to: %s", replay_path)
-
-  @property
-  def state(self):
-    return self._state
 
   def close(self):
     logging.info("Environment Close")

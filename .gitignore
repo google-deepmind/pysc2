@@ -1,2 +1,7 @@
 *.pyc
 *_pb2.py
+/build/
+/dist/
+/PySC2.egg-info/
+/.project
+/.pydevproject

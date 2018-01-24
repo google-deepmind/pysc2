@@ -30,6 +30,7 @@ from pysc2.lib import sc_process
 from pysc2.run_configs import lib
 
 # https://github.com/Blizzard/s2client-proto/blob/master/buildinfo/versions.json
+# Generate with bin/gen_versions.py
 VERSIONS = {ver.game_version: ver for ver in [
     lib.Version("3.16.1", 55958, "5BD7C31B44525DAB46E64C4602A81DC2", None),
     lib.Version("3.17.0", 56787, "DFD1F6607F2CF19CB4E1C996B2563D9B", None),
@@ -110,6 +111,9 @@ class LocalBase(lib.RunConfig):
     exec_path = os.path.join(
         self.data_dir, "Versions/Base%s" % version.build_version,
         self._exec_name)
+
+    if not os.path.exists(exec_path):
+      raise lib.SC2LaunchError("No SC2 binary found at: %s" % exec_path)
 
     return sc_process.StarcraftProcess(
         self, exec_path=exec_path, data_version=version.data_version, **kwargs)

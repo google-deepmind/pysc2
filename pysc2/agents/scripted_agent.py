@@ -41,7 +41,7 @@ class MoveToBeacon(base_agent.BaseAgent):
       neutral_y, neutral_x = (player_relative == _PLAYER_NEUTRAL).nonzero()
       if not neutral_y.any():
         return FUNCTIONS.no_op()
-      target = [int(neutral_x.mean()), int(neutral_y.mean())]
+      target = [round(neutral_x.mean()), round(neutral_y.mean())]
       return FUNCTIONS.Move_screen("now", target)
     else:
       return FUNCTIONS.select_army("select")
