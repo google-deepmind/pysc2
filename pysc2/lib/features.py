@@ -75,10 +75,10 @@ class Effects(enum.IntEnum):
 
 
 class DisplayType(enum.IntEnum):
-    """Values for the `display_type` feature unit layer"""
-    VISIBLE = 1
-    SNAPSHOT = 2
-    HIDDEN = 3
+  """Values for the `display_type` feature unit layer"""
+  VISIBLE = 1
+  SNAPSHOT = 2
+  HIDDEN = 3
 
 
 class Feature(collections.namedtuple(
@@ -391,7 +391,7 @@ class Features(object):
 
     self._hide_specific_actions = hide_specific_actions
     self._valid_functions = self._init_valid_functions()
-    
+
   def _init_camera(self):
     self._world_to_world_tl = transform.Linear(
         point.Point(1, -1), point.Point(0, self._map_size.y))
@@ -404,7 +404,7 @@ class Features(object):
             (self._feature_screen_px / self._camera_width_world_units),
             self._feature_screen_px / 2),
         transform.PixelToCoord())
-    
+
   def _update_camera(self, camera_center):
     """Update the camera transform based on the new camera center."""
     self._world_tl_to_world_camera_rel.offset = (
@@ -559,17 +559,18 @@ class Features(object):
                                       for u in ui.production.build_queue)
 
     if self._feature_units:
+
       def feature_unit_vec(u):
         screen_pos = self._world_to_feature_screen_px.fwd_pt(point.Point.build(u.pos))
         screen_radius = self._world_to_feature_screen_px.fwd_dist(u.radius)
-        return np.array((
+        return np.rec.array([(
             # Match unit_vec order
             u.unit_type,
             u.alliance,  # Self = 1, Ally = 2, Neutral = 3, Enemy = 4
             u.health,
             u.shield,
             u.energy,
-            u.cargo_space_taken, 
+            u.cargo_space_taken,
             int(u.build_progress * 100),  # discretize
 
             # Resume API order
@@ -586,16 +587,39 @@ class Features(object):
             u.is_selected,
             u.is_blip,
             u.is_powered,
-            
+
             # Not populated for enemies or neutral
             u.cargo_space_max,
             u.assigned_harvesters,
             u.ideal_harvesters,
             u.weapon_cooldown,
-        ), dtype=np.int32)
-    
+        )], dtype=[("unit_type", "<i4"),
+                   ("alliance", "<i4"),
+                   ("health", "<i4"),
+                   ("shield", "<i4"),
+                   ("energy", "<i4"),
+                   ("cargo_space_taken", "<i4"),
+                   ("build_progress", "<i4"),
+                   ("health_ratio", "<i4"),
+                   ("shield_ratio", "<i4"),
+                   ("energy_ratio", "<i4"),
+                   ("display_type", "<i4"),
+                   ("owner", "<i4"),
+                   ("x", "<i4"),
+                   ("y", "<i4"),
+                   ("facing", "<i4"),
+                   ("radius", "<i4"),
+                   ("cloak", "<i4"),
+                   ("is_selected", "<i4"),
+                   ("is_blip", "<i4"),
+                   ("is_powered", "<i4"),
+                   ("cargo_space_max", "<i4"),
+                   ("assigned_harvesters", "<i4"),
+                   ("ideal_harvesters", "<i4"),
+                   ("weapon_cooldown", "<i4")])
+
       raw = obs.raw_data
-    
+
       if len(raw.units) > 0 and self._map_size is not None:
         with sw("raw_data"):
           # Update the camera location so we can calculate world to screen positions
