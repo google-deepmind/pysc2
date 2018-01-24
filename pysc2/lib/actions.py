@@ -429,6 +429,8 @@ class Functions(object):
     return self._func_list == other._func_list  # pylint: disable=protected-access
 
 
+# The semantic meaning of these actions can mainly be found by searching:
+# http://liquipedia.net/starcraft2/ or http://starcraft.wikia.com/ .
 # pylint: disable=line-too-long
 _FUNCTIONS = [
     Function.ui_func(0, "no_op", no_op),

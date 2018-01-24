@@ -25,8 +25,8 @@ fairly weak and predictable, and the stronger ones cheat.
 
 There are many resources online for learning about Starcraft, including
 [Battle.net](http://battle.net/sc2/en/),
-[TeamLiquid](http://wiki.teamliquid.net/starcraft2/StarCraft) and
-[Wikia](http://starcraft.wikia.com/wiki/StarCraft_Wiki).
+[Liquipedia](http://liquipedia.net/starcraft2/StarCraft) and
+[Wikia](http://starcraft.wikia.com/).
 
 ### Versions
 
@@ -342,6 +342,10 @@ action.
 
 Hard coding the functions means that actions created in custom maps won't be
 usable until they are added to `pysc2.lib.actions`.
+
+The semantic meaning of these actions can mainly be found by searching:
+[liquipedia.net/starcraft2](http://liquipedia.net/starcraft2/) or
+[starcraft.wikia](http://starcraft.wikia.com/).
 
 To see which actions exist run:
 
