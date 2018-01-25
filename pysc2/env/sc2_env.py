@@ -287,7 +287,7 @@ class SC2Env(environment.Base):
     if game_info.options.render != interface.render:
       logging.warning(
           "Actual interface options don't match requested options:\n"
-          "Requested:\n%s\n\nActual:\n%s", game_info.options, interface)
+          "Requested:\n%s\n\nActual:\n%s", interface, game_info.options)
 
     self._features = features.Features(game_info=game_info,
                                        action_space=action_space)
