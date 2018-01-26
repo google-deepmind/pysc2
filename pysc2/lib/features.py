@@ -28,8 +28,10 @@ from pysc2.lib import colors
 from pysc2.lib import point
 from pysc2.lib import static_data
 from pysc2.lib import stopwatch
+from pysc2.lib import transform
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
+from s2clientprotocol import raw_pb2 as sc_raw
 
 sw = stopwatch.sw
 
@@ -71,6 +73,34 @@ class Effects(enum.IntEnum):
   CorrosiveBile = 11
   LurkerSpines = 12
   # pylint: enable=invalid-name
+
+
+class FeatureUnit(enum.IntEnum):
+  """Indices for the feature unit vector."""
+  UNIT_TYPE = 0
+  ALLIANCE = 1
+  HEALTH = 2
+  SHIELD = 3
+  ENERGY = 4
+  CARGO_SPACE_TAKEN = 5
+  BUILD_PROGRESS = 6
+  HEALTH_RATIO = 7
+  SHIELD_RATIO = 8
+  ENERGY_RATIO = 9
+  DISPLAY_TYPE = 10
+  OWNER = 11
+  X = 12
+  Y = 13
+  FACING = 14
+  RADIUS = 15
+  CLOAK = 16
+  IS_SELECTED = 17
+  IS_BLIP = 18
+  IS_POWERED = 19
+  CARGO_SPACE_MAX = 20
+  ASSIGNED_HARVESTERS = 21
+  IDEAL_HARVESTERS = 22
+  WEAPON_COOLDOWN = 23
 
 
 class Feature(collections.namedtuple(
@@ -257,6 +287,9 @@ class Features(object):
                rgb_minimap_size=None,
                rgb_minimap_width=None,
                rgb_minimap_height=None,
+               feature_units=False,
+               map_size=None,
+               camera_width_world_units=None,
                action_space=None,
                hide_specific_actions=True):
     """Initialize a Features instance.
@@ -283,6 +316,10 @@ class Features(object):
       rgb_minimap_size: Sets rgb_minimap_width and rgb_minimap_height.
       rgb_minimap_width: The width of the rgb minimap observation.
       rgb_minimap_height: The height of the rgb minimap observation.
+      feature_units: Whether to include the feature unit observation.
+      map_size: The size of the map in world units, needed for feature_units.
+      camera_width_world_units: The width of the feature layer camera in world
+          units. This is needed for feature_units.
       action_space: If you pass both feature and rgb sizes, then you must also
           specify which you want to use for your actions as an ActionSpace enum.
       hide_specific_actions: [bool] Some actions (eg cancel) have many
@@ -326,6 +363,9 @@ class Features(object):
         self._rgb_minimap_px = point.Point.build(render_opts.minimap_resolution)
       else:
         self._rgb_screen_px = self._rgb_minimap_px = None
+      if feature_units:
+        self._init_camera(game_info.start_raw.map_size,
+                          game_info.options.feature_layer.width)
     else:
       self._feature_screen_px = point_from_size_width_height(
           feature_screen_size, feature_screen_width, feature_screen_height)
@@ -335,6 +375,12 @@ class Features(object):
           rgb_screen_size, rgb_screen_width, rgb_screen_height)
       self._rgb_minimap_px = point_from_size_width_height(
           rgb_minimap_size, rgb_minimap_width, rgb_minimap_height)
+      if feature_units:
+        if not map_size or not camera_width_world_units:
+           raise ValueError(
+            "Either pass the game_info or map_size and "
+            "camera_width_world_units in order to use feature_units.")
+        self._init_camera(map_size, camera_width_world_units)
 
     if bool(self._feature_screen_px) != bool(self._feature_minimap_px):
       raise ValueError("Must set all the feature layer sizes.")
@@ -368,8 +414,27 @@ class Features(object):
       self._action_screen_px = self._rgb_screen_px
       self._action_minimap_px = self._rgb_minimap_px
 
+    self._feature_units = feature_units
     self._hide_specific_actions = hide_specific_actions
     self._valid_functions = self._init_valid_functions()
+
+  def _init_camera(self, map_size, camera_width_world_units):
+    map_size = point.Point.build(map_size)
+    self._world_to_world_tl = transform.Linear(point.Point(1, -1),
+                                               point.Point(0, map_size.y))
+    self._world_tl_to_world_camera_rel = transform.Linear(offset=-map_size / 4)
+    self._world_to_feature_screen_px = transform.Chain(
+        self._world_to_world_tl,
+        self._world_tl_to_world_camera_rel,
+        transform.Linear(self._feature_screen_px / camera_width_world_units,
+                         self._feature_screen_px / 2),
+        transform.PixelToCoord())
+
+  def _update_camera(self, camera_center):
+    """Update the camera transform based on the new camera center."""
+    self._world_tl_to_world_camera_rel.offset = (
+        -self._world_to_world_tl.fwd_pt(camera_center) *
+        self._world_tl_to_world_camera_rel.scale)
 
   def observation_spec(self):
     """The observation spec for the SC2 environment.
@@ -411,6 +476,8 @@ class Features(object):
       obs_spec["rgb_minimap"] = (self._rgb_minimap_px.y,
                                  self._rgb_minimap_px.x,
                                  3)
+    if self._feature_units:
+      obs_spec["feature_units"] = (0, 24)
     return obs_spec
 
   def action_spec(self):
@@ -515,6 +582,54 @@ class Features(object):
         out["single_select"] = np.array([unit_vec(ui.production.unit)])
         out["build_queue"] = np.stack(unit_vec(u)
                                       for u in ui.production.build_queue)
+
+    def feature_unit_vec(u):
+      screen_pos = self._world_to_feature_screen_px.fwd_pt(
+          point.Point.build(u.pos))
+      screen_radius = self._world_to_feature_screen_px.fwd_dist(u.radius)
+      return np.array((
+          # Match unit_vec order
+          u.unit_type,
+          u.alliance,  # Self = 1, Ally = 2, Neutral = 3, Enemy = 4
+          u.health,
+          u.shield,
+          u.energy,
+          u.cargo_space_taken,
+          int(u.build_progress * 100),  # discretize
+
+          # Resume API order
+          int(u.health / u.health_max * 255) if u.health_max > 0 else 0,
+          int(u.shield / u.shield_max * 255) if u.shield_max > 0 else 0,
+          int(u.energy / u.energy_max * 255) if u.energy_max > 0 else 0,
+          u.display_type,  # Visible = 1, Snapshot = 2, Hidden = 3
+          u.owner,  # 1-15, 16 = neutral
+          screen_pos.x,
+          screen_pos.y,
+          u.facing,
+          screen_radius,
+          u.cloak,  # Cloaked = 1, CloakedDetected = 2, NotCloaked = 3
+          u.is_selected,
+          u.is_blip,
+          u.is_powered,
+
+          # Not populated for enemies or neutral
+          u.cargo_space_max,
+          u.assigned_harvesters,
+          u.ideal_harvesters,
+          u.weapon_cooldown,
+      ), dtype=np.int32)
+
+    raw = obs.raw_data
+
+    if self._feature_units:
+      with sw("feature_units"):
+        # Update the camera location so we can calculate world to screen pos
+        self._update_camera(point.Point.build(raw.player.camera))
+        feature_units = []
+        for u in raw.units:
+          if u.is_on_screen and u.display_type != sc_raw.Hidden:
+            feature_units.append(feature_unit_vec(u))
+        out["feature_units"] = np.stack(feature_units)
 
     out["available_actions"] = np.array(self.available_actions(obs),
                                         dtype=np.int32)

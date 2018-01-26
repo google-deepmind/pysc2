@@ -69,6 +69,49 @@ class CollectMineralShards(base_agent.BaseAgent):
       return FUNCTIONS.select_army("select")
 
 
+class CollectMineralShardsFeatureUnits(base_agent.BaseAgent):
+  """An agent for solving the CollectMineralShards map with feature units."""
+  current_player = 0
+  previous_xy = None
+
+  def step(self, obs):
+    super(CollectMineralShardsFeatureUnits, self).step(obs)
+    if not "feature_units" in obs.observation:
+      raise Exception(
+        "This agent requires that you enable feature_units. "
+        "You can do this by passing --feature_units on the command line")
+    player_units = [unit for unit in obs.observation["feature_units"] if
+                    unit[features.FeatureUnit.ALLIANCE] == _PLAYER_SELF]
+    if len(player_units) == 0:
+      return FUNCTIONS.no_op()
+    player_unit = player_units[self.current_player]
+    player_xy = [player_unit[features.FeatureUnit.X],
+                 player_unit[features.FeatureUnit.Y]]
+    if not player_unit[features.FeatureUnit.IS_SELECTED]:
+      return FUNCTIONS.select_point("select", player_xy)
+    elif FUNCTIONS.Move_screen.id in obs.observation["available_actions"]:
+      neutral_units = [unit for unit in obs.observation["feature_units"] if
+                       unit[features.FeatureUnit.ALLIANCE] == _PLAYER_NEUTRAL]
+      if len(neutral_units) == 0:
+        return FUNCTIONS.no_op()
+      closest, min_dist = None, None
+      for neutral_unit in neutral_units:
+        neutral_xy = [neutral_unit[features.FeatureUnit.X],
+                      neutral_unit[features.FeatureUnit.Y]]
+        dist = numpy.linalg.norm(numpy.array(player_xy) -
+                                 numpy.array(neutral_xy))
+        if not min_dist or dist < min_dist:
+          if not self.previous_xy or not self.previous_xy == neutral_xy:
+            closest, min_dist = neutral_xy, dist
+      if not closest:
+        return FUNCTIONS.no_op()
+      self.current_player = 1 - self.current_player
+      self.previous_xy = closest
+      return FUNCTIONS.Move_screen("now", closest)
+    else:
+      return FUNCTIONS.no_op()
+
+
 class DefeatRoaches(base_agent.BaseAgent):
   """An agent specifically for solving the DefeatRoaches map."""
 
