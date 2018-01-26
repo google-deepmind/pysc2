@@ -287,6 +287,7 @@ class Features(object):
                rgb_minimap_size=None,
                rgb_minimap_width=None,
                rgb_minimap_height=None,
+               feature_units=False,
                map_size=None,
                camera_width_world_units=None,
                action_space=None,
@@ -315,8 +316,10 @@ class Features(object):
       rgb_minimap_size: Sets rgb_minimap_width and rgb_minimap_height.
       rgb_minimap_width: The width of the rgb minimap observation.
       rgb_minimap_height: The height of the rgb minimap observation.
-      map_size: The map size.
-      camera_width_world_units: The camera width in world units. 
+      feature_units: Whether to include the feature unit observation.
+      map_size: The size of the map in world units, needed for feature_units.
+      camera_width_world_units: The width of the feature layer camera in world
+          units. This is needed for feature_units.
       action_space: If you pass both feature and rgb sizes, then you must also
           specify which you want to use for your actions as an ActionSpace enum.
       hide_specific_actions: [bool] Some actions (eg cancel) have many
@@ -360,6 +363,9 @@ class Features(object):
         self._rgb_minimap_px = point.Point.build(render_opts.minimap_resolution)
       else:
         self._rgb_screen_px = self._rgb_minimap_px = None
+      if feature_units:
+        self._init_camera(game_info.start_raw.map_size,
+                          game_info.options.feature_layer.width)
     else:
       self._feature_screen_px = point_from_size_width_height(
           feature_screen_size, feature_screen_width, feature_screen_height)
@@ -369,6 +375,12 @@ class Features(object):
           rgb_screen_size, rgb_screen_width, rgb_screen_height)
       self._rgb_minimap_px = point_from_size_width_height(
           rgb_minimap_size, rgb_minimap_width, rgb_minimap_height)
+      if feature_units:
+        if not map_size or not camera_width_world_units:
+           raise ValueError(
+            "Either pass the game_info or map_size and "
+            "camera_width_world_units in order to use feature_units.")
+        self._init_camera(map_size, camera_width_world_units)
 
     if bool(self._feature_screen_px) != bool(self._feature_minimap_px):
       raise ValueError("Must set all the feature layer sizes.")
@@ -402,29 +414,20 @@ class Features(object):
       self._action_screen_px = self._rgb_screen_px
       self._action_minimap_px = self._rgb_minimap_px
 
-    self._feature_units = (map_size and camera_width_world_units)
-    if self._feature_units:
-        self._map_size = point.Point.build(map_size)
-        self._camera_width_world_units = camera_width_world_units
-        self._init_camera()
-    else:
-        self._map_size = None
-        self._camera_width_world_units = None
-
+    self._feature_units = feature_units
     self._hide_specific_actions = hide_specific_actions
     self._valid_functions = self._init_valid_functions()
 
-  def _init_camera(self):
-    self._world_to_world_tl = transform.Linear(
-        point.Point(1, -1), point.Point(0, self._map_size.y))
-    self._world_tl_to_world_camera_rel = transform.Linear(
-        offset=-self._map_size / 4)
+  def _init_camera(self, map_size, camera_width_world_units):
+    map_size = point.Point.build(map_size)
+    self._world_to_world_tl = transform.Linear(point.Point(1, -1),
+                                               point.Point(0, map_size.y))
+    self._world_tl_to_world_camera_rel = transform.Linear(offset=-map_size / 4)
     self._world_to_feature_screen_px = transform.Chain(
         self._world_to_world_tl,
         self._world_tl_to_world_camera_rel,
-        transform.Linear(
-            (self._feature_screen_px / self._camera_width_world_units),
-            self._feature_screen_px / 2),
+        transform.Linear(self._feature_screen_px / camera_width_world_units,
+                         self._feature_screen_px / 2),
         transform.PixelToCoord())
 
   def _update_camera(self, camera_center):
@@ -625,7 +628,6 @@ class Features(object):
         feature_units = []
         for u in raw.units:
           if u.is_on_screen and u.display_type != sc_raw.Hidden:
-            # If the unit is on screen and not hidden
             feature_units.append(feature_unit_vec(u))
         out["feature_units"] = np.stack(feature_units)
 

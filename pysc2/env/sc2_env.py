@@ -269,7 +269,8 @@ class SC2Env(environment.Base):
     self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
 
-    interface = sc_pb.InterfaceOptions(raw=(visualize or feature_units), score=True)
+    interface = sc_pb.InterfaceOptions(raw=(visualize or feature_units),
+                                       score=True)
     if feature_screen_px:
       interface.feature_layer.width = camera_width_world_units or 24
       feature_screen_px.assign_to(interface.feature_layer.resolution)
@@ -292,11 +293,8 @@ class SC2Env(environment.Base):
           "Requested:\n%s\n\nActual:\n%s", game_info.options, interface)
 
     self._features = features.Features(game_info=game_info,
-                                       map_size=game_info.start_raw.map_size,
-                                       camera_width_world_units=(
-                                           camera_width_world_units or
-                                           game_info.options.feature_layer.width),
-                                       action_space=action_space)
+                                       action_space=action_space,
+                                       feature_units=feature_units)
     if visualize:
       self._renderer_human = renderer_human.RendererHuman()
       self._renderer_human.init(game_info, static_data)

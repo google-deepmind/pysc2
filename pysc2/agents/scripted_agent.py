@@ -76,9 +76,12 @@ class CollectMineralShardsFeatureUnits(base_agent.BaseAgent):
 
   def step(self, obs):
     super(CollectMineralShardsFeatureUnits, self).step(obs)
-    player_units = list(filter(lambda unit: unit[features.FeatureUnit.ALLIANCE]
-                               == _PLAYER_SELF,
-                               obs.observation['feature_units']))
+    if not "feature_units" in obs.observation:
+      raise Exception(
+        "This agent requires that you enable feature_units. "
+        "You can do this by passing --feature_units on the command line")
+    player_units = [unit for unit in obs.observation["feature_units"] if
+                    unit[features.FeatureUnit.ALLIANCE] == _PLAYER_SELF]
     if len(player_units) == 0:
       return FUNCTIONS.no_op()
     player_unit = player_units[self.current_player]
@@ -87,10 +90,8 @@ class CollectMineralShardsFeatureUnits(base_agent.BaseAgent):
     if not player_unit[features.FeatureUnit.IS_SELECTED]:
       return FUNCTIONS.select_point("select", player_xy)
     elif FUNCTIONS.Move_screen.id in obs.observation["available_actions"]:
-      neutral_units = list(filter(lambda unit:
-                                  unit[features.FeatureUnit.ALLIANCE] ==
-                                  _PLAYER_NEUTRAL,
-                                  obs.observation["feature_units"]))
+      neutral_units = [unit for unit in obs.observation["feature_units"] if
+                       unit[features.FeatureUnit.ALLIANCE] == _PLAYER_NEUTRAL]
       if len(neutral_units) == 0:
         return FUNCTIONS.no_op()
       closest, min_dist = None, None
