@@ -206,7 +206,8 @@ class RendererHuman(object):
       ("?", "This help screen"),
   ]
 
-  def __init__(self, fps=22.4, step_mul=1, render_sync=False, video=None):
+  def __init__(self, fps=22.4, step_mul=1, render_sync=False,
+               render_feature_grid=True, video=None):
     """Create a renderer for use by humans.
 
     Make sure to call `init` with the game info, or just use `run`.
@@ -215,12 +216,15 @@ class RendererHuman(object):
       fps: How fast should the game be run.
       step_mul: How many game steps to take per observation.
       render_sync: Whether to wait for the obs to render before continuing.
+      render_feature_grid: When RGB and feature layers are available, whether
+          to render the grid of feature layers.
       video: A filename to write the video to. Implicitly enables render_sync.
     """
     self._fps = fps
     self._step_mul = step_mul
     self._render_sync = render_sync or bool(video)
     self._render_rgb = None
+    self._render_feature_grid = render_feature_grid
     self._window = None
     self._obs_queue = queue.Queue()
     self._render_thread = threading.Thread(target=self.render_thread,
@@ -311,7 +315,7 @@ class RendererHuman(object):
       main_screen_px = self._feature_screen_px
 
     window_size_ratio = main_screen_px
-    if self._feature_screen_px:
+    if self._feature_screen_px and self._render_feature_grid:
       # Want a roughly square grid of feature layers, each being roughly square.
       num_feature_layers = (len(features.SCREEN_FEATURES) +
                             len(features.MINIMAP_FEATURES))
@@ -491,7 +495,7 @@ class RendererHuman(object):
                   self._world_to_feature_minimap_px,
                   self.draw_mini_map)
 
-    if self._feature_screen_px:
+    if self._feature_screen_px and self._render_feature_grid:
       # Add the feature layers
       features_loc = point.Point(screen_size_px.x, 0)
       feature_pane = self._window.subsurface(
@@ -1148,17 +1152,19 @@ class RendererHuman(object):
 
     self._render_times.append(time.time() - start_time)
 
-  def run(self, run_config, controller, max_game_steps=0,
+  def run(self, run_config, controller, max_game_steps=0, max_episodes=0,
           game_steps_per_episode=0, save_replay=False):
     """Run loop that gets observations, renders them, and sends back actions."""
     is_replay = (controller.status == remote_controller.Status.in_replay)
     total_game_steps = 0
     start_time = time.time()
+    num_episodes = 0
 
     try:
       while True:
         self.init(controller.game_info(), controller.data())
         episode_steps = 0
+        num_episodes += 1
 
         controller.step()
 
@@ -1202,6 +1208,9 @@ class RendererHuman(object):
 
         if save_replay:
           self.save_replay(run_config, controller)
+
+        if max_episodes and num_episodes >= max_episodes:
+          break
 
         print("Restarting")
         controller.restart()
