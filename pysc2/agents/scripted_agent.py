@@ -70,30 +70,45 @@ class CollectMineralShards(base_agent.BaseAgent):
 
 
 class CollectMineralShardsFeatureUnits(base_agent.BaseAgent):
-  """An agent specifically for solving the CollectMineralShards map with feature units."""
+  """An agent for solving the CollectMineralShards map with feature units."""
   current_player = 0
+  previous_xy = None
 
   def step(self, obs):
     super(CollectMineralShardsFeatureUnits, self).step(obs)
-    player_units = list(filter(lambda unit: unit["alliance"] == _PLAYER_SELF, obs.observation['feature_units']))
+    player_units = list(filter(lambda unit: unit[features.FeatureUnit.ALLIANCE]
+                               == _PLAYER_SELF,
+                               obs.observation['feature_units']))
     if len(player_units) == 0:
       return FUNCTIONS.no_op()
     player_unit = player_units[self.current_player]
-    player_xy = [player_unit["x"], player_unit["y"]]
-    if player_unit["is_selected"] and FUNCTIONS.Move_screen.id in obs.observation["available_actions"]:
-      neutral_units = list(filter(lambda unit: unit["alliance"] == _PLAYER_NEUTRAL, obs.observation['feature_units']))
+    player_xy = [player_unit[features.FeatureUnit.X],
+                 player_unit[features.FeatureUnit.Y]]
+    if not player_unit[features.FeatureUnit.IS_SELECTED]:
+      return FUNCTIONS.select_point("select", player_xy)
+    elif FUNCTIONS.Move_screen.id in obs.observation["available_actions"]:
+      neutral_units = list(filter(lambda unit:
+                                  unit[features.FeatureUnit.ALLIANCE] ==
+                                  _PLAYER_NEUTRAL,
+                                  obs.observation["feature_units"]))
       if len(neutral_units) == 0:
         return FUNCTIONS.no_op()
       closest, min_dist = None, None
       for neutral_unit in neutral_units:
-        neutral_xy = [neutral_unit["x"], neutral_unit["y"]]
-        dist = numpy.linalg.norm(numpy.array(player_xy) - numpy.array(neutral_xy))
+        neutral_xy = [neutral_unit[features.FeatureUnit.X],
+                      neutral_unit[features.FeatureUnit.Y]]
+        dist = numpy.linalg.norm(numpy.array(player_xy) -
+                                 numpy.array(neutral_xy))
         if not min_dist or dist < min_dist:
-          closest, min_dist = neutral_xy, dist
-      self.current_player = 1 if self.current_player == 0 else 0
+          if not self.previous_xy or not self.previous_xy == neutral_xy:
+            closest, min_dist = neutral_xy, dist
+      if not closest:
+        return FUNCTIONS.no_op()
+      self.current_player = 1 - self.current_player
+      self.previous_xy = closest
       return FUNCTIONS.Move_screen("now", closest)
     else:
-      return FUNCTIONS.select_point("select", player_xy)
+      return FUNCTIONS.no_op()
 
 
 class DefeatRoaches(base_agent.BaseAgent):

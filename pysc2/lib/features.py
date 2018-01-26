@@ -31,6 +31,7 @@ from pysc2.lib import stopwatch
 from pysc2.lib import transform
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
+from s2clientprotocol import raw_pb2 as sc_raw
 
 sw = stopwatch.sw
 
@@ -74,11 +75,32 @@ class Effects(enum.IntEnum):
   # pylint: enable=invalid-name
 
 
-class DisplayType(enum.IntEnum):
-  """Values for the `display_type` feature unit layer"""
-  VISIBLE = 1
-  SNAPSHOT = 2
-  HIDDEN = 3
+class FeatureUnit(enum.IntEnum):
+  """Indices for the feature unit vector."""
+  UNIT_TYPE = 0
+  ALLIANCE = 1
+  HEALTH = 2
+  SHIELD = 3
+  ENERGY = 4
+  CARGO_SPACE_TAKEN = 5
+  BUILD_PROGRESS = 6
+  HEALTH_RATIO = 7
+  SHIELD_RATIO = 8
+  ENERGY_RATIO = 9
+  DISPLAY_TYPE = 10
+  OWNER = 11
+  X = 12
+  Y = 13
+  FACING = 14
+  RADIUS = 15
+  CLOAK = 16
+  IS_SELECTED = 17
+  IS_BLIP = 18
+  IS_POWERED = 19
+  CARGO_SPACE_MAX = 20
+  ASSIGNED_HARVESTERS = 21
+  IDEAL_HARVESTERS = 22
+  WEAPON_COOLDOWN = 23
 
 
 class Feature(collections.namedtuple(
@@ -558,78 +580,54 @@ class Features(object):
         out["build_queue"] = np.stack(unit_vec(u)
                                       for u in ui.production.build_queue)
 
+    def feature_unit_vec(u):
+      screen_pos = self._world_to_feature_screen_px.fwd_pt(
+          point.Point.build(u.pos))
+      screen_radius = self._world_to_feature_screen_px.fwd_dist(u.radius)
+      return np.array((
+          # Match unit_vec order
+          u.unit_type,
+          u.alliance,  # Self = 1, Ally = 2, Neutral = 3, Enemy = 4
+          u.health,
+          u.shield,
+          u.energy,
+          u.cargo_space_taken,
+          int(u.build_progress * 100),  # discretize
+
+          # Resume API order
+          int(u.health / u.health_max * 255) if u.health_max > 0 else 0,
+          int(u.shield / u.shield_max * 255) if u.shield_max > 0 else 0,
+          int(u.energy / u.energy_max * 255) if u.energy_max > 0 else 0,
+          u.display_type,  # Visible = 1, Snapshot = 2, Hidden = 3
+          u.owner,  # 1-15, 16 = neutral
+          screen_pos.x,
+          screen_pos.y,
+          u.facing,
+          screen_radius,
+          u.cloak,  # Cloaked = 1, CloakedDetected = 2, NotCloaked = 3
+          u.is_selected,
+          u.is_blip,
+          u.is_powered,
+
+          # Not populated for enemies or neutral
+          u.cargo_space_max,
+          u.assigned_harvesters,
+          u.ideal_harvesters,
+          u.weapon_cooldown,
+      ), dtype=np.int32)
+
+    raw = obs.raw_data
+
     if self._feature_units:
-
-      def feature_unit_vec(u):
-        screen_pos = self._world_to_feature_screen_px.fwd_pt(point.Point.build(u.pos))
-        screen_radius = self._world_to_feature_screen_px.fwd_dist(u.radius)
-        return np.rec.array([(
-            # Match unit_vec order
-            u.unit_type,
-            u.alliance,  # Self = 1, Ally = 2, Neutral = 3, Enemy = 4
-            u.health,
-            u.shield,
-            u.energy,
-            u.cargo_space_taken,
-            int(u.build_progress * 100),  # discretize
-
-            # Resume API order
-            int(u.health / u.health_max * 255) if u.health_max > 0 else 0,
-            int(u.shield / u.shield_max * 255) if u.shield_max > 0 else 0,
-            int(u.energy / u.energy_max * 255) if u.energy_max > 0 else 0,
-            u.display_type,  # Visible = 1, Snapshot = 2, Hidden = 3
-            u.owner,  # 1-15, 16 = neutral
-            screen_pos.x,
-            screen_pos.y,
-            u.facing,
-            screen_radius,
-            u.cloak,  # Cloaked = 1, CloakedDetected = 2, NotCloaked = 3
-            u.is_selected,
-            u.is_blip,
-            u.is_powered,
-
-            # Not populated for enemies or neutral
-            u.cargo_space_max,
-            u.assigned_harvesters,
-            u.ideal_harvesters,
-            u.weapon_cooldown,
-        )], dtype=[("unit_type", "i4"),
-                   ("alliance", "i4"),
-                   ("health", "i4"),
-                   ("shield", "i4"),
-                   ("energy", "i4"),
-                   ("cargo_space_taken", "i4"),
-                   ("build_progress", "i4"),
-                   ("health_ratio", "i4"),
-                   ("shield_ratio", "i4"),
-                   ("energy_ratio", "i4"),
-                   ("display_type", "i4"),
-                   ("owner", "i4"),
-                   ("x", "i4"),
-                   ("y", "i4"),
-                   ("facing", "i4"),
-                   ("radius", "i4"),
-                   ("cloak", "i4"),
-                   ("is_selected", "i4"),
-                   ("is_blip", "i4"),
-                   ("is_powered", "i4"),
-                   ("cargo_space_max", "i4"),
-                   ("assigned_harvesters", "i4"),
-                   ("ideal_harvesters", "i4"),
-                   ("weapon_cooldown", "i4")])
-
-      raw = obs.raw_data
-
-      if len(raw.units) > 0 and self._map_size is not None:
-        with sw("raw_data"):
-          # Update the camera location so we can calculate world to screen positions
-          self._update_camera(point.Point.build(raw.player.camera))
-          feature_units = []
-          for u in raw.units:
-            if u.is_on_screen and u.display_type != DisplayType.HIDDEN:
-              # If the unit is on screen and not hidden
-              feature_units.append(feature_unit_vec(u))
-          out["feature_units"] = np.stack(feature_units)
+      with sw("feature_units"):
+        # Update the camera location so we can calculate world to screen pos
+        self._update_camera(point.Point.build(raw.player.camera))
+        feature_units = []
+        for u in raw.units:
+          if u.is_on_screen and u.display_type != sc_raw.Hidden:
+            # If the unit is on screen and not hidden
+            feature_units.append(feature_unit_vec(u))
+        out["feature_units"] = np.stack(feature_units)
 
     out["available_actions"] = np.array(self.available_actions(obs),
                                         dtype=np.int32)
