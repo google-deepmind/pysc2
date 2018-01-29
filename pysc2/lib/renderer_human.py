@@ -1033,10 +1033,15 @@ class RendererHuman(object):
       creep_mask = creep > 0
       creep_color = creep_feature.color(creep)
 
-      player_feature = features.MINIMAP_FEATURES.player_relative
-      player_relative = player_feature.unpack(self._obs.observation)
-      player_mask = player_relative > 0
-      player_color = player_feature.color(player_relative)
+      if self._obs.observation.player_common.player_id in (0, 16):  # observer
+        # If we're the observer, show the absolute since otherwise all player
+        # units are friendly, making it pretty boring.
+        player_feature = features.MINIMAP_FEATURES.player_id
+      else:
+        player_feature = features.MINIMAP_FEATURES.player_relative
+      player_data = player_feature.unpack(self._obs.observation)
+      player_mask = player_data > 0
+      player_color = player_feature.color(player_data)
 
       visibility = features.MINIMAP_FEATURES.visibility_map.unpack(
           self._obs.observation)
