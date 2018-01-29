@@ -261,6 +261,10 @@ class RendererHuman(object):
     """
     self._game_info = game_info
     self._static_data = static_data
+
+    if not game_info.HasField("start_raw"):
+      raise ValueError("Raw observations are required for the renderer.")
+
     self._map_size = point.Point.build(game_info.start_raw.map_size)
 
     if game_info.options.HasField("feature_layer"):
