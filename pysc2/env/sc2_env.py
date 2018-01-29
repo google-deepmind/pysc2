@@ -308,8 +308,7 @@ class SC2Env(environment.Base):
 
     # Create the game.
     create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
-        map_path=self._map.path,
-        map_data=self._run_config.map_data(self._map.path)))
+        map_path=self._map.path, map_data=self._map.data(self._run_config)))
     agent_race = Race.random
     for p in self._players:
       if isinstance(p, Agent):
@@ -338,7 +337,7 @@ class SC2Env(environment.Base):
 
     # Save the maps so they can access it.
     self._parallel.run(
-        (c.save_map, self._map.path, self._run_config.map_data(self._map.path))
+        (c.save_map, self._map.path, self._map.data(self._run_config))
         for c in self._controllers)
 
     # Create the game. Set the first instance as the host.
