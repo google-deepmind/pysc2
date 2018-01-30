@@ -25,6 +25,7 @@ import numpy as np
 import six
 from pysc2.lib import actions
 from pysc2.lib import colors
+from pysc2.lib import named_array
 from pysc2.lib import point
 from pysc2.lib import static_data
 from pysc2.lib import stopwatch
@@ -71,6 +72,49 @@ class Effects(enum.IntEnum):
   CorrosiveBile = 11
   LurkerSpines = 12
   # pylint: enable=invalid-name
+
+
+class ScoreCumulative(enum.IntEnum):
+  """Indices into the `score_cumulative` observation."""
+  score = 0
+  idle_production_time = 1
+  idle_worker_time = 2
+  total_value_units = 3
+  total_value_structures = 4
+  killed_value_units = 5
+  killed_value_structures = 6
+  collected_minerals = 7
+  collected_vespene = 8
+  collection_rate_minerals = 9
+  collection_rate_vespene = 10
+  spent_minerals = 11
+  spent_vespene = 12
+
+
+class Player(enum.IntEnum):
+  """Indices into the `player` observation."""
+  player_id = 0
+  minerals = 1
+  vespene = 2
+  food_used = 3
+  food_cap = 4
+  food_army = 5
+  food_workers = 6
+  idle_worker_count = 7
+  army_count = 8
+  warp_gate_count = 9
+  larva_count = 10
+
+
+class UnitLayer(enum.IntEnum):
+  """Indices into the unit layers in the observations."""
+  unit_type = 0
+  player_relative = 1
+  health = 2
+  shields = 3
+  energy = 4
+  transport_slots_taken = 5
+  build_progress = 6
 
 
 class Feature(collections.namedtuple(
@@ -383,18 +427,18 @@ class Features(object):
       vary in length, for example the number of valid actions depends on which
       units you have selected.
     """
-    obs_spec = {
+    obs_spec = named_array.NamedDict({
         "available_actions": (0,),
-        "build_queue": (0, 7),
-        "cargo": (0, 7),
+        "build_queue": (0, len(UnitLayer)),
+        "cargo": (0, len(UnitLayer)),
         "cargo_slots_available": (1,),
         "control_groups": (10, 2),
         "game_loop": (1,),
-        "multi_select": (0, 7),
-        "player": (11,),
-        "score_cumulative": (13,),
-        "single_select": (0, 7),  # Actually only (n, 7) for n in (0, 1)
-    }
+        "multi_select": (0, len(UnitLayer)),
+        "player": (len(Player),),
+        "score_cumulative": (len(ScoreCumulative),),
+        "single_select": (0, len(UnitLayer)),  # Only (n, 7) for n in (0, 1).
+    })
     if self._feature_screen_px:
       obs_spec["feature_screen"] = (len(SCREEN_FEATURES),
                                     self._feature_screen_px.y,
@@ -421,13 +465,13 @@ class Features(object):
   def transform_obs(self, obs):
     """Render some SC2 observations into something an agent can handle."""
     empty = np.array([], dtype=np.int32).reshape((0, 7))
-    out = {  # Fill out some that are sometimes empty.
+    out = named_array.NamedDict({  # Fill out some that are sometimes empty.
         "single_select": empty,
         "multi_select": empty,
         "build_queue": empty,
         "cargo": empty,
         "cargo_slots_available": np.array([0], dtype=np.int32),
-    }
+    })
 
     def or_zeros(layer, size):
       if layer is not None:
@@ -436,13 +480,15 @@ class Features(object):
         return np.zeros((size.y, size.x), dtype=np.int32)
 
     if self._feature_screen_px:
-      out["feature_screen"] = np.stack(
-          or_zeros(f.unpack(obs), self._feature_screen_px)
-          for f in SCREEN_FEATURES)
+      out["feature_screen"] = named_array.NamedNumpyArray(
+          np.stack(or_zeros(f.unpack(obs), self._feature_screen_px)
+                   for f in SCREEN_FEATURES),
+          names=[ScreenFeatures, None, None])
     if self._feature_minimap_px:
-      out["feature_minimap"] = np.stack(
-          or_zeros(f.unpack(obs), self._feature_minimap_px)
-          for f in MINIMAP_FEATURES)
+      out["feature_minimap"] = named_array.NamedNumpyArray(
+          np.stack(or_zeros(f.unpack(obs), self._feature_minimap_px)
+                   for f in MINIMAP_FEATURES),
+          names=[MinimapFeatures, None, None])
     if self._rgb_screen_px:
       out["rgb_screen"] = Feature.unpack_rgb_image(
           obs.render_data.map).astype(np.int32)
@@ -451,22 +497,23 @@ class Features(object):
           obs.render_data.minimap).astype(np.int32)
 
     out["game_loop"] = np.array([obs.game_loop], dtype=np.int32)
-    out["score_cumulative"] = np.array([
+    score_details = obs.score.score_details
+    out["score_cumulative"] = named_array.NamedNumpyArray([
         obs.score.score,
-        obs.score.score_details.idle_production_time,
-        obs.score.score_details.idle_worker_time,
-        obs.score.score_details.total_value_units,
-        obs.score.score_details.total_value_structures,
-        obs.score.score_details.killed_value_units,
-        obs.score.score_details.killed_value_structures,
-        obs.score.score_details.collected_minerals,
-        obs.score.score_details.collected_vespene,
-        obs.score.score_details.collection_rate_minerals,
-        obs.score.score_details.collection_rate_vespene,
-        obs.score.score_details.spent_minerals,
-        obs.score.score_details.spent_vespene,
-    ], dtype=np.int32)
-    out["player"] = np.array([
+        score_details.idle_production_time,
+        score_details.idle_worker_time,
+        score_details.total_value_units,
+        score_details.total_value_structures,
+        score_details.killed_value_units,
+        score_details.killed_value_structures,
+        score_details.collected_minerals,
+        score_details.collected_vespene,
+        score_details.collection_rate_minerals,
+        score_details.collection_rate_vespene,
+        score_details.spent_minerals,
+        score_details.spent_vespene,
+    ], names=ScoreCumulative, dtype=np.int32)
+    out["player"] = named_array.NamedNumpyArray([
         obs.player_common.player_id,
         obs.player_common.minerals,
         obs.player_common.vespene,
@@ -478,7 +525,7 @@ class Features(object):
         obs.player_common.army_count,
         obs.player_common.warp_gate_count,
         obs.player_common.larva_count,
-    ], dtype=np.int32)
+    ], names=Player, dtype=np.int32)
 
     def unit_vec(u):
       return np.array((
@@ -500,21 +547,25 @@ class Features(object):
       out["control_groups"] = groups
 
       if ui.single:
-        out["single_select"] = np.array([unit_vec(ui.single.unit)])
+        out["single_select"] = named_array.NamedNumpyArray(
+            [unit_vec(ui.single.unit)], [None, UnitLayer])
 
       if ui.multi and ui.multi.units:
-        out["multi_select"] = np.stack(unit_vec(u) for u in ui.multi.units)
+        out["multi_select"] = named_array.NamedNumpyArray(
+            [unit_vec(u) for u in ui.multi.units], [None, UnitLayer])
 
       if ui.cargo and ui.cargo.passengers:
         out["single_select"] = np.array([unit_vec(ui.single.unit)])
-        out["cargo"] = np.stack(unit_vec(u) for u in ui.cargo.passengers)
+        out["cargo"] = named_array.NamedNumpyArray(
+            [unit_vec(u) for u in ui.cargo.passengers], [None, UnitLayer])
         out["cargo_slots_available"] = np.array([ui.cargo.slots_available],
                                                 dtype=np.int32)
 
       if ui.production and ui.production.build_queue:
         out["single_select"] = np.array([unit_vec(ui.production.unit)])
-        out["build_queue"] = np.stack(unit_vec(u)
-                                      for u in ui.production.build_queue)
+        out["build_queue"] = named_array.NamedNumpyArray(
+            [unit_vec(u) for u in ui.production.build_queue],
+            [None, UnitLayer])
 
     out["available_actions"] = np.array(self.available_actions(obs),
                                         dtype=np.int32)

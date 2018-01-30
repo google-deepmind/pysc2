@@ -54,7 +54,7 @@ def identity_function(name, args):
 
 
 def any_point(unit_type, obs):
-  unit_layer = obs['feature_screen'][features.SCREEN_FEATURES.unit_type.index]
+  unit_layer = obs.feature_screen.unit_type
   y, x = (unit_layer == unit_type).nonzero()
   if not y.any():
     return None, None
@@ -62,7 +62,7 @@ def any_point(unit_type, obs):
 
 
 def avg_point(unit_type, obs):
-  unit_layer = obs['feature_screen'][features.SCREEN_FEATURES.unit_type.index]
+  unit_layer = obs.feature_screen.unit_type
   y, x = (unit_layer == unit_type).nonzero()
   if not y.any():
     return None, None
@@ -97,8 +97,6 @@ class Config(object):
     minimap_resolution.assign_to(
         self.interface.feature_layer.minimap_resolution)
 
-    # Feature layer with the unit types.
-    self.unit_type_id = features.SCREEN_FEATURES.unit_type.index
     self.num_observations = 3000
     self.player_id = 1
 
@@ -206,7 +204,7 @@ class ReplayObsTest(utils.TestCase):
       o = controller.observe().observation
       obs = f.transform_obs(o)
 
-      unit_type = obs['feature_screen'][config.unit_type_id]
+      unit_type = obs.feature_screen.unit_type
       observations[o.game_loop] = unit_type
 
       if o.game_loop in config.actions:
@@ -218,7 +216,7 @@ class ReplayObsTest(utils.TestCase):
 
         # Ensure action is available.
         # If a build action is available, we have managed to target an SCV.
-        self.assertIn(func.function, obs['available_actions'])
+        self.assertIn(func.function, obs.available_actions)
 
         if func.function == actions.FUNCTIONS.select_point.id:
           # Ensure we have selected an SCV or the command center.
@@ -250,7 +248,7 @@ class ReplayObsTest(utils.TestCase):
       if o.player_result:  # end of game
         break
 
-      unit_type = obs['feature_screen'][config.unit_type_id]
+      unit_type = obs.feature_screen.unit_type
       self.assertEqual(
           tuple(observations[o.observation.game_loop].flatten()),
           tuple(unit_type.flatten()))

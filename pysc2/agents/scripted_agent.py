@@ -23,7 +23,6 @@ from pysc2.agents import base_agent
 from pysc2.lib import actions
 from pysc2.lib import features
 
-_PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
 _PLAYER_SELF = features.PlayerRelative.SELF
 _PLAYER_NEUTRAL = features.PlayerRelative.NEUTRAL  # beacon/minerals
 _PLAYER_ENEMY = features.PlayerRelative.ENEMY
@@ -36,8 +35,8 @@ class MoveToBeacon(base_agent.BaseAgent):
 
   def step(self, obs):
     super(MoveToBeacon, self).step(obs)
-    if FUNCTIONS.Move_screen.id in obs.observation["available_actions"]:
-      player_relative = obs.observation["feature_screen"][_PLAYER_RELATIVE]
+    if FUNCTIONS.Move_screen.id in obs.observation.available_actions:
+      player_relative = obs.observation.feature_screen.player_relative
       neutral_y, neutral_x = (player_relative == _PLAYER_NEUTRAL).nonzero()
       if not neutral_y.any():
         return FUNCTIONS.no_op()
@@ -52,8 +51,8 @@ class CollectMineralShards(base_agent.BaseAgent):
 
   def step(self, obs):
     super(CollectMineralShards, self).step(obs)
-    if FUNCTIONS.Move_screen.id in obs.observation["available_actions"]:
-      player_relative = obs.observation["feature_screen"][_PLAYER_RELATIVE]
+    if FUNCTIONS.Move_screen.id in obs.observation.available_actions:
+      player_relative = obs.observation.feature_screen.player_relative
       neutral_y, neutral_x = (player_relative == _PLAYER_NEUTRAL).nonzero()
       player_y, player_x = (player_relative == _PLAYER_SELF).nonzero()
       if not neutral_y.any() or not player_y.any():
@@ -74,15 +73,15 @@ class DefeatRoaches(base_agent.BaseAgent):
 
   def step(self, obs):
     super(DefeatRoaches, self).step(obs)
-    if FUNCTIONS.Attack_screen.id in obs.observation["available_actions"]:
-      player_relative = obs.observation["feature_screen"][_PLAYER_RELATIVE]
+    if FUNCTIONS.Attack_screen.id in obs.observation.available_actions:
+      player_relative = obs.observation.feature_screen.player_relative
       roach_y, roach_x = (player_relative == _PLAYER_ENEMY).nonzero()
       if not roach_y.any():
         return FUNCTIONS.no_op()
       index = numpy.argmax(roach_y)
       target = [roach_x[index], roach_y[index]]
       return FUNCTIONS.Attack_screen("now", target)
-    elif FUNCTIONS.select_army.id in obs.observation["available_actions"]:
+    elif FUNCTIONS.select_army.id in obs.observation.available_actions:
       return FUNCTIONS.select_army("select")
     else:
       return FUNCTIONS.no_op()
