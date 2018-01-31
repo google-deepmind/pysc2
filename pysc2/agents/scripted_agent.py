@@ -68,6 +68,59 @@ class CollectMineralShards(base_agent.BaseAgent):
       return FUNCTIONS.select_army("select")
 
 
+class CollectMineralShardsFeatureUnits(base_agent.BaseAgent):
+  """An agent for solving the CollectMineralShards map with feature units.
+
+  Controls the two marines independently:
+  - select marine
+  - move to nearest mineral shard that wasn't the previous target
+  - swap marine and repeat
+  """
+
+  def setup(self, obs_spec, action_spec):
+    super(CollectMineralShardsFeatureUnits, self).setup(obs_spec, action_spec)
+    if "feature_units" not in obs_spec:
+      raise Exception("This agent requires the feature_units observation.")
+
+  def reset(self):
+    super(CollectMineralShardsFeatureUnits, self).reset()
+    self._current_marine = 0
+    self._previous_mineral_xy = None
+
+  def step(self, obs):
+    super(CollectMineralShardsFeatureUnits, self).step(obs)
+    marines = [unit for unit in obs.observation.feature_units
+               if unit.alliance == _PLAYER_SELF]
+    if not marines:
+      return FUNCTIONS.no_op()
+    marine_unit = marines[self._current_marine]
+    marine_xy = [marine_unit.x, marine_unit.y]
+
+    if not marine_unit.is_selected:
+      # Nothing selected or the wrong marine is selected.
+      return FUNCTIONS.select_point("select", marine_xy)
+
+    if FUNCTIONS.Move_screen.id in obs.observation.available_actions:
+      # Find and move to the nearest mineral.
+      minerals = [unit for unit in obs.observation.feature_units
+                  if unit.alliance == _PLAYER_NEUTRAL]
+      closest_mineral_xy, min_dist = None, numpy.inf
+      for mineral in minerals:
+        mineral_xy = [mineral.x, mineral.y]
+        if mineral_xy != self._previous_mineral_xy:
+          dist = numpy.linalg.norm(
+              numpy.array(marine_xy) - numpy.array(mineral_xy))
+          if dist < min_dist:
+            closest_mineral_xy, min_dist = mineral_xy, dist
+      if closest_mineral_xy:
+        # Swap to the other marine.
+        self._current_marine = 1 - self._current_marine
+        self._previous_mineral_xy = closest_mineral_xy
+        return FUNCTIONS.Move_screen("now", closest_mineral_xy)
+
+    return FUNCTIONS.no_op()
+
+
 class DefeatRoaches(base_agent.BaseAgent):
   """An agent specifically for solving the DefeatRoaches map."""
 
