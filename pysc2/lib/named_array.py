@@ -21,6 +21,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numbers
+
 import enum
 import numpy as np
 
@@ -138,11 +140,11 @@ class NamedNumpyArray(np.ndarray):
       index = _get_index(obj, index)
       obj = super(NamedNumpyArray, obj).__getitem__(index)
       if isinstance(obj, np.ndarray):  # If this is a view, index the names too.
-        if isinstance(index, int):
+        if isinstance(index, numbers.Integral):
           obj._index_names = obj._index_names[1:]
         elif isinstance(index, slice):
           # Rebuild the index of names.
-          names = sorted(obj._index_names[0].items(), key=lambda (n, i): i)
+          names = sorted(obj._index_names[0].items(), key=lambda item: item[1])
           sliced = {n: i for i, (n, _) in enumerate(names[index])}
           obj._index_names = [sliced] + obj._index_names[1:]
     return obj
@@ -165,7 +167,7 @@ class NamedNumpyArray(np.ndarray):
 
 
 def _get_index(obj, index):
-  if isinstance(index, (int, slice)):
+  if isinstance(index, (numbers.Integral, slice)):
     return index
   elif isinstance(index, str):
     try:

@@ -18,8 +18,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import itertools
-
 from absl.testing import absltest
 from future.builtins import range  # pylint: disable=redefined-builtin
 
@@ -30,7 +28,7 @@ from pysc2.lib import stopwatch
 def ham_dist(str1, str2):
   """Hamming distance. Count the number of differences between str1 and str2."""
   assert len(str1) == len(str2)
-  return sum(c1 != c2 for c1, c2 in itertools.izip(str1, str2))
+  return sum(c1 != c2 for c1, c2 in zip(str1, str2))
 
 
 class StatTest(absltest.TestCase):

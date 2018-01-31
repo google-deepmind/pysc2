@@ -415,7 +415,7 @@ class Functions(object):
     return self._func_dict[name]
 
   def __getitem__(self, key):
-    if isinstance(key, numbers.Number):
+    if isinstance(key, numbers.Integral):
       return self._func_list[key]
     return self._func_dict[key]
 

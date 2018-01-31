@@ -95,7 +95,7 @@ class StarcraftProtocol(object):
       err_str = ("Error in RPC response (likely a bug). "
                  "Prev status: %s, new status: %s, error:\n%s" % (
                      prev_status, self._status, "\n".join(response.error)))
-      logging.critical(err_str)
+      logging.error(err_str)
       raise ProtocolError(err_str)
     return response
 
