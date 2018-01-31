@@ -30,6 +30,12 @@ _PLAYER_ENEMY = features.PlayerRelative.ENEMY
 FUNCTIONS = actions.FUNCTIONS
 
 
+def _xy_locs(mask):
+  """Mask should be a set of bools from comparison with a feature layer."""
+  y, x = mask.nonzero()
+  return zip(x, y)
+
+
 class MoveToBeacon(base_agent.BaseAgent):
   """An agent specifically for solving the MoveToBeacon map."""
 
@@ -37,11 +43,11 @@ class MoveToBeacon(base_agent.BaseAgent):
     super(MoveToBeacon, self).step(obs)
     if FUNCTIONS.Move_screen.id in obs.observation.available_actions:
       player_relative = obs.observation.feature_screen.player_relative
-      neutral_y, neutral_x = (player_relative == _PLAYER_NEUTRAL).nonzero()
-      if not neutral_y.any():
+      beacon = _xy_locs(player_relative == _PLAYER_NEUTRAL)
+      if not beacon:
         return FUNCTIONS.no_op()
-      target = [round(neutral_x.mean()), round(neutral_y.mean())]
-      return FUNCTIONS.Move_screen("now", target)
+      beacon_center = numpy.mean(beacon, axis=0).round()
+      return FUNCTIONS.Move_screen("now", beacon_center)
     else:
       return FUNCTIONS.select_army("select")
 
@@ -53,17 +59,14 @@ class CollectMineralShards(base_agent.BaseAgent):
     super(CollectMineralShards, self).step(obs)
     if FUNCTIONS.Move_screen.id in obs.observation.available_actions:
       player_relative = obs.observation.feature_screen.player_relative
-      neutral_y, neutral_x = (player_relative == _PLAYER_NEUTRAL).nonzero()
-      player_y, player_x = (player_relative == _PLAYER_SELF).nonzero()
-      if not neutral_y.any() or not player_y.any():
+      minerals = _xy_locs(player_relative == _PLAYER_NEUTRAL)
+      if not minerals:
         return FUNCTIONS.no_op()
-      player = [round(player_x.mean()), round(player_y.mean())]
-      closest, min_dist = None, None
-      for p in zip(neutral_x, neutral_y):
-        dist = numpy.linalg.norm(numpy.array(player) - numpy.array(p))
-        if not min_dist or dist < min_dist:
-          closest, min_dist = p, dist
-      return FUNCTIONS.Move_screen("now", closest)
+      marines = _xy_locs(player_relative == _PLAYER_SELF)
+      marine_xy = numpy.mean(marines, axis=0).round()  # Average location.
+      distances = numpy.linalg.norm(numpy.array(minerals) - marine_xy, axis=1)
+      closest_mineral_xy = minerals[numpy.argmin(distances)]
+      return FUNCTIONS.Move_screen("now", closest_mineral_xy)
     else:
       return FUNCTIONS.select_army("select")
 
@@ -102,17 +105,19 @@ class CollectMineralShardsFeatureUnits(base_agent.BaseAgent):
 
     if FUNCTIONS.Move_screen.id in obs.observation.available_actions:
       # Find and move to the nearest mineral.
-      minerals = [unit for unit in obs.observation.feature_units
+      minerals = [[unit.x, unit.y] for unit in obs.observation.feature_units
                   if unit.alliance == _PLAYER_NEUTRAL]
-      closest_mineral_xy, min_dist = None, numpy.inf
-      for mineral in minerals:
-        mineral_xy = [mineral.x, mineral.y]
-        if mineral_xy != self._previous_mineral_xy:
-          dist = numpy.linalg.norm(
-              numpy.array(marine_xy) - numpy.array(mineral_xy))
-          if dist < min_dist:
-            closest_mineral_xy, min_dist = mineral_xy, dist
-      if closest_mineral_xy:
+
+      if self._previous_mineral_xy in minerals:
+        # Don't go for the same mineral shard as other marine.
+        minerals.remove(self._previous_mineral_xy)
+
+      if minerals:
+        # Find the closest.
+        distances = numpy.linalg.norm(
+            numpy.array(minerals) - numpy.array(marine_xy), axis=1)
+        closest_mineral_xy = minerals[numpy.argmin(distances)]
+
         # Swap to the other marine.
         self._current_marine = 1 - self._current_marine
         self._previous_mineral_xy = closest_mineral_xy
@@ -128,13 +133,15 @@ class DefeatRoaches(base_agent.BaseAgent):
     super(DefeatRoaches, self).step(obs)
     if FUNCTIONS.Attack_screen.id in obs.observation.available_actions:
       player_relative = obs.observation.feature_screen.player_relative
-      roach_y, roach_x = (player_relative == _PLAYER_ENEMY).nonzero()
-      if not roach_y.any():
+      roaches = _xy_locs(player_relative == _PLAYER_ENEMY)
+      if not roaches:
         return FUNCTIONS.no_op()
-      index = numpy.argmax(roach_y)
-      target = [roach_x[index], roach_y[index]]
+
+      # Find the roach with max y coord.
+      target = roaches[numpy.argmax(numpy.array(roaches)[:, 1])]
       return FUNCTIONS.Attack_screen("now", target)
-    elif FUNCTIONS.select_army.id in obs.observation.available_actions:
+
+    if FUNCTIONS.select_army.id in obs.observation.available_actions:
       return FUNCTIONS.select_army("select")
-    else:
-      return FUNCTIONS.no_op()
+
+    return FUNCTIONS.no_op()
