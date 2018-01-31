@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # Copyright 2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,14 +12,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PySC2 module: https://github.com/deepmind/pysc2 ."""
+"""Find and run the tests.
 
-import os
+Run as: python -m pysc2.bin.run_tests
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from absl.testing import absltest
+
+import pysc2
 
 
-def load_tests(loader, standard_tests, unused_pattern):
-  """Our tests end in `_test.py`, so need to override the test discovery."""
-  this_dir = os.path.dirname(__file__)
-  package_tests = loader.discover(start_dir=this_dir, pattern="*_test.py")
-  standard_tests.addTests(package_tests)
-  return standard_tests
+if __name__ == '__main__':
+  absltest.main(module=pysc2)

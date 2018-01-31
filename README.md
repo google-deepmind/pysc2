@@ -180,6 +180,15 @@ environment. You can see the list of known maps by running:
 $ python -m pysc2.bin.map_list
 ```
 
+## Run the tests
+
+If you want to submit a pull request, please make sure the tests pass on both
+python 2 and 3.
+
+```shell
+$ python -m pysc2.bin.run_tests
+```
+
 # Environment Details
 
 For a full description of the specifics of how the environment is configured,
