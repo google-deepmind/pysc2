@@ -410,14 +410,20 @@ class Functions(object):
       raise ValueError("Function names must be unique.")
 
   def __getattr__(self, name):
-    if name.startswith("__") and name.endswith("__"):
-      return super(Functions, self).__getattr__(name)
     return self._func_dict[name]
 
   def __getitem__(self, key):
     if isinstance(key, numbers.Integral):
       return self._func_list[key]
     return self._func_dict[key]
+
+  def __getstate__(self):
+    # Support pickling, which otherwise conflicts with __getattr__.
+    return self._func_list
+
+  def __setstate__(self, functions):
+    # Support pickling, which otherwise conflicts with __getattr__.
+    self.__init__(functions)
 
   def __iter__(self):
     return iter(self._func_list)
