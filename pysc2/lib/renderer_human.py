@@ -31,7 +31,7 @@ import enum
 from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy as np
 import pygame
-from six.moves import queue
+import queue
 from pysc2.lib import colors
 from pysc2.lib import features
 from pysc2.lib import point

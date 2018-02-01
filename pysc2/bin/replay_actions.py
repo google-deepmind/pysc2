@@ -29,8 +29,8 @@ import time
 from absl import app
 from absl import flags
 from future.builtins import range  # pylint: disable=redefined-builtin
+import queue
 import six
-from six.moves import queue
 
 from pysc2 import run_configs
 from pysc2.lib import features
