@@ -33,7 +33,7 @@ FUNCTIONS = actions.FUNCTIONS
 def _xy_locs(mask):
   """Mask should be a set of bools from comparison with a feature layer."""
   y, x = mask.nonzero()
-  return zip(x, y)
+  return list(zip(x, y))
 
 
 class MoveToBeacon(base_agent.BaseAgent):
