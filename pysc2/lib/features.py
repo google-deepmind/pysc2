@@ -231,7 +231,7 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
           type=type_,
           palette=palette(scale) if callable(palette) else palette,
           clip=clip)
-    return super(ScreenFeatures, cls).__new__(cls, **feats)
+    return super(ScreenFeatures, cls).__new__(cls, **feats)  # pytype: disable=missing-parameter
 
 
 class MinimapFeatures(collections.namedtuple("MinimapFeatures", [
@@ -252,7 +252,7 @@ class MinimapFeatures(collections.namedtuple("MinimapFeatures", [
           type=type_,
           palette=palette(scale) if callable(palette) else palette,
           clip=False)
-    return super(MinimapFeatures, cls).__new__(cls, **feats)
+    return super(MinimapFeatures, cls).__new__(cls, **feats)  # pytype: disable=missing-parameter
 
 
 SCREEN_FEATURES = ScreenFeatures(

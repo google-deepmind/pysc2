@@ -67,7 +67,7 @@ class StepType(enum.IntEnum):
 
 
 @six.add_metaclass(abc.ABCMeta)
-class Base(object):
+class Base(object):  # pytype: disable=ignored-abstractmethod
   """Abstract base class for Python RL environments."""
 
   @abc.abstractmethod

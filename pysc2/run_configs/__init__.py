@@ -34,7 +34,7 @@ def get():
              for c in lib.RunConfig.all_subclasses() if c.priority()}
 
   if not configs:
-    raise lib.SC2LaunchError("No valid run_configs found.")
+    raise sc_process.SC2LaunchError("No valid run_configs found.")
 
   if FLAGS.sc2_run_config is None:  # Find the highest priority as default.
     return max(configs.values(), key=lambda c: c.priority())()

@@ -25,8 +25,8 @@ from pysc2.lib import actions
 from pysc2.lib import features
 
 FLAGS = flags.FLAGS
-flags.DEFINE_int("screen_size", 84, "Resolution for screen actions.")
-flags.DEFINE_int("minimap_size", 64, "Resolution for minimap actions.")
+flags.DEFINE_integer("screen_size", 84, "Resolution for screen actions.")
+flags.DEFINE_integer("minimap_size", 64, "Resolution for minimap actions.")
 flags.DEFINE_bool("hide_specific", False, "Hide the specific actions")
 
 

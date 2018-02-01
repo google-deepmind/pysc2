@@ -90,7 +90,7 @@ class StarcraftProtocol(object):
     if not response.HasField("status"):
       raise ProtocolError("Got an incomplete response without a status.")
     prev_status = self._status
-    self._status = Status(response.status)
+    self._status = Status(response.status)  # pytype: disable=not-callable
     if response.error:
       err_str = ("Error in RPC response (likely a bug). "
                  "Prev status: %s, new status: %s, error:\n%s" % (

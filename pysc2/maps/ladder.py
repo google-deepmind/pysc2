@@ -41,6 +41,7 @@ for name in ladder_seasons:
 
 
 # pylint: disable=bad-whitespace, undefined-variable
+# pytype: disable=name-error
 ladder_maps = [
     ("AbyssalReef",          Ladder2017Season3, "AbyssalReefLE", 2),
     ("Acolyte",              Ladder2017Season3, "AcolyteLE", 2),
@@ -60,6 +61,7 @@ ladder_maps = [
     ("Sequencer",            Ladder2017Season2, "SequencerLE", 2),
 ]
 # pylint: enable=bad-whitespace, undefined-variable
+# pytype: enable=name-error
 
 # Create the classes dynamically, putting them into the module scope. They all
 # inherit from a parent and set the players based on the map filename.

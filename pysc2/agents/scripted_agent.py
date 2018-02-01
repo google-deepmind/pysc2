@@ -88,7 +88,7 @@ class CollectMineralShardsFeatureUnits(base_agent.BaseAgent):
   def reset(self):
     super(CollectMineralShardsFeatureUnits, self).reset()
     self._current_marine = 0
-    self._previous_mineral_xy = None
+    self._previous_mineral_xy = [-1, -1]
 
   def step(self, obs):
     super(CollectMineralShardsFeatureUnits, self).step(obs)
