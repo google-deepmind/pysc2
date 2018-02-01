@@ -44,6 +44,10 @@ from s2clientprotocol import data_pb2 as sc_data
 from s2clientprotocol import sc2api_pb2 as sc_pb
 from s2clientprotocol import spatial_pb2 as sc_spatial
 
+# Disable attribute-error because of the multiple stages of initialization for
+# RendererHuman.
+# pytype: disable=attribute-error
+
 sw = stopwatch.sw
 
 render_lock = threading.Lock()  # Serialize all window/render operations.
@@ -298,10 +302,10 @@ class RendererHuman(object):
       logging.error("-" * 60)
 
     self._obs = sc_pb.ResponseObservation()
-    self.queued_action = None
-    self.queued_hotkey = ""
-    self.select_start = None
-    self.help = False
+    self._queued_action = None
+    self._queued_hotkey = ""
+    self._select_start = None
+    self._help = False
 
   @with_lock(render_lock)
   @sw.decorate
@@ -309,7 +313,7 @@ class RendererHuman(object):
     """Initialize the pygame window and lay out the surfaces."""
     if os.name == "nt":
       # Enable DPI awareness on Windows to give the correct window size.
-      ctypes.windll.user32.SetProcessDPIAware()
+      ctypes.windll.user32.SetProcessDPIAware()  # pytype: disable=module-attr
 
     pygame.init()
 
@@ -342,17 +346,17 @@ class RendererHuman(object):
     pygame.display.set_caption("Starcraft Viewer")
 
     # The sub-surfaces that the various draw functions will draw to.
-    self.surfaces = []
+    self._surfaces = []
     def add_surface(surf_type, surf_loc, world_to_surf, world_to_obs, draw_fn):
       """Add a surface. Drawn in order and intersect in reverse order."""
       sub_surf = self._window.subsurface(
           pygame.Rect(surf_loc.tl, surf_loc.size))
-      self.surfaces.append(_Surface(
+      self._surfaces.append(_Surface(
           sub_surf, surf_type, surf_loc, world_to_surf, world_to_obs, draw_fn))
 
-    self.scale = window_size_px.y // 30
-    self.font_small = pygame.font.Font(None, int(self.scale * 0.5))
-    self.font_large = pygame.font.Font(None, self.scale)
+    self._scale = window_size_px.y // 30
+    self._font_small = pygame.font.Font(None, int(self._scale * 0.5))
+    self._font_large = pygame.font.Font(None, self._scale)
 
     def check_eq(a, b):
       """Used to run unit tests on the transforms."""
@@ -560,7 +564,7 @@ class RendererHuman(object):
     help_size = point.Point(
         (max(len(s) for s, _ in self.shortcuts) +
          max(len(s) for _, s in self.shortcuts)) * 0.4 + 4,
-        len(self.shortcuts) + 3) * self.scale
+        len(self.shortcuts) + 3) * self._scale
     help_rect = point.Rect(window_size_px / 2 - help_size / 2,
                            window_size_px / 2 + help_size / 2)
     add_surface(SurfType.CHROME, help_rect, None, None, self.draw_help)
@@ -594,7 +598,7 @@ class RendererHuman(object):
     window_pos = window_pos or pygame.mouse.get_pos()
     # +0.5 to center the point on the middle of the pixel.
     window_pt = point.Point(*window_pos) + 0.5
-    for surf in reversed(self.surfaces):
+    for surf in reversed(self._surfaces):
       if (surf.surf_type != SurfType.CHROME and
           surf.surf_rect.contains_point(window_pt)):
         surf_rel_pt = window_pt - surf.surf_rect.tl
@@ -602,8 +606,8 @@ class RendererHuman(object):
         return MousePos(world_pt, surf)
 
   def clear_queued_action(self):
-    self.queued_hotkey = ""
-    self.queued_action = None
+    self._queued_hotkey = ""
+    self._queued_action = None
 
   def save_replay(self, run_config, controller):
     replay_path = run_config.save_replay(
@@ -620,10 +624,10 @@ class RendererHuman(object):
       if event.type == pygame.QUIT:
         return ActionCmd.QUIT
       elif event.type == pygame.KEYDOWN:
-        if self.help:
-          self.help = False
+        if self._help:
+          self._help = False
         elif event.key in (pygame.K_QUESTION, pygame.K_SLASH):
-          self.help = True
+          self._help = True
         elif event.key == pygame.K_PAUSE:
           pause = True
           while pause:
@@ -682,32 +686,32 @@ class RendererHuman(object):
           else:
             self.clear_queued_action()
         else:
-          if not self.queued_action:
+          if not self._queued_action:
             key = pygame.key.name(event.key).lower()
-            new_cmd = self.queued_hotkey + key
+            new_cmd = self._queued_hotkey + key
             cmds = self._abilities(lambda cmd, n=new_cmd: (  # pylint: disable=g-long-lambda
                 cmd.hotkey != "escape" and cmd.hotkey.startswith(n)))
             if cmds:
-              self.queued_hotkey = new_cmd
+              self._queued_hotkey = new_cmd
               if len(cmds) == 1:
                 cmd = cmds[0]
-                if cmd.hotkey == self.queued_hotkey:
+                if cmd.hotkey == self._queued_hotkey:
                   if cmd.target != sc_data.AbilityData.Target.Value("None"):
                     self.clear_queued_action()
-                    self.queued_action = cmd
+                    self._queued_action = cmd
                   else:
                     controller.act(self.unit_action(cmd))
       elif event.type == pygame.MOUSEBUTTONDOWN:
         mouse_pos = self.get_mouse_pos(event.pos)
         if event.button == MouseButtons.LEFT and mouse_pos:
-          if self.queued_action:
-            controller.act(self.unit_action(self.queued_action, mouse_pos))
+          if self._queued_action:
+            controller.act(self.unit_action(self._queued_action, mouse_pos))
           elif mouse_pos.surf.surf_type & SurfType.MINIMAP:
             controller.act(self.camera_action(mouse_pos))
           else:
-            self.select_start = mouse_pos
+            self._select_start = mouse_pos
         elif event.button == MouseButtons.RIGHT:
-          if self.queued_action:
+          if self._queued_action:
             self.clear_queued_action()
           else:
             cmds = self._abilities(lambda cmd: cmd.button_name == "Smart")
@@ -715,11 +719,11 @@ class RendererHuman(object):
               controller.act(self.unit_action(cmds[0], mouse_pos))
       elif event.type == pygame.MOUSEBUTTONUP:
         mouse_pos = self.get_mouse_pos(event.pos)
-        if event.button == MouseButtons.LEFT and self.select_start:
+        if event.button == MouseButtons.LEFT and self._select_start:
           if (mouse_pos and mouse_pos.surf.surf_type & SurfType.SCREEN and
-              mouse_pos.surf.surf_type == self.select_start.surf.surf_type):
-            controller.act(self.select_action(self.select_start, mouse_pos))
-          self.select_start = None
+              mouse_pos.surf.surf_type == self._select_start.surf.surf_type):
+            controller.act(self.select_action(self._select_start, mouse_pos))
+          self._select_start = None
     return ActionCmd.STEP
 
   def camera_action(self, mouse_pos):
@@ -807,7 +811,7 @@ class RendererHuman(object):
     if key not in self._name_lengths:
       max_len = surf.world_to_surf.fwd_dist(radius * 1.6)
       for i in range(len(name)):
-        if self.font_small.size(name[:i + 1])[0] > max_len:
+        if self._font_small.size(name[:i + 1])[0] > max_len:
           self._name_lengths[key] = name[:i]
           break
       else:
@@ -837,7 +841,7 @@ class RendererHuman(object):
         name = self.get_unit_name(
             surf, self._static_data.units.get(u.unit_type, "<none>"), u.radius)
         if name:
-          text = self.font_small.render(name, True, colors.white)
+          text = self._font_small.render(name, True, colors.white)
           rect = text.get_rect()
           rect.center = surf.world_to_surf.fwd_pt(p)
           surf.surf.blit(text, rect)
@@ -848,11 +852,11 @@ class RendererHuman(object):
   @sw.decorate
   def draw_selection(self, surf):
     """Draw the selection rectange."""
-    if self.select_start:
+    if self._select_start:
       mouse_pos = self.get_mouse_pos()
       if (mouse_pos and mouse_pos.surf.surf_type & SurfType.SCREEN and
-          mouse_pos.surf.surf_type == self.select_start.surf.surf_type):
-        rect = point.Rect(self.select_start.world_pos, mouse_pos.world_pos)
+          mouse_pos.surf.surf_type == self._select_start.surf.surf_type):
+        rect = point.Rect(self._select_start.world_pos, mouse_pos.world_pos)
         surf.draw_rect(colors.green, rect, 1)
 
   @sw.decorate
@@ -860,8 +864,8 @@ class RendererHuman(object):
     """Draw the build target."""
     round_half = lambda v, cond: round(v - 0.5) + 0.5 if cond else round(v)
 
-    if self.queued_action:
-      radius = self.queued_action.footprint_radius
+    if self._queued_action:
+      radius = self._queued_action.footprint_radius
       if radius:
         pos = self.get_mouse_pos()
         if pos:
@@ -876,7 +880,7 @@ class RendererHuman(object):
   def draw_overlay(self, surf):
     """Draw the overlay describing resources."""
     player = self._obs.observation.player_common
-    text = self.font_large.render(
+    text = self._font_large.render(
         "Minerals: %s, Vespene: %s, Food: %s / %s; Score: %s, Frame: %s, "
         "FPS: G:%.1f, R:%.1f" % (
             player.minerals, player.vespene,
@@ -890,37 +894,37 @@ class RendererHuman(object):
   @sw.decorate
   def draw_help(self, surf):
     """Draw the help dialog."""
-    if not self.help:
+    if not self._help:
       return
 
     def write(line, loc):
-      surf.surf.blit(self.font_large.render(line, True, colors.black), loc)
+      surf.surf.blit(self._font_large.render(line, True, colors.black), loc)
 
     surf.surf.fill(colors.white * 0.8)
-    write("Shortcuts:", point.Point(self.scale, self.scale))
+    write("Shortcuts:", point.Point(self._scale, self._scale))
 
     align = max(len(s) for s, _ in self.shortcuts) * 0.4 + 3
     for i, (hotkey, description) in enumerate(self.shortcuts, start=2):
-      write(hotkey, point.Point(self.scale * 2, self.scale * i))
-      write(description, point.Point(self.scale * align, self.scale * i))
+      write(hotkey, point.Point(self._scale * 2, self._scale * i))
+      write(description, point.Point(self._scale * align, self._scale * i))
 
   @sw.decorate
   def draw_commands(self, surf):
     """Draw the list of available commands."""
-    y = self.scale * 2
+    y = self._scale * 2
 
     for cmd in sorted(self._abilities(), key=lambda c: c.hotkey):
       if cmd.button_name != "Smart":
-        if self.queued_action and cmd == self.queued_action:
+        if self._queued_action and cmd == self._queued_action:
           color = colors.green
-        elif self.queued_hotkey and cmd.hotkey.startswith(self.queued_hotkey):
+        elif self._queued_hotkey and cmd.hotkey.startswith(self._queued_hotkey):
           color = colors.green / 2
         else:
           color = colors.yellow
-        text = self.font_large.render(
+        text = self._font_large.render(
             "%s - %s" % (cmd.hotkey, cmd.button_name), True, color)
         surf.surf.blit(text, (3, y))
-        y += self.scale
+        y += self._scale
 
   @sw.decorate
   def draw_actions(self):
@@ -1065,12 +1069,12 @@ class RendererHuman(object):
 
   def check_valid_queued_action(self):
     # Make sure the existing command is still valid
-    if (self.queued_hotkey and not self._abilities(
-        lambda cmd: cmd.hotkey.startswith(self.queued_hotkey))):
-      self.queued_hotkey = ""
-    if (self.queued_action and not self._abilities(
-        lambda cmd: self.queued_action == cmd)):
-      self.queued_action = None
+    if (self._queued_hotkey and not self._abilities(
+        lambda cmd: cmd.hotkey.startswith(self._queued_hotkey))):
+      self._queued_hotkey = ""
+    if (self._queued_action and not self._abilities(
+        lambda cmd: self._queued_action == cmd)):
+      self._queued_action = None
 
   @sw.decorate
   def draw_rendered_map(self, surf):
@@ -1102,7 +1106,7 @@ class RendererHuman(object):
       surf.surf.fill(colors.black)
 
   def all_surfs(self, fn, *args, **kwargs):
-    for surf in self.surfaces:
+    for surf in self._surfaces:
       if surf.world_to_surf:
         fn(surf, *args, **kwargs)
 
@@ -1144,7 +1148,7 @@ class RendererHuman(object):
     self._update_camera(point.Point.build(
         self._obs.observation.raw_data.player.camera))
 
-    for surf in self.surfaces:
+    for surf in self._surfaces:
       # Render that surface.
       surf.draw(surf)
 
