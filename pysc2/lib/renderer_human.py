@@ -729,7 +729,8 @@ class RendererHuman(object):
               mouse_pos.surf.surf_type == self._select_start.surf.surf_type):
             controller.act(self.select_action(self._select_start,
                                               mouse_pos,
-                                              ctrl))
+                                              ctrl,
+                                              shift))
           self._select_start = None
     return ActionCmd.STEP
 
@@ -746,7 +747,7 @@ class RendererHuman(object):
     world_pos.assign_to(action.action_raw.camera_move.center_world_space)
     return action
 
-  def select_action(self, pos1, pos2, ctrl=False):
+  def select_action(self, pos1, pos2, ctrl=False, shift=False):
     """Return a `sc_pb.Action` with the selection filled."""
     assert pos1.surf.surf_type == pos2.surf.surf_type
     assert pos1.surf.world_to_obs == pos2.surf.world_to_obs
@@ -757,8 +758,12 @@ class RendererHuman(object):
     if pos1.world_pos == pos2.world_pos:  # select a point
       select = action_spatial.unit_selection_point
       pos1.obs_pos.assign_to(select.selection_screen_coord)
-      if ctrl:
+      if ctrl and shift:
+        select.type = sc_spatial.ActionSpatialUnitSelectionPoint.AddAllType
+      elif ctrl and not shift:
         select.type = sc_spatial.ActionSpatialUnitSelectionPoint.AllType
+      elif shift:
+        select.type = sc_spatial.ActionSpatialUnitSelectionPoint.Toggle
       else:
         select.type = sc_spatial.ActionSpatialUnitSelectionPoint.Select
     else:
@@ -766,7 +771,7 @@ class RendererHuman(object):
       rect = select.selection_screen_coord.add()
       pos1.obs_pos.assign_to(rect.p0)
       pos2.obs_pos.assign_to(rect.p1)
-      select.selection_add = False
+      select.selection_add = shift
 
     # Clear the queued action if something will be selected. An alternative
     # implementation may check whether the selection changed next frame.
