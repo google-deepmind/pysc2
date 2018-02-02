@@ -621,6 +621,8 @@ class RendererHuman(object):
       return ActionCmd.STEP
 
     for event in pygame.event.get():
+      ctrl = pygame.key.get_mods() & pygame.KMOD_CTRL
+      shift = pygame.key.get_mods() & pygame.KMOD_SHIFT
       if event.type == pygame.QUIT:
         return ActionCmd.QUIT
       elif event.type == pygame.KEYDOWN:
@@ -655,13 +657,13 @@ class RendererHuman(object):
         elif event.key == pygame.K_F9:  # Save a replay.
           self.save_replay(run_config, controller)
         elif (event.key in (pygame.K_PLUS, pygame.K_EQUALS) and
-              pygame.key.get_mods() & pygame.KMOD_CTRL):  # zoom in
+              ctrl):  # zoom in
           self.zoom(1.1)
         elif (event.key in (pygame.K_MINUS, pygame.K_UNDERSCORE) and
-              pygame.key.get_mods() & pygame.KMOD_CTRL):  # zoom out
+              ctrl):  # zoom out
           self.zoom(1 / 1.1)
         elif event.key in (pygame.K_PAGEUP, pygame.K_PAGEDOWN):
-          if pygame.key.get_mods() & pygame.KMOD_CTRL:
+          if ctrl:
             if event.key == pygame.K_PAGEUP:
               self._step_mul += 1
             elif self._step_mul > 1:
@@ -705,24 +707,30 @@ class RendererHuman(object):
         mouse_pos = self.get_mouse_pos(event.pos)
         if event.button == MouseButtons.LEFT and mouse_pos:
           if self._queued_action:
-            controller.act(self.unit_action(self._queued_action, mouse_pos))
+            controller.act(self.unit_action(self._queued_action,
+                                            mouse_pos,
+                                            shift))
           elif mouse_pos.surf.surf_type & SurfType.MINIMAP:
             controller.act(self.camera_action(mouse_pos))
           else:
             self._select_start = mouse_pos
         elif event.button == MouseButtons.RIGHT:
-          if self._queued_action:
+          queued_action = self._queued_action
+          if queued_action:
             self.clear_queued_action()
-          else:
+          if not queued_action or shift:
             cmds = self._abilities(lambda cmd: cmd.button_name == "Smart")
             if cmds:
-              controller.act(self.unit_action(cmds[0], mouse_pos))
+              controller.act(self.unit_action(cmds[0], mouse_pos, shift))
       elif event.type == pygame.MOUSEBUTTONUP:
         mouse_pos = self.get_mouse_pos(event.pos)
         if event.button == MouseButtons.LEFT and self._select_start:
           if (mouse_pos and mouse_pos.surf.surf_type & SurfType.SCREEN and
               mouse_pos.surf.surf_type == self._select_start.surf.surf_type):
-            controller.act(self.select_action(self._select_start, mouse_pos))
+            controller.act(self.select_action(self._select_start,
+                                              mouse_pos,
+                                              ctrl,
+                                              shift))
           self._select_start = None
     return ActionCmd.STEP
 
@@ -739,7 +747,7 @@ class RendererHuman(object):
     world_pos.assign_to(action.action_raw.camera_move.center_world_space)
     return action
 
-  def select_action(self, pos1, pos2):
+  def select_action(self, pos1, pos2, ctrl=False, shift=False):
     """Return a `sc_pb.Action` with the selection filled."""
     assert pos1.surf.surf_type == pos2.surf.surf_type
     assert pos1.surf.world_to_obs == pos2.surf.world_to_obs
@@ -750,13 +758,20 @@ class RendererHuman(object):
     if pos1.world_pos == pos2.world_pos:  # select a point
       select = action_spatial.unit_selection_point
       pos1.obs_pos.assign_to(select.selection_screen_coord)
-      select.type = sc_spatial.ActionSpatialUnitSelectionPoint.Select
+      if ctrl and shift:
+        select.type = sc_spatial.ActionSpatialUnitSelectionPoint.AddAllType
+      elif ctrl and not shift:
+        select.type = sc_spatial.ActionSpatialUnitSelectionPoint.AllType
+      elif shift:
+        select.type = sc_spatial.ActionSpatialUnitSelectionPoint.Toggle
+      else:
+        select.type = sc_spatial.ActionSpatialUnitSelectionPoint.Select
     else:
       select = action_spatial.unit_selection_rect
       rect = select.selection_screen_coord.add()
       pos1.obs_pos.assign_to(rect.p0)
       pos2.obs_pos.assign_to(rect.p1)
-      select.selection_add = False
+      select.selection_add = shift
 
     # Clear the queued action if something will be selected. An alternative
     # implementation may check whether the selection changed next frame.
@@ -766,13 +781,14 @@ class RendererHuman(object):
 
     return action
 
-  def unit_action(self, cmd, pos=None):
+  def unit_action(self, cmd, pos=None, shift=False):
     """Return a `sc_pb.Action` filled with the cmd and appropriate target."""
     action = sc_pb.Action()
     if pos:
       action_spatial = pos.action_spatial(action)
       unit_command = action_spatial.unit_command
       unit_command.ability_id = cmd.ability_id
+      unit_command.queue_command = shift
       if pos.surf.surf_type & SurfType.SCREEN:
         pos.obs_pos.assign_to(unit_command.target_screen_coord)
       elif pos.surf.surf_type & SurfType.MINIMAP:
@@ -783,7 +799,8 @@ class RendererHuman(object):
       else:
         action.action_render.unit_command.ability_id = cmd.ability_id
 
-    self.clear_queued_action()
+    if not shift:
+      self.clear_queued_action()
     return action
 
   def _abilities(self, fn=None):
