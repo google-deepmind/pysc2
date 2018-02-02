@@ -729,7 +729,7 @@ class RendererHuman(object):
               mouse_pos.surf.surf_type == self._select_start.surf.surf_type):
             controller.act(self.select_action(self._select_start,
                                               mouse_pos,
-                                              shift))
+                                              ctrl))
           self._select_start = None
     return ActionCmd.STEP
 
