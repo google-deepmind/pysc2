@@ -103,7 +103,7 @@ class Point(collections.namedtuple("Point", ["x", "y"])):
                  self.x * math.sin(angle) + self.y * math.cos(angle))
 
   def rotate_rand(self, angle=180):
-    return self.rotate_deg(random.randint(-angle, angle))
+    return self.rotate_deg(random.uniform(-angle, angle))
 
   def contained_circle(self, pt, radius):
     """Is this point inside the circle defined by (`pt`, `radius`)?"""
