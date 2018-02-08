@@ -168,6 +168,12 @@ class MacOS(LocalBase):
 class Linux(LocalBase):
   """Config to run on Linux."""
 
+  known_mesa = [  # In priority order
+      "libOSMesa.so",
+      "libOSMesa.so.8",  # Ubuntu 16.04
+      "libOSMesa.so.6",  # Ubuntu 14.04
+  ]
+
   def __init__(self):
     base_dir = os.environ.get("SC2PATH", "~/StarCraftII")
     base_dir = os.path.expanduser(base_dir)
@@ -189,12 +195,15 @@ class Linux(LocalBase):
     # fails if you ask to use a library that doesn't exist.
     libs = subprocess.check_output(["ldconfig", "-p"]).decode()
     libs = {lib.strip().split()[0] for lib in libs.split("\n") if lib}
-    if "libEGL.so" in libs:
+    if "libEGL.so" in libs:  # Prefer hardware rendering.
       extra_args += ["-eglpath", "libEGL.so"]
-    elif "libOSMesa.so.6" in libs:
-      extra_args += ["-osmesapath", "libOSMesa.so.6"]
     else:
-      logging.info("No GL library found, so RGB rendering will be disabled. "
-                   "For software rendering install libosmesa.")
+      for mesa_lib in self.known_mesa:  # Look for a software renderer.
+        if mesa_lib in libs:
+          extra_args += ["-osmesapath", mesa_lib]
+          break
+      else:
+        logging.info("No GL library found, so RGB rendering will be disabled. "
+                     "For software rendering install libosmesa.")
 
     return super(Linux, self).start(extra_args=extra_args, **kwargs)
