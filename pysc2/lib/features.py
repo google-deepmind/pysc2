@@ -141,10 +141,12 @@ class FeatureUnit(enum.IntEnum):
   is_selected = 17
   is_blip = 18
   is_powered = 19
-  cargo_space_max = 20
-  assigned_harvesters = 21
-  ideal_harvesters = 22
-  weapon_cooldown = 23
+  mineral_contents = 20
+  vespene_contents = 21
+  cargo_space_max = 22
+  assigned_harvesters = 23
+  ideal_harvesters = 24
+  weapon_cooldown = 25
 
 
 class Feature(collections.namedtuple(
@@ -665,6 +667,8 @@ class Features(object):
           u.is_selected,
           u.is_blip,
           u.is_powered,
+          u.mineral_contents,
+          u.vespene_contents,
 
           # Not populated for enemies or neutral
           u.cargo_space_max,
@@ -684,7 +688,7 @@ class Features(object):
           if u.is_on_screen and u.display_type != sc_raw.Hidden:
             feature_units.append(feature_unit_vec(u))
         out["feature_units"] = named_array.NamedNumpyArray(
-            np.stack(feature_units), [None, FeatureUnit])
+            np.stack(feature_units), [None, FeatureUnit]) if len(feature_units) > 0 else []
 
     out["available_actions"] = np.array(self.available_actions(obs),
                                         dtype=np.int32)
