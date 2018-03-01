@@ -415,7 +415,7 @@ class SC2Env(environment.Base):
     self._state = environment.StepType.FIRST
     return self._step()
 
-  @sw.decorate
+  @sw.decorate("step_env")
   def step(self, actions):
     """Apply actions, step the world forward, and return observations."""
     if self._state == environment.StepType.LAST:
