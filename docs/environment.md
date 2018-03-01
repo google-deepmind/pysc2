@@ -317,6 +317,11 @@ referenced by the `build_queue` action.
 A `(n)` tensor listing all the action ids that are available at the time of this
 observation.
 
+##### Last Actions
+
+A `(n)` tensor listing all the action ids that were made successfully since the
+last observation. An action that was attempted but failed is not included here.
+
 ### Actions
 
 The SC2 action space is very big. There are hundreds of possible actions, many

@@ -502,6 +502,7 @@ class Features(object):
         "cargo_slots_available": (1,),
         "control_groups": (10, 2),
         "game_loop": (1,),
+        "last_actions": (0,),
         "multi_select": (0, len(UnitLayer)),
         "player": (len(Player),),
         "score_cumulative": (len(ScoreCumulative),),
@@ -551,25 +552,30 @@ class Features(object):
 
     if self._feature_screen_px:
       out["feature_screen"] = named_array.NamedNumpyArray(
-          np.stack(or_zeros(f.unpack(obs), self._feature_screen_px)
+          np.stack(or_zeros(f.unpack(obs.observation), self._feature_screen_px)
                    for f in SCREEN_FEATURES),
           names=[ScreenFeatures, None, None])
     if self._feature_minimap_px:
       out["feature_minimap"] = named_array.NamedNumpyArray(
-          np.stack(or_zeros(f.unpack(obs), self._feature_minimap_px)
+          np.stack(or_zeros(f.unpack(obs.observation), self._feature_minimap_px)
                    for f in MINIMAP_FEATURES),
           names=[MinimapFeatures, None, None])
     if self._rgb_screen_px:
       out["rgb_screen"] = Feature.unpack_rgb_image(
-          obs.render_data.map).astype(np.int32)
+          obs.observation.render_data.map).astype(np.int32)
     if self._rgb_minimap_px:
       out["rgb_minimap"] = Feature.unpack_rgb_image(
-          obs.render_data.minimap).astype(np.int32)
+          obs.observation.render_data.minimap).astype(np.int32)
 
-    out["game_loop"] = np.array([obs.game_loop], dtype=np.int32)
-    score_details = obs.score.score_details
+    out["last_actions"] = np.array(
+        [self.reverse_action(a).function for a in obs.actions],
+        dtype=np.int32)
+
+    out["game_loop"] = np.array([obs.observation.game_loop], dtype=np.int32)
+
+    score_details = obs.observation.score.score_details
     out["score_cumulative"] = named_array.NamedNumpyArray([
-        obs.score.score,
+        obs.observation.score.score,
         score_details.idle_production_time,
         score_details.idle_worker_time,
         score_details.total_value_units,
@@ -583,18 +589,20 @@ class Features(object):
         score_details.spent_minerals,
         score_details.spent_vespene,
     ], names=ScoreCumulative, dtype=np.int32)
+
+    player = obs.observation.player_common
     out["player"] = named_array.NamedNumpyArray([
-        obs.player_common.player_id,
-        obs.player_common.minerals,
-        obs.player_common.vespene,
-        obs.player_common.food_used,
-        obs.player_common.food_cap,
-        obs.player_common.food_army,
-        obs.player_common.food_workers,
-        obs.player_common.idle_worker_count,
-        obs.player_common.army_count,
-        obs.player_common.warp_gate_count,
-        obs.player_common.larva_count,
+        player.player_id,
+        player.minerals,
+        player.vespene,
+        player.food_used,
+        player.food_cap,
+        player.food_army,
+        player.food_workers,
+        player.idle_worker_count,
+        player.army_count,
+        player.warp_gate_count,
+        player.larva_count,
     ], names=Player, dtype=np.int32)
 
     def unit_vec(u):
@@ -608,7 +616,7 @@ class Features(object):
           int(u.build_progress * 100),  # discretize
       ), dtype=np.int32)
 
-    ui = obs.ui_data
+    ui = obs.observation.ui_data
 
     with sw("ui"):
       groups = np.zeros((10, 2), dtype=np.int32)
@@ -673,7 +681,7 @@ class Features(object):
           u.weapon_cooldown,
       ), dtype=np.int32)
 
-    raw = obs.raw_data
+    raw = obs.observation.raw_data
 
     if self._feature_units:
       with sw("feature_units"):
@@ -686,7 +694,7 @@ class Features(object):
         out["feature_units"] = named_array.NamedNumpyArray(
             np.stack(feature_units), [None, FeatureUnit])
 
-    out["available_actions"] = np.array(self.available_actions(obs),
+    out["available_actions"] = np.array(self.available_actions(obs.observation),
                                         dtype=np.int32)
 
     return out

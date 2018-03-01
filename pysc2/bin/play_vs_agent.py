@@ -144,7 +144,7 @@ def agent_runner(controller, join):
       state = environment.StepType.LAST
       discount = 0
 
-    agent_obs = feats.transform_obs(obs.observation)
+    agent_obs = feats.transform_obs(obs)
 
     timestep = environment.TimeStep(
         step_type=state, reward=reward, discount=discount,

@@ -217,9 +217,21 @@ class ReplayObsTest(utils.TestCase):
     f = features.Features(game_info=controller.game_info())
 
     observations = {}
+    last_actions = []
     for _ in range(config.num_observations):
-      o = controller.observe().observation
-      obs = f.transform_obs(o)
+      raw_obs = controller.observe()
+      o = raw_obs.observation
+      obs = f.transform_obs(raw_obs)
+
+      if raw_obs.action_errors:
+        print('action errors:', raw_obs.action_errors)
+
+      if o.game_loop == 2:
+        # Center camera is initiated automatically by the game and reported
+        # at frame 2.
+        last_actions = [actions.FUNCTIONS.move_camera.id]
+
+      self.assertEqual(last_actions, list(obs.last_actions))
 
       unit_type = obs.feature_screen.unit_type
       observations[o.game_loop] = unit_type
@@ -246,7 +258,10 @@ class ReplayObsTest(utils.TestCase):
           self.assertEqual(_EMPTY, unit_type[y, x])
 
         action = f.transform_action(o, func)
+        last_actions = [func.function]
         controller.act(action)
+      else:
+        last_actions = []
 
       controller.step()
 
@@ -258,7 +273,7 @@ class ReplayObsTest(utils.TestCase):
 
     while True:
       o = controller.observe()
-      obs = f.transform_obs(o.observation)
+      obs = f.transform_obs(o)
 
       if o.player_result:  # end of game
         break
@@ -290,6 +305,7 @@ class ReplayObsTest(utils.TestCase):
         if func.function != actions.FUNCTIONS.select_point.id:
           # select_point likes to return Toggle instead of Select.
           self.assertEqual(func.arguments, executed_func.arguments)
+        self.assertEqual(func.function, obs.last_actions[0])
 
       controller.step()
 
