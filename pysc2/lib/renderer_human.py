@@ -234,8 +234,8 @@ class RendererHuman(object):
     self._render_thread = threading.Thread(target=self.render_thread,
                                            name="Renderer")
     self._render_thread.start()
-    self._game_times = collections.deque(maxlen=100)  # Avg FPS over 100 frames.
-    self._render_times = collections.deque(maxlen=100)
+    self._game_times = collections.deque(maxlen=100)  # Avg FPS over 100 frames.  # pytype: disable=wrong-keyword-args
+    self._render_times = collections.deque(maxlen=100)  # pytype: disable=wrong-keyword-args
     self._last_time = time.time()
     self._last_game_loop = 0
     self._name_lengths = {}

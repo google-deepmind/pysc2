@@ -497,16 +497,16 @@ class Features(object):
     """
     obs_spec = named_array.NamedDict({
         "available_actions": (0,),
-        "build_queue": (0, len(UnitLayer)),
-        "cargo": (0, len(UnitLayer)),
+        "build_queue": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
+        "cargo": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
         "cargo_slots_available": (1,),
         "control_groups": (10, 2),
         "game_loop": (1,),
         "last_actions": (0,),
-        "multi_select": (0, len(UnitLayer)),
-        "player": (len(Player),),
-        "score_cumulative": (len(ScoreCumulative),),
-        "single_select": (0, len(UnitLayer)),  # Only (n, 7) for n in (0, 1).
+        "multi_select": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
+        "player": (len(Player),),  # pytype: disable=wrong-arg-types
+        "score_cumulative": (len(ScoreCumulative),),  # pytype: disable=wrong-arg-types
+        "single_select": (0, len(UnitLayer)),  # Only (n, 7) for n in (0, 1).  # pytype: disable=wrong-arg-types
     })
     if self._feature_screen_px:
       obs_spec["feature_screen"] = (len(SCREEN_FEATURES),
@@ -525,7 +525,7 @@ class Features(object):
                                  self._rgb_minimap_px.x,
                                  3)
     if self._feature_units:
-      obs_spec["feature_units"] = (0, len(FeatureUnit))
+      obs_spec["feature_units"] = (0, len(FeatureUnit))  # pytype: disable=wrong-arg-types
     return obs_spec
 
   def action_spec(self):
