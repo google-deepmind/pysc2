@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import collections
 from absl import logging
+import time
 
 import enum
 import portpicker
@@ -72,6 +73,25 @@ ActionSpace = actions_lib.ActionSpace  # pylint: disable=invalid-name
 
 Agent = collections.namedtuple("Agent", ["race"])
 Bot = collections.namedtuple("Bot", ["race", "difficulty"])
+
+
+def _pick_unused_ports(num_ports, retry_interval_secs=3, retry_attempts=5):
+  """Returns a list of `num_ports` unused ports."""
+  ports = set()
+  for _ in range(retry_attempts):
+    ports.update(
+        portpicker.pick_unused_port() for _ in range(num_ports - len(ports)))
+    ports.discard(None)  # portpicker returns None on error.
+    if len(ports) == num_ports:
+      return list(ports)
+    # Duplicate ports can be returned, especially when insufficient ports are
+    # free. Wait for more ports to be freed and retry.
+    time.sleep(retry_interval_secs)
+
+  # Could not obtain enough ports. Release what we do have.
+  for port in ports:
+    portpicker.return_port(port)
+  raise RuntimeError("Unable to obtain %d unused ports." % num_ports)
 
 
 class SC2Env(environment.Base):
@@ -330,9 +350,7 @@ class SC2Env(environment.Base):
 
   def _launch_mp(self, interface):
     # Reserve a whole bunch of ports for the weird multiplayer implementation.
-    self._ports = [portpicker.pick_unused_port()
-                   for _ in range(1 + self._num_players * 2)]
-    assert len(self._ports) == len(set(self._ports))  # Ports must be unique.
+    self._ports = _pick_unused_ports(1 + self._num_players * 2)
 
     # Actually launch the game processes.
     self._sc2_procs = [self._run_config.start(extra_ports=self._ports)
