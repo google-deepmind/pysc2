@@ -863,12 +863,9 @@ class Features(object):
         return FUNCTIONS.select_point(select_point.type - 1, coord)
       if act_sp.HasField("unit_selection_rect"):
         select_rect = act_sp.unit_selection_rect
-        if len(select_rect.selection_screen_coord) > 1:
-          # TODO(tewalds): After looking at some replays we should decide if
-          # this is good enough. Maybe we need to simulate multiple actions or
-          # merge the selection rects into a bigger one.
-          logging.info("Multi-rect selection, just using the first one:\n%s",
-                       select_rect.selection_screen_coord)
+        # TODO(tewalds): After looking at some replays we should decide if
+        # this is good enough. Maybe we need to simulate multiple actions or
+        # merge the selection rects into a bigger one.
         tl = point.Point.build(select_rect.selection_screen_coord[0].p0)
         br = point.Point.build(select_rect.selection_screen_coord[0].p1)
         return FUNCTIONS.select_rect(select_rect.selection_add, tl, br)
