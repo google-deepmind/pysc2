@@ -155,8 +155,8 @@ class StarcraftProcess(object):
                                            timeout=2 * 60)  # 2 minutes
       except socket.error:
         pass  # SC2 hasn't started listening yet.
-      except websocket.WebSocketException as err:
-        if "Handshake Status 404" in str(err):
+      except websocket.WebSocketBadStatusException as err:
+        if err.status_code == 404:
           pass  # SC2 is listening, but hasn't set up the /sc2api endpoint yet.
         else:
           raise
