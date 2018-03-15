@@ -133,6 +133,16 @@ class NamedArrayTest(parameterized.TestCase):
     self.assertEqual(a.b, 5)
     self.assertEqual(a["b"], 5)
 
+  def test_empty_array(self):
+    named_array.NamedNumpyArray([], [None, ["a", "b"]])
+    with self.assertRaises(ValueError):
+      # Must be the right length.
+      named_array.NamedNumpyArray([], [["a", "b"]])
+    with self.assertRaises(ValueError):
+      # Returning an empty slice is not supported, and it's not clear how or
+      # even if it should be supported.
+      named_array.NamedNumpyArray([], [["a", "b"], None])
+
   def test_named_array_multi_first(self):
     a = named_array.NamedNumpyArray([[1, 3], [6, 8]], [["a", "b"], None])
     self.assertArrayEqual(a.a, [1, 3])

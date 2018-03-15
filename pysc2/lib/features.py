@@ -692,7 +692,7 @@ class Features(object):
           if u.is_on_screen and u.display_type != sc_raw.Hidden:
             feature_units.append(feature_unit_vec(u))
         out["feature_units"] = named_array.NamedNumpyArray(
-            np.stack(feature_units), [None, FeatureUnit])
+            feature_units, [None, FeatureUnit], dtype=np.int32)
 
     out["available_actions"] = np.array(self.available_actions(obs.observation),
                                         dtype=np.int32)

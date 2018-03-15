@@ -65,12 +65,16 @@ class NamedNumpyArray(np.ndarray):
     obj = np.array(values, *args, **kwargs)
 
     if len(obj.shape) == 1:
-      # Allow just a single dimension if the array is also single dimension.
-      try:
-        if len(names) > 1:
+      if obj.shape[0] == 0 and names and names[0] is None:
+        # Support arrays of length 0.
+        names = [None]
+      else:
+        # Allow just a single dimension if the array is also single dimension.
+        try:
+          if len(names) > 1:
+            names = [names]
+        except TypeError:  # len of a namedtuple is a TypeError
           names = [names]
-      except TypeError:  # len of a namedtuple is a TypeError
-        names = [names]
 
     # Validate names!
     if not isinstance(names, (list, tuple)) or len(names) != len(obj.shape):
@@ -78,7 +82,7 @@ class NamedNumpyArray(np.ndarray):
           "Names must be a list of length equal to the array shape: %s != %s." %
           (len(names), len(obj.shape)))
     index_names = []
-    only_none = True
+    only_none = obj.shape[0] > 0
     for i, o in enumerate(names):
       if o is None:
         index_names.append(o)
