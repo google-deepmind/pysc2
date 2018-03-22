@@ -141,10 +141,12 @@ class FeatureUnit(enum.IntEnum):
   is_selected = 17
   is_blip = 18
   is_powered = 19
-  cargo_space_max = 20
-  assigned_harvesters = 21
-  ideal_harvesters = 22
-  weapon_cooldown = 23
+  mineral_contents = 20
+  vespene_contents = 21
+  cargo_space_max = 22
+  assigned_harvesters = 23
+  ideal_harvesters = 24
+  weapon_cooldown = 25
 
 
 class Feature(collections.namedtuple(
@@ -673,6 +675,8 @@ class Features(object):
           u.is_selected,
           u.is_blip,
           u.is_powered,
+          u.mineral_contents,
+          u.vespene_contents,
 
           # Not populated for enemies or neutral
           u.cargo_space_max,
