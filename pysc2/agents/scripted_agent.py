@@ -87,7 +87,7 @@ class CollectMineralShardsFeatureUnits(base_agent.BaseAgent):
 
   def reset(self):
     super(CollectMineralShardsFeatureUnits, self).reset()
-    self._current_marine = 0
+    self._marine_selected = False
     self._previous_mineral_xy = [-1, -1]
 
   def step(self, obs):
@@ -96,11 +96,13 @@ class CollectMineralShardsFeatureUnits(base_agent.BaseAgent):
                if unit.alliance == _PLAYER_SELF]
     if not marines:
       return FUNCTIONS.no_op()
-    marine_unit = marines[self._current_marine]
+    marine_unit = next((m for m in marines
+                        if m.is_selected == self._marine_selected), marines[0])
     marine_xy = [marine_unit.x, marine_unit.y]
 
     if not marine_unit.is_selected:
       # Nothing selected or the wrong marine is selected.
+      self._marine_selected = True
       return FUNCTIONS.select_point("select", marine_xy)
 
     if FUNCTIONS.Move_screen.id in obs.observation.available_actions:
@@ -119,7 +121,7 @@ class CollectMineralShardsFeatureUnits(base_agent.BaseAgent):
         closest_mineral_xy = minerals[numpy.argmin(distances)]
 
         # Swap to the other marine.
-        self._current_marine = 1 - self._current_marine
+        self._marine_selected = False
         self._previous_mineral_xy = closest_mineral_xy
         return FUNCTIONS.Move_screen("now", closest_mineral_xy)
 
