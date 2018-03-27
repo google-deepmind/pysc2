@@ -97,6 +97,9 @@ class RemoteController(object):
   def __init__(self, client):
     self._client = client
 
+  def close(self):
+    self._client.close()
+
   @valid_status(Status.launched, Status.ended, Status.in_game, Status.in_replay)
   @decorate_check_error(sc_pb.ResponseCreateGame.Error)
   @sw.decorate

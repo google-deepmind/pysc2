@@ -62,7 +62,6 @@ class StarcraftProcess(object):
   def __init__(self, run_config, exec_path, data_version=None,
                full_screen=False, extra_args=None, verbose=False, **kwargs):
     self._proc = None
-    self._sock = None
     self._controller = None
     self._tmp_dir = tempfile.mkdtemp(prefix="sc-", dir=run_config.tmp_dir)
     self._port = portpicker.pick_unused_port()
@@ -84,8 +83,8 @@ class StarcraftProcess(object):
       args += extra_args
     try:
       self._proc = self._launch(run_config, args, **kwargs)
-      self._sock = self._connect(self._port)
-      client = protocol.StarcraftProtocol(self._sock)
+      sock = self._connect(self._port)
+      client = protocol.StarcraftProtocol(sock)
       self._controller = remote_controller.RemoteController(client)
       with sw("startup"):
         self._controller.ping()
@@ -96,10 +95,11 @@ class StarcraftProcess(object):
   @sw.decorate
   def close(self):
     """Shut down the game and clean up."""
+    if hasattr(self, "_controller") and self._controller:
+      self._controller.quit()
+      self._controller.close()
+      self._controller = None
     self._shutdown()
-    self._proc = None
-    self._sock = None
-    self._controller = None
     if hasattr(self, "_port") and self._port:
       portpicker.return_port(self._port)
       self._port = None
@@ -109,6 +109,10 @@ class StarcraftProcess(object):
   @property
   def controller(self):
     return self._controller
+
+  @property
+  def port(self):
+    return self._port
 
   def __enter__(self):
     return self.controller

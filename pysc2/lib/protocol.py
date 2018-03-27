@@ -77,6 +77,12 @@ class StarcraftProtocol(object):
   def status(self):
     return self._status
 
+  def close(self):
+    if self._sock:
+      self._sock.close()
+      self._sock = None
+    self._status = Status.quit
+
   @sw.decorate
   def read(self):
     """Read a Response, do some validation, and return it."""
