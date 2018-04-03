@@ -80,6 +80,7 @@ class StarcraftProcess(object):
       args += ["-dataVersion", data_version.upper()]
     if extra_args:
       args += extra_args
+    logging.info("Launching SC2: %s", " ".join(args))
     try:
       with sw("startup"):
         self._proc = self._launch(run_config, args, **kwargs)
