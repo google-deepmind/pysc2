@@ -66,7 +66,7 @@ def _read_execute_info(path, parents):
   if os.path.exists(path):
     with open(path, "rb") as f:  # Binary because the game appends a '\0' :(.
       for line in f:
-        parts = [p.strip() for p in line.split("=")]
+        parts = [p.strip().decode("utf-8") for p in line.split(b"=")]
         if len(parts) == 2 and parts[0] == "executable":
           exec_path = parts[1].replace("\\", "/")  # For windows compatibility.
           for _ in range(parents):
