@@ -20,26 +20,25 @@ from __future__ import print_function
 from absl import logging
 import os
 import shutil
-import socket
 import subprocess
-import sys
 import tempfile
 import time
 
+from absl import flags
 from future.builtins import range  # pylint: disable=redefined-builtin
 
 import portpicker
-from pysc2.lib import protocol
 from pysc2.lib import remote_controller
 from pysc2.lib import stopwatch
-import websocket
-
-from absl import flags
 
 flags.DEFINE_bool("sc2_verbose", False, "Enable SC2 verbose logging.")
 FLAGS = flags.FLAGS
 
 sw = stopwatch.sw
+
+
+class SC2LaunchError(Exception):
+  pass
 
 
 class StarcraftProcess(object):
@@ -57,19 +56,19 @@ class StarcraftProcess(object):
       controller.ping()
   """
 
-  def __init__(self, run_config, full_screen=False, game_version=None,
-               data_version=None, verbose=False, **kwargs):
+  def __init__(self, run_config, exec_path, data_version=None,
+               full_screen=False, extra_args=None, verbose=False,
+               host="127.0.0.1", connect=True, **kwargs):
     self._proc = None
-    self._sock = None
     self._controller = None
     self._tmp_dir = tempfile.mkdtemp(prefix="sc-", dir=run_config.tmp_dir)
+    self._host = host
     self._port = portpicker.pick_unused_port()
-    exec_path = run_config.exec_path(game_version)
     self._check_exists(exec_path)
 
     args = [
         exec_path,
-        "-listen", "127.0.0.1",
+        "-listen", host,
         "-port", str(self._port),
         "-dataDir", os.path.join(run_config.data_dir, ""),
         "-tempDir", os.path.join(self._tmp_dir, ""),
@@ -79,13 +78,15 @@ class StarcraftProcess(object):
       args += ["-verbose"]
     if data_version:
       args += ["-dataVersion", data_version.upper()]
+    if extra_args:
+      args += extra_args
+    logging.info("Launching SC2: %s", " ".join(args))
     try:
-      self._proc = self._launch(run_config, args, **kwargs)
-      self._sock = self._connect(self._port)
-      client = protocol.StarcraftProtocol(self._sock)
-      self._controller = remote_controller.RemoteController(client)
       with sw("startup"):
-        self._controller.ping()
+        self._proc = self._launch(run_config, args, **kwargs)
+        if connect:
+          self._controller = remote_controller.RemoteController(
+              host, self._port, self)
     except:
       self.close()
       raise
@@ -93,10 +94,11 @@ class StarcraftProcess(object):
   @sw.decorate
   def close(self):
     """Shut down the game and clean up."""
+    if hasattr(self, "_controller") and self._controller:
+      self._controller.quit()
+      self._controller.close()
+      self._controller = None
     self._shutdown()
-    self._proc = None
-    self._sock = None
-    self._controller = None
     if hasattr(self, "_port") and self._port:
       portpicker.return_port(self._port)
       self._port = None
@@ -106,6 +108,14 @@ class StarcraftProcess(object):
   @property
   def controller(self):
     return self._controller
+
+  @property
+  def host(self):
+    return self._host
+
+  @property
+  def port(self):
+    return self._port
 
   def __enter__(self):
     return self.controller
@@ -132,32 +142,7 @@ class StarcraftProcess(object):
         return subprocess.Popen(args, cwd=run_config.cwd, env=run_config.env)
     except OSError:
       logging.exception("Failed to launch")
-      sys.exit("Failed to launch: " + str(args))
-
-  @sw.decorate
-  def _connect(self, port):
-    """Connect to the websocket, retrying as needed. Returns the socket."""
-    was_running = False
-    for i in range(120):
-      is_running = self.running
-      was_running = was_running or is_running
-      if (i >= 30 or was_running) and not is_running:
-        logging.warning(
-            "SC2 isn't running, so bailing early on the websocket connection.")
-        break
-      logging.info("Connection attempt %s (running: %s)", i, is_running)
-      time.sleep(1)
-      try:
-        return websocket.create_connection("ws://127.0.0.1:%s/sc2api" % port,
-                                           timeout=2 * 60)  # 2 minutes
-      except socket.error:
-        pass  # SC2 hasn't started listening yet.
-      except websocket.WebSocketException as err:
-        if "Handshake Status 404" in str(err):
-          pass  # SC2 is listening, but hasn't set up the /sc2api endpoint yet.
-        else:
-          raise
-    sys.exit("Failed to create the socket.")
+      raise SC2LaunchError("Failed to launch: %s" % args)
 
   def _shutdown(self):
     """Terminate the sub-process."""

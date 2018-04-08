@@ -18,6 +18,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import copy
+import pickle
+
+from absl.testing import absltest
 from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy
 import six
@@ -26,7 +30,6 @@ from pysc2.lib import features
 from pysc2.lib import point
 
 from google.protobuf import text_format
-from absl.testing import absltest as basetest
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
@@ -49,7 +52,7 @@ game_loop: 20
 """
 
 
-class AvailableActionsTest(basetest.TestCase):
+class AvailableActionsTest(absltest.TestCase):
 
   always_expected = {
       "no_op", "move_camera", "select_point", "select_rect",
@@ -59,8 +62,9 @@ class AvailableActionsTest(basetest.TestCase):
   def setUp(self):
     super(AvailableActionsTest, self).setUp()
     self.obs = text_format.Parse(observation_text_proto, sc_pb.Observation())
-    self.features = features.Features(screen_size_px=(84, 80),
-                                      minimap_size_px=(64, 67))
+    self.features = features.Features(
+        feature_screen_width=84, feature_screen_height=80,
+        feature_minimap_width=64, feature_minimap_height=67)
 
   def assertAvail(self, expected):
     actual = self.features.available_actions(self.obs)
@@ -196,7 +200,7 @@ class AvailableActionsTest(basetest.TestCase):
     ])
 
 
-class FeaturesTest(basetest.TestCase):
+class FeaturesTest(absltest.TestCase):
 
   def testFunctionsIdsAreConsistent(self):
     for i, f in enumerate(actions.FUNCTIONS):
@@ -208,7 +212,9 @@ class FeaturesTest(basetest.TestCase):
                        "Multiple generals for %s" % ability_id)
 
   def testValidFunctionsAreConsistent(self):
-    feats = features.Features(screen_size_px=(84, 80), minimap_size_px=(64, 67))
+    feats = features.Features(
+        feature_screen_width=84, feature_screen_height=80,
+        feature_minimap_width=64, feature_minimap_height=67)
 
     valid_funcs = feats.action_spec()
     for func_def in valid_funcs.functions:
@@ -223,7 +229,9 @@ class FeaturesTest(basetest.TestCase):
     return actions.FunctionCall(func_id, args)
 
   def testIdsMatchIndex(self):
-    feats = features.Features(screen_size_px=(84, 80), minimap_size_px=(64, 67))
+    feats = features.Features(
+        feature_screen_width=84, feature_screen_height=80,
+        feature_minimap_width=64, feature_minimap_height=67)
     action_spec = feats.action_spec()
     for func_index, func_def in enumerate(action_spec.functions):
       self.assertEqual(func_index, func_def.id)
@@ -231,8 +239,10 @@ class FeaturesTest(basetest.TestCase):
       self.assertEqual(type_index, type_def.id)
 
   def testReversingUnknownAction(self):
-    feats = features.Features(screen_size_px=(84, 80), minimap_size_px=(64, 67),
-                              hide_specific_actions=False)
+    feats = features.Features(
+        feature_screen_width=84, feature_screen_height=80,
+        feature_minimap_width=64, feature_minimap_height=67,
+        hide_specific_actions=False)
     sc2_action = sc_pb.Action()
     sc2_action.action_feature_layer.unit_command.ability_id = 6  # Cheer
     func_call = feats.reverse_action(sc2_action)
@@ -240,8 +250,10 @@ class FeaturesTest(basetest.TestCase):
 
   def testSpecificActionsAreReversible(self):
     """Test that the `transform_action` and `reverse_action` are inverses."""
-    feats = features.Features(screen_size_px=(84, 80), minimap_size_px=(64, 67),
-                              hide_specific_actions=False)
+    feats = features.Features(
+        feature_screen_width=84, feature_screen_height=80,
+        feature_minimap_width=64, feature_minimap_height=67,
+        hide_specific_actions=False)
     action_spec = feats.action_spec()
 
     for func_def in action_spec.functions:
@@ -269,6 +281,122 @@ class FeaturesTest(basetest.TestCase):
           self.assertEqual(func_call, func_call2, msg=sc2_action)
         self.assertEqual(sc2_action, sc2_action2)
 
+  def testCanPickleSpecs(self):
+    feats = features.Features(feature_screen_size=84, feature_minimap_size=64)
+
+    action_spec = feats.action_spec()
+    observation_spec = feats.observation_spec()
+
+    self.assertEqual(action_spec, pickle.loads(pickle.dumps(action_spec)))
+    self.assertEqual(observation_spec,
+                     pickle.loads(pickle.dumps(observation_spec)))
+
+  def testCanPickleFunctionCall(self):
+    func = actions.FUNCTIONS.select_point("select", [1, 2])
+    self.assertEqual(func, pickle.loads(pickle.dumps(func)))
+
+  def testCanDeepcopyNumpyFunctionCall(self):
+    arguments = [numpy.float32] * len(actions.Arguments._fields)
+    dtypes = actions.FunctionCall(
+        function=numpy.float32,
+        arguments=actions.Arguments(*arguments))
+    self.assertEqual(dtypes, copy.deepcopy(dtypes))
+
+  def testSizeConstructors(self):
+    feats = features.Features(feature_screen_size=84, feature_minimap_size=64)
+    spec = feats.action_spec()
+    self.assertEqual(spec.types.screen.sizes, (84, 84))
+    self.assertEqual(spec.types.screen2.sizes, (84, 84))
+    self.assertEqual(spec.types.minimap.sizes, (64, 64))
+
+    feats = features.Features(
+        feature_screen_width=84, feature_screen_height=80,
+        feature_minimap_width=64, feature_minimap_height=67)
+    spec = feats.action_spec()
+    self.assertEqual(spec.types.screen.sizes, (84, 80))
+    self.assertEqual(spec.types.screen2.sizes, (84, 80))
+    self.assertEqual(spec.types.minimap.sizes, (64, 67))
+
+    feats = features.Features(
+        rgb_screen_width=84, rgb_screen_height=80,
+        rgb_minimap_width=64, rgb_minimap_height=67)
+    spec = feats.action_spec()
+    self.assertEqual(spec.types.screen.sizes, (84, 80))
+    self.assertEqual(spec.types.screen2.sizes, (84, 80))
+    self.assertEqual(spec.types.minimap.sizes, (64, 67))
+
+    # Missing resolutions
+    with self.assertRaises(ValueError):
+      features.Features()
+    with self.assertRaises(ValueError):
+      features.Features(feature_screen_size=84)
+    with self.assertRaises(ValueError):
+      features.Features(feature_screen_width=84)
+    with self.assertRaises(ValueError):
+      features.Features(feature_screen_size=84, feature_screen_height=80)
+    with self.assertRaises(ValueError):
+      features.Features(feature_screen_width=84, feature_screen_height=80)
+    with self.assertRaises(ValueError):
+      features.Features(feature_minimap_width=64, feature_minimap_height=67)
+    with self.assertRaises(ValueError):
+      features.Features(rgb_screen_width=84, rgb_screen_height=80)
+    with self.assertRaises(ValueError):
+      features.Features(rgb_minimap_width=64, rgb_minimap_height=67)
+    with self.assertRaises(ValueError):
+      features.Features(feature_screen_width=84, feature_screen_height=80,
+                        rgb_minimap_width=64, rgb_minimap_height=67)
+
+    # Resolution/action space mismatch.
+    with self.assertRaises(ValueError):
+      features.Features(feature_screen_width=84, feature_screen_height=80,
+                        feature_minimap_width=64, feature_minimap_height=67,
+                        action_space=actions.ActionSpace.RGB)
+    with self.assertRaises(ValueError):
+      features.Features(rgb_screen_width=84, rgb_screen_height=80,
+                        rgb_minimap_width=64, rgb_minimap_height=67,
+                        action_space=actions.ActionSpace.FEATURES)
+    with self.assertRaises(ValueError):
+      features.Features(feature_screen_width=84, feature_screen_height=80,
+                        feature_minimap_width=64, feature_minimap_height=67,
+                        rgb_screen_width=84, rgb_screen_height=80,
+                        rgb_minimap_width=64, rgb_minimap_height=67)
+
+  def testFlRgbActionSpec(self):
+    feats = features.Features(
+        feature_screen_width=84, feature_screen_height=80,
+        feature_minimap_width=64, feature_minimap_height=67,
+        rgb_screen_width=128, rgb_screen_height=132,
+        rgb_minimap_width=74, rgb_minimap_height=77,
+        action_space=actions.ActionSpace.FEATURES)
+    spec = feats.action_spec()
+    self.assertEqual(spec.types.screen.sizes, (84, 80))
+    self.assertEqual(spec.types.screen2.sizes, (84, 80))
+    self.assertEqual(spec.types.minimap.sizes, (64, 67))
+
+    feats = features.Features(
+        feature_screen_width=84, feature_screen_height=80,
+        feature_minimap_width=64, feature_minimap_height=67,
+        rgb_screen_width=128, rgb_screen_height=132,
+        rgb_minimap_width=74, rgb_minimap_height=77,
+        action_space=actions.ActionSpace.RGB)
+    spec = feats.action_spec()
+    self.assertEqual(spec.types.screen.sizes, (128, 132))
+    self.assertEqual(spec.types.screen2.sizes, (128, 132))
+    self.assertEqual(spec.types.minimap.sizes, (74, 77))
+
+  def testFlRgbObservationSpec(self):
+    feats = features.Features(
+        feature_screen_width=84, feature_screen_height=80,
+        feature_minimap_width=64, feature_minimap_height=67,
+        rgb_screen_width=128, rgb_screen_height=132,
+        rgb_minimap_width=74, rgb_minimap_height=77,
+        action_space=actions.ActionSpace.FEATURES)
+    obs_spec = feats.observation_spec()
+    self.assertEqual(obs_spec["feature_screen"], (17, 80, 84))
+    self.assertEqual(obs_spec["feature_minimap"], (7, 67, 64))
+    self.assertEqual(obs_spec["rgb_screen"], (132, 128, 3))
+    self.assertEqual(obs_spec["rgb_minimap"], (77, 74, 3))
+
 
 if __name__ == "__main__":
-  basetest.main()
+  absltest.main()

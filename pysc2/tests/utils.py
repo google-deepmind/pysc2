@@ -17,12 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from absl.testing import absltest
 from pysc2.lib import stopwatch
 
-from absl.testing import absltest as basetest
 
-
-class TestCase(basetest.TestCase):
+class TestCase(absltest.TestCase):
 
   def setUp(self):
     super(TestCase, self).setUp()

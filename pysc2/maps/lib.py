@@ -94,7 +94,7 @@ class Map(object):
   def __str__(self):
     return "\n".join([
         self.name,
-        "    " + self.path,
+        "    %s" % self.path,
         "    players: %s, score_index: %s, score_multiplier: %s" % (
             self.players, self.score_index, self.score_multiplier),
         "    step_mul: %s, game_steps_per_episode: %s" % (

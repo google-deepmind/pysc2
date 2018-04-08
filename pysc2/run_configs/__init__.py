@@ -17,10 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from absl import flags
+
+from pysc2.lib import sc_process
 from pysc2.run_configs import platforms
 from pysc2.run_configs import lib
-
-from absl import flags
 
 flags.DEFINE_string("sc2_run_config", None,
                     "Which run_config to use to spawn the binary.")
@@ -33,7 +34,7 @@ def get():
              for c in lib.RunConfig.all_subclasses() if c.priority()}
 
   if not configs:
-    raise lib.SC2LaunchError("No valid run_configs found.")
+    raise sc_process.SC2LaunchError("No valid run_configs found.")
 
   if FLAGS.sc2_run_config is None:  # Find the highest priority as default.
     return max(configs.values(), key=lambda c: c.priority())()
@@ -41,6 +42,6 @@ def get():
   try:
     return configs[FLAGS.sc2_run_config]()
   except KeyError:
-    raise lib.SC2LaunchError("Invalid run_config. Valid configs are: %s" % (
-        ", ".join(sorted(configs.keys()))))
-
+    raise sc_process.SC2LaunchError(
+        "Invalid run_config. Valid configs are: %s" % (
+            ", ".join(sorted(configs.keys()))))

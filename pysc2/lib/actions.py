@@ -20,6 +20,7 @@ from __future__ import print_function
 import collections
 import numbers
 
+import enum
 import six
 from pysc2.lib import point
 
@@ -27,25 +28,40 @@ from s2clientprotocol import spatial_pb2 as sc_spatial
 from s2clientprotocol import ui_pb2 as sc_ui
 
 
-def no_op(action):
-  del action
+class ActionSpace(enum.Enum):
+  FEATURES = 1
+  RGB = 2
 
 
-def move_camera(action, minimap):
+def spatial(action, action_space):
+  """Choose the action space for the action proto."""
+  if action_space == ActionSpace.FEATURES:
+    return action.action_feature_layer
+  elif action_space == ActionSpace.RGB:
+    return action.action_render
+  else:
+    raise ValueError("Unexpected value for action_space: %s" % action_space)
+
+
+def no_op(action, action_space):
+  del action, action_space
+
+
+def move_camera(action, action_space, minimap):
   """Move the camera."""
-  minimap.assign_to(action.action_feature_layer.camera_move.center_minimap)
+  minimap.assign_to(spatial(action, action_space).camera_move.center_minimap)
 
 
-def select_point(action, select_point_act, screen):
+def select_point(action, action_space, select_point_act, screen):
   """Select a unit at a point."""
-  select = action.action_feature_layer.unit_selection_point
+  select = spatial(action, action_space).unit_selection_point
   screen.assign_to(select.selection_screen_coord)
   select.type = select_point_act
 
 
-def select_rect(action, select_add, screen, screen2):
+def select_rect(action, action_space, select_add, screen, screen2):
   """Select units within a rectangle."""
-  select = action.action_feature_layer.unit_selection_rect
+  select = spatial(action, action_space).unit_selection_rect
   out_rect = select.selection_screen_coord.add()
   screen_rect = point.Rect(screen, screen2)
   screen_rect.tl.assign_to(out_rect.p0)
@@ -53,80 +69,89 @@ def select_rect(action, select_add, screen, screen2):
   select.selection_add = bool(select_add)
 
 
-def select_idle_worker(action, select_worker):
+def select_idle_worker(action, action_space, select_worker):
   """Select an idle worker."""
+  del action_space
   action.action_ui.select_idle_worker.type = select_worker
 
 
-def select_army(action, select_add):
+def select_army(action, action_space, select_add):
   """Select the entire army."""
+  del action_space
   action.action_ui.select_army.selection_add = select_add
 
 
-def select_warp_gates(action, select_add):
+def select_warp_gates(action, action_space, select_add):
   """Select all warp gates."""
+  del action_space
   action.action_ui.select_warp_gates.selection_add = select_add
 
 
-def select_larva(action):
+def select_larva(action, action_space):
   """Select all larva."""
+  del action_space
   action.action_ui.select_larva.SetInParent()  # Adds the empty proto field.
 
 
-def select_unit(action, select_unit_act, select_unit_id):
+def select_unit(action, action_space, select_unit_act, select_unit_id):
   """Select a specific unit from the multi-unit selection."""
+  del action_space
   select = action.action_ui.multi_panel
   select.type = select_unit_act
   select.unit_index = select_unit_id
 
 
-def control_group(action, control_group_act, control_group_id):
+def control_group(action, action_space, control_group_act, control_group_id):
   """Act on a control group, selecting, setting, etc."""
+  del action_space
   select = action.action_ui.control_group
   select.action = control_group_act
   select.control_group_index = control_group_id
 
 
-def unload(action, unload_id):
+def unload(action, action_space, unload_id):
   """Unload a unit from a transport/bunker/nydus/etc."""
+  del action_space
   action.action_ui.cargo_panel.unit_index = unload_id
 
 
-def build_queue(action, build_queue_id):
+def build_queue(action, action_space, build_queue_id):
   """Cancel a unit in the build queue."""
+  del action_space
   action.action_ui.production_panel.unit_index = build_queue_id
 
 
-def cmd_quick(action, ability_id, queued):
+def cmd_quick(action, action_space, ability_id, queued):
   """Do a quick command like 'Stop' or 'Stim'."""
-  action_cmd = action.action_feature_layer.unit_command
+  action_cmd = spatial(action, action_space).unit_command
   action_cmd.ability_id = ability_id
   action_cmd.queue_command = queued
 
 
-def cmd_screen(action, ability_id, queued, screen):
+def cmd_screen(action, action_space, ability_id, queued, screen):
   """Do a command that needs a point on the screen."""
-  action_cmd = action.action_feature_layer.unit_command
+  action_cmd = spatial(action, action_space).unit_command
   action_cmd.ability_id = ability_id
   action_cmd.queue_command = queued
   screen.assign_to(action_cmd.target_screen_coord)
 
 
-def cmd_minimap(action, ability_id, queued, minimap):
+def cmd_minimap(action, action_space, ability_id, queued, minimap):
   """Do a command that needs a point on the minimap."""
-  action_cmd = action.action_feature_layer.unit_command
+  action_cmd = spatial(action, action_space).unit_command
   action_cmd.ability_id = ability_id
   action_cmd.queue_command = queued
   minimap.assign_to(action_cmd.target_minimap_coord)
 
 
-def autocast(action, ability_id):
+def autocast(action, action_space, ability_id):
   """Toggle autocast."""
+  del action_space
   action.action_ui.toggle_autocast.ability_id = ability_id
 
 
 class ArgumentType(collections.namedtuple(
-    "ArgumentType", ["id", "name", "sizes", "fn"])):
+    "ArgumentType", ["id", "name", "sizes", "fn", "values"])):
   """Represents a single argument type.
 
   Attributes:
@@ -135,6 +160,8 @@ class ArgumentType(collections.namedtuple(
     sizes: The max+1 of each of the dimensions this argument takes.
     fn: The function to convert the list of integers into something more
         meaningful to be set in the protos to send to the game.
+    values: An enum representing the values this argument type could hold. None
+        if this isn't an enum argument type.
   """
   __slots__ = ()
 
@@ -142,24 +169,31 @@ class ArgumentType(collections.namedtuple(
     return "%s/%s %s" % (self.id, self.name, list(self.sizes))
 
   @classmethod
-  def enum(cls, options):
+  def enum(cls, options, values):
     """Create an ArgumentType where you choose one of a set of known values."""
-    return cls(-1, "<none>", (len(options),), lambda a: options[a[0]])
+    names, real = zip(*options)
+    del names  # unused
+
+    def factory(i, name):
+      return cls(i, name, (len(real),), lambda a: real[a[0]], values)
+    return factory
 
   @classmethod
   def scalar(cls, value):
     """Create an ArgumentType with a single scalar in range(value)."""
-    return cls(-1, "<none>", (value,), lambda a: a[0])
+    return lambda i, name: cls(i, name, (value,), lambda a: a[0], None)
 
   @classmethod
   def point(cls):  # No range because it's unknown at this time.
     """Create an ArgumentType that is represented by a point.Point."""
-    return cls(-1, "<none>", (0, 0), lambda a: point.Point(*a).floor())
+    def factory(i, name):
+      return cls(i, name, (0, 0), lambda a: point.Point(*a).floor(), None)
+    return factory
 
   @classmethod
   def spec(cls, id_, name, sizes):
     """Create an ArgumentType to be used in ValidActions."""
-    return cls(id_, name, sizes, None)
+    return cls(id_, name, sizes, None, None)
 
 
 class Arguments(collections.namedtuple("Arguments", [
@@ -191,9 +225,66 @@ class Arguments(collections.namedtuple("Arguments", [
   @classmethod
   def types(cls, **kwargs):
     """Create an Arguments of the possible Types."""
-    named = {name: type_._replace(id=Arguments._fields.index(name), name=name)
-             for name, type_ in six.iteritems(kwargs)}
+    named = {name: factory(Arguments._fields.index(name), name)
+             for name, factory in six.iteritems(kwargs)}
     return cls(**named)
+
+
+def _define_position_based_enum(name, options):
+  return enum.IntEnum(
+      name, {opt_name: i for i, (opt_name, _) in enumerate(options)})
+
+
+QUEUED_OPTIONS = [
+    ("now", False),
+    ("queued", True),
+]
+Queued = _define_position_based_enum(  # pylint: disable=invalid-name
+    "Queued", QUEUED_OPTIONS)
+
+CONTROL_GROUP_ACT_OPTIONS = [
+    ("recall", sc_ui.ActionControlGroup.Recall),
+    ("set", sc_ui.ActionControlGroup.Set),
+    ("append", sc_ui.ActionControlGroup.Append),
+    ("set_and_steal", sc_ui.ActionControlGroup.SetAndSteal),
+    ("append_and_steal", sc_ui.ActionControlGroup.AppendAndSteal),
+]
+ControlGroupAct = _define_position_based_enum(  # pylint: disable=invalid-name
+    "ControlGroupAct", CONTROL_GROUP_ACT_OPTIONS)
+
+SELECT_POINT_ACT_OPTIONS = [
+    ("select", sc_spatial.ActionSpatialUnitSelectionPoint.Select),
+    ("toggle", sc_spatial.ActionSpatialUnitSelectionPoint.Toggle),
+    ("select_all_type", sc_spatial.ActionSpatialUnitSelectionPoint.AllType),
+    ("add_all_type", sc_spatial.ActionSpatialUnitSelectionPoint.AddAllType),
+]
+SelectPointAct = _define_position_based_enum(  # pylint: disable=invalid-name
+    "SelectPointAct", SELECT_POINT_ACT_OPTIONS)
+
+SELECT_ADD_OPTIONS = [
+    ("select", False),
+    ("add", True),
+]
+SelectAdd = _define_position_based_enum(  # pylint: disable=invalid-name
+    "SelectAdd", SELECT_ADD_OPTIONS)
+
+SELECT_UNIT_ACT_OPTIONS = [
+    ("select", sc_ui.ActionMultiPanel.SingleSelect),
+    ("deselect", sc_ui.ActionMultiPanel.DeselectUnit),
+    ("select_all_type", sc_ui.ActionMultiPanel.SelectAllOfType),
+    ("deselect_all_type", sc_ui.ActionMultiPanel.DeselectAllOfType),
+]
+SelectUnitAct = _define_position_based_enum(  # pylint: disable=invalid-name
+    "SelectUnitAct", SELECT_UNIT_ACT_OPTIONS)
+
+SELECT_WORKER_OPTIONS = [
+    ("select", sc_ui.ActionSelectIdleWorker.Set),
+    ("add", sc_ui.ActionSelectIdleWorker.Add),
+    ("select_all", sc_ui.ActionSelectIdleWorker.All),
+    ("add_all", sc_ui.ActionSelectIdleWorker.AddAll),
+]
+SelectWorker = _define_position_based_enum(  # pylint: disable=invalid-name
+    "SelectWorker", SELECT_WORKER_OPTIONS)
 
 
 # The list of known types.
@@ -201,35 +292,16 @@ TYPES = Arguments.types(
     screen=ArgumentType.point(),
     minimap=ArgumentType.point(),
     screen2=ArgumentType.point(),
-    queued=ArgumentType.enum([False, True]),  # (now vs add to queue)
-    control_group_act=ArgumentType.enum([
-        sc_ui.ActionControlGroup.Recall,
-        sc_ui.ActionControlGroup.Set,
-        sc_ui.ActionControlGroup.Append,
-        sc_ui.ActionControlGroup.SetAndSteal,
-        sc_ui.ActionControlGroup.AppendAndSteal,
-    ]),
+    queued=ArgumentType.enum(QUEUED_OPTIONS, Queued),
+    control_group_act=ArgumentType.enum(
+        CONTROL_GROUP_ACT_OPTIONS, ControlGroupAct),
     control_group_id=ArgumentType.scalar(10),
-    select_point_act=ArgumentType.enum([
-        sc_spatial.ActionSpatialUnitSelectionPoint.Select,
-        sc_spatial.ActionSpatialUnitSelectionPoint.Toggle,
-        sc_spatial.ActionSpatialUnitSelectionPoint.AllType,
-        sc_spatial.ActionSpatialUnitSelectionPoint.AddAllType,
-    ]),
-    select_add=ArgumentType.enum([False, True]),  # (select vs select_add)
-    select_unit_act=ArgumentType.enum([
-        sc_ui.ActionMultiPanel.SingleSelect,
-        sc_ui.ActionMultiPanel.DeselectUnit,
-        sc_ui.ActionMultiPanel.SelectAllOfType,
-        sc_ui.ActionMultiPanel.DeselectAllOfType,
-    ]),
+    select_point_act=ArgumentType.enum(
+        SELECT_POINT_ACT_OPTIONS, SelectPointAct),
+    select_add=ArgumentType.enum(SELECT_ADD_OPTIONS, SelectAdd),
+    select_unit_act=ArgumentType.enum(SELECT_UNIT_ACT_OPTIONS, SelectUnitAct),
     select_unit_id=ArgumentType.scalar(500),  # Depends on current selection.
-    select_worker=ArgumentType.enum([
-        sc_ui.ActionSelectIdleWorker.Set,
-        sc_ui.ActionSelectIdleWorker.Add,
-        sc_ui.ActionSelectIdleWorker.All,
-        sc_ui.ActionSelectIdleWorker.AddAll,
-    ]),
+    select_worker=ArgumentType.enum(SELECT_WORKER_OPTIONS, SelectWorker),
     build_queue_id=ArgumentType.scalar(10),  # Depends on current build queue.
     unload_id=ArgumentType.scalar(500),  # Depends on the current loaded units.
 )
@@ -308,9 +380,13 @@ class Function(collections.namedtuple(
   def __str__(self):
     return self.str()
 
+  def __call__(self, *args):
+    """A convenient way to create a FunctionCall from this Function."""
+    return FunctionCall.init_with_validation(self.id, args)
+
   def str(self, space=False):
     """String version. Set space=True to line them all up nicely."""
-    return "%s/%s (%s)" % (str(self.id).rjust(space and 4),
+    return "%s/%s (%s)" % (str(int(self.id)).rjust(space and 4),
                            self.name.ljust(space and 50),
                            "; ".join(str(a) for a in self.args))
 
@@ -323,6 +399,11 @@ class Functions(object):
   """
 
   def __init__(self, functions):
+    functions = sorted(functions, key=lambda f: f.id)
+    # Convert each int id to the equivalent IntEnum.
+    functions = [f._replace(id=_Functions(f.id))
+                 for f in functions]
+
     self._func_list = functions
     self._func_dict = {f.name: f for f in functions}
     if len(self._func_dict) != len(self._func_list):
@@ -332,9 +413,17 @@ class Functions(object):
     return self._func_dict[name]
 
   def __getitem__(self, key):
-    if isinstance(key, numbers.Number):
+    if isinstance(key, numbers.Integral):
       return self._func_list[key]
     return self._func_dict[key]
+
+  def __getstate__(self):
+    # Support pickling, which otherwise conflicts with __getattr__.
+    return self._func_list
+
+  def __setstate__(self, functions):
+    # Support pickling, which otherwise conflicts with __getattr__.
+    self.__init__(functions)
 
   def __iter__(self):
     return iter(self._func_list)
@@ -342,9 +431,14 @@ class Functions(object):
   def __len__(self):
     return len(self._func_list)
 
+  def __eq__(self, other):
+    return self._func_list == other._func_list  # pylint: disable=protected-access
 
+
+# The semantic meaning of these actions can mainly be found by searching:
+# http://liquipedia.net/starcraft2/ or http://starcraft.wikia.com/ .
 # pylint: disable=line-too-long
-FUNCTIONS = Functions([
+_FUNCTIONS = [
     Function.ui_func(0, "no_op", no_op),
     Function.ui_func(1, "move_camera", move_camera),
     Function.ui_func(2, "select_point", select_point),
@@ -417,6 +511,7 @@ FUNCTIONS = Functions([
     Function.ability(61, "Build_InfestationPit_screen", cmd_screen, 1160),
     Function.ability(62, "Build_Interceptors_quick", cmd_quick, 1042),
     Function.ability(63, "Build_Interceptors_autocast", autocast, 1042),
+    Function.ability(524, "Build_LurkerDen_screen", cmd_screen, 1163),
     Function.ability(64, "Build_MissileTurret_screen", cmd_screen, 323),
     Function.ability(65, "Build_Nexus_screen", cmd_screen, 880),
     Function.ability(66, "Build_Nuke_quick", cmd_quick, 710),
@@ -437,6 +532,7 @@ FUNCTIONS = Functions([
     Function.ability(81, "Build_RoboticsBay_screen", cmd_screen, 892),
     Function.ability(82, "Build_RoboticsFacility_screen", cmd_screen, 893),
     Function.ability(83, "Build_SensorTower_screen", cmd_screen, 326),
+    Function.ability(525, "Build_ShieldBattery_screen", cmd_screen, 895),
     Function.ability(84, "Build_SpawningPool_screen", cmd_screen, 1155),
     Function.ability(85, "Build_SpineCrawler_screen", cmd_screen, 1166),
     Function.ability(86, "Build_Spire_screen", cmd_screen, 1158),
@@ -531,6 +627,7 @@ FUNCTIONS = Functions([
     Function.ability(175, "Cancel_QueuePassiveCancelToSelection_quick", cmd_quick, 1833, 3671),
     Function.ability(176, "Effect_Abduct_screen", cmd_screen, 2067),
     Function.ability(177, "Effect_AdeptPhaseShift_screen", cmd_screen, 2544),
+    Function.ability(526, "Effect_AntiArmorMissile_screen", cmd_screen, 3753),
     Function.ability(178, "Effect_AutoTurret_screen", cmd_screen, 1764),
     Function.ability(179, "Effect_BlindingCloud_screen", cmd_screen, 2063),
     Function.ability(180, "Effect_Blink_screen", cmd_screen, 3687),
@@ -541,6 +638,7 @@ FUNCTIONS = Functions([
     Function.ability(185, "Effect_Charge_screen", cmd_screen, 1819),
     Function.ability(186, "Effect_Charge_autocast", autocast, 1819),
     Function.ability(187, "Effect_ChronoBoost_screen", cmd_screen, 261),
+    Function.ability(527, "Effect_ChronoBoostEnergyCost_screen", cmd_screen, 3755),
     Function.ability(188, "Effect_Contaminate_screen", cmd_screen, 1825),
     Function.ability(189, "Effect_CorrosiveBile_screen", cmd_screen, 2338),
     Function.ability(190, "Effect_EMP_screen", cmd_screen, 1628),
@@ -558,12 +656,14 @@ FUNCTIONS = Functions([
     Function.ability(202, "Effect_ImmortalBarrier_autocast", autocast, 2328),
     Function.ability(203, "Effect_InfestedTerrans_screen", cmd_screen, 247),
     Function.ability(204, "Effect_InjectLarva_screen", cmd_screen, 251),
+    Function.ability(528, "Effect_InterferenceMatrix_screen", cmd_screen, 3747),
     Function.ability(205, "Effect_KD8Charge_screen", cmd_screen, 2588),
     Function.ability(206, "Effect_LockOn_screen", cmd_screen, 2350),
     Function.ability(207, "Effect_LocustSwoop_screen", cmd_screen, 2387),
     Function.ability(208, "Effect_MassRecall_screen", cmd_screen, 3686),
     Function.ability(209, "Effect_MassRecall_Mothership_screen", cmd_screen, 2368, 3686),
     Function.ability(210, "Effect_MassRecall_MothershipCore_screen", cmd_screen, 1974, 3686),
+    Function.ability(529, "Effect_MassRecallNexus_screen", cmd_screen, 3757),
     Function.ability(211, "Effect_MedivacIgniteAfterburners_quick", cmd_quick, 2116),
     Function.ability(212, "Effect_NeuralParasite_screen", cmd_screen, 249),
     Function.ability(213, "Effect_NukeCalldown_screen", cmd_screen, 1622),
@@ -577,8 +677,13 @@ FUNCTIONS = Functions([
     Function.ability(221, "Effect_Repair_autocast", autocast, 3685),
     Function.ability(222, "Effect_Repair_Mule_screen", cmd_screen, 78, 3685),
     Function.ability(223, "Effect_Repair_Mule_autocast", autocast, 78, 3685),
+    Function.ability(530, "Effect_Repair_RepairDrone_screen", cmd_screen, 3751, 3685),
+    Function.ability(531, "Effect_Repair_RepairDrone_autocast", autocast, 3751, 3685),
     Function.ability(224, "Effect_Repair_SCV_screen", cmd_screen, 316, 3685),
     Function.ability(225, "Effect_Repair_SCV_autocast", autocast, 316, 3685),
+    Function.ability(532, "Effect_RepairDrone_screen", cmd_screen, 3749),
+    Function.ability(533, "Effect_Restore_screen", cmd_screen, 3765),
+    Function.ability(534, "Effect_Restore_autocast", autocast, 3765),
     Function.ability(226, "Effect_Salvage_quick", cmd_quick, 32),
     Function.ability(227, "Effect_Scan_screen", cmd_screen, 399),
     Function.ability(228, "Effect_SpawnChangeling_quick", cmd_quick, 181),
@@ -662,9 +767,13 @@ FUNCTIONS = Functions([
     Function.ability(306, "Morph_Lurker_quick", cmd_quick, 2332),
     Function.ability(307, "Morph_LurkerDen_quick", cmd_quick, 2112),
     Function.ability(308, "Morph_Mothership_quick", cmd_quick, 1847),
+    Function.ability(535, "Morph_ObserverMode_quick", cmd_quick, 3739),
     Function.ability(309, "Morph_OrbitalCommand_quick", cmd_quick, 1516),
     Function.ability(310, "Morph_OverlordTransport_quick", cmd_quick, 2708),
     Function.ability(311, "Morph_Overseer_quick", cmd_quick, 1448),
+    Function.ability(536, "Morph_OverseerMode_quick", cmd_quick, 3745),
+    Function.ability(537, "Morph_OversightMode_quick", cmd_quick, 3743),
+    Function.ability(538, "Morph_SurveillanceMode_quick", cmd_quick, 3741),
     Function.ability(312, "Morph_PlanetaryFortress_quick", cmd_quick, 1450),
     Function.ability(313, "Morph_Ravager_quick", cmd_quick, 2330),
     Function.ability(314, "Morph_Root_screen", cmd_screen, 3680),
@@ -692,18 +801,19 @@ FUNCTIONS = Functions([
     Function.ability(336, "Rally_Units_minimap", cmd_minimap, 3673),
     Function.ability(337, "Rally_Building_screen", cmd_screen, 195, 3673),
     Function.ability(338, "Rally_Building_minimap", cmd_minimap, 195, 3673),
-    Function.ability(339, "Rally_Hatchery_Units_screen", cmd_screen, 212, 3673),
-    Function.ability(340, "Rally_Hatchery_Units_minimap", cmd_minimap, 212, 3673),
+    Function.ability(339, "Rally_Hatchery_Units_screen", cmd_screen, 211, 3673),
+    Function.ability(340, "Rally_Hatchery_Units_minimap", cmd_minimap, 211, 3673),
     Function.ability(341, "Rally_Morphing_Unit_screen", cmd_screen, 199, 3673),
     Function.ability(342, "Rally_Morphing_Unit_minimap", cmd_minimap, 199, 3673),
     Function.ability(343, "Rally_Workers_screen", cmd_screen, 3690),
     Function.ability(344, "Rally_Workers_minimap", cmd_minimap, 3690),
     Function.ability(345, "Rally_CommandCenter_screen", cmd_screen, 203, 3690),
     Function.ability(346, "Rally_CommandCenter_minimap", cmd_minimap, 203, 3690),
-    Function.ability(347, "Rally_Hatchery_Workers_screen", cmd_screen, 211, 3690),
-    Function.ability(348, "Rally_Hatchery_Workers_minimap", cmd_minimap, 211, 3690),
+    Function.ability(347, "Rally_Hatchery_Workers_screen", cmd_screen, 212, 3690),
+    Function.ability(348, "Rally_Hatchery_Workers_minimap", cmd_minimap, 212, 3690),
     Function.ability(349, "Rally_Nexus_screen", cmd_screen, 207, 3690),
     Function.ability(350, "Rally_Nexus_minimap", cmd_minimap, 207, 3690),
+    Function.ability(539, "Research_AdaptiveTalons_quick", cmd_quick, 3709),
     Function.ability(351, "Research_AdeptResonatingGlaives_quick", cmd_quick, 1594),
     Function.ability(352, "Research_AdvancedBallistics_quick", cmd_quick, 805),
     Function.ability(353, "Research_BansheeCloakingField_quick", cmd_quick, 790),
@@ -716,6 +826,7 @@ FUNCTIONS = Functions([
     Function.ability(360, "Research_ChitinousPlating_quick", cmd_quick, 265),
     Function.ability(361, "Research_CombatShield_quick", cmd_quick, 731),
     Function.ability(362, "Research_ConcussiveShells_quick", cmd_quick, 732),
+    Function.ability(540, "Research_CycloneRapidFireLaunchers_quick", cmd_quick, 768),
     Function.ability(363, "Research_DrillingClaws_quick", cmd_quick, 764),
     Function.ability(364, "Research_ExtendedThermalLance_quick", cmd_quick, 1097),
     Function.ability(365, "Research_GlialRegeneration_quick", cmd_quick, 216),
@@ -726,7 +837,6 @@ FUNCTIONS = Functions([
     Function.ability(370, "Research_HighCapacityFuelTanks_quick", cmd_quick, 804),
     Function.ability(371, "Research_InfernalPreigniter_quick", cmd_quick, 761),
     Function.ability(372, "Research_InterceptorGravitonCatapult_quick", cmd_quick, 44),
-    Function.ability(373, "Research_MagFieldLaunchers_quick", cmd_quick, 766),
     Function.ability(374, "Research_MuscularAugments_quick", cmd_quick, 1283),
     Function.ability(375, "Research_NeosteelFrame_quick", cmd_quick, 655),
     Function.ability(376, "Research_NeuralParasite_quick", cmd_quick, 1455),
@@ -758,6 +868,7 @@ FUNCTIONS = Functions([
     Function.ability(402, "Research_RavenCorvidReactor_quick", cmd_quick, 793),
     Function.ability(403, "Research_RavenRecalibratedExplosives_quick", cmd_quick, 803),
     Function.ability(404, "Research_ShadowStrike_quick", cmd_quick, 2720),
+    Function.ability(373, "Research_SmartServos_quick", cmd_quick, 766),
     Function.ability(405, "Research_Stimpack_quick", cmd_quick, 730),
     Function.ability(406, "Research_TerranInfantryArmor_quick", cmd_quick, 3697),
     Function.ability(407, "Research_TerranInfantryArmorLevel1_quick", cmd_quick, 656, 3697),
@@ -877,14 +988,21 @@ FUNCTIONS = Functions([
     Function.ability(521, "UnloadAllAt_Overlord_minimap", cmd_minimap, 1408, 3669),
     Function.ability(522, "UnloadAllAt_WarpPrism_screen", cmd_screen, 913, 3669),
     Function.ability(523, "UnloadAllAt_WarpPrism_minimap", cmd_minimap, 913, 3669),
-])
+]
 # pylint: enable=line-too-long
+
+
+# Create an IntEnum of the function names/ids so that printing the id will
+# show something useful.
+_Functions = enum.IntEnum(  # pylint: disable=invalid-name
+    "_Functions", {f.name: f.id for f in _FUNCTIONS})
+FUNCTIONS = Functions(_FUNCTIONS)
 
 # Some indexes to support features.py and action conversion.
 ABILITY_IDS = collections.defaultdict(set)  # {ability_id: {funcs}}
-for func in FUNCTIONS:
-  if func.ability_id >= 0:
-    ABILITY_IDS[func.ability_id].add(func)
+for _func in FUNCTIONS:
+  if _func.ability_id >= 0:
+    ABILITY_IDS[_func.ability_id].add(_func)
 ABILITY_IDS = {k: frozenset(v) for k, v in six.iteritems(ABILITY_IDS)}
 FUNCTIONS_AVAILABLE = {f.id: f for f in FUNCTIONS if f.avail_fn}
 
@@ -899,6 +1017,47 @@ class FunctionCall(collections.namedtuple(
         ints. For select_point this could be: [[0], [23, 38]].
   """
   __slots__ = ()
+
+  @classmethod
+  def init_with_validation(cls, function, arguments):
+    """Return a `FunctionCall` given some validation for the function and args.
+
+    Args:
+      function: A function name or id, to be converted into a function id enum.
+      arguments: An iterable of function arguments. Arguments that are enum
+          types can be passed by name. Arguments that only take one value (ie
+          not a point) don't need to be wrapped in a list.
+
+    Returns:
+      A new `FunctionCall` instance.
+
+    Raises:
+      KeyError: if the enum name doesn't exist.
+      ValueError: if the enum id doesn't exist.
+    """
+    func = FUNCTIONS[function]
+    args = []
+    for arg, arg_type in zip(arguments, func.args):
+      if arg_type.values:  # Allow enum values by name or int.
+        if isinstance(arg, str):
+          try:
+            args.append([arg_type.values[arg]])
+          except KeyError:
+            raise KeyError("Unknown argument value: %s, valid values: %s" % (
+                arg, [v.name for v in arg_type.values]))
+        else:
+          if isinstance(arg, (list, tuple)):
+            arg = arg[0]
+          try:
+            args.append([arg_type.values(arg)])
+          except ValueError:
+            raise ValueError("Unknown argument value: %s, valid values: %s" % (
+                arg, list(arg_type.values)))
+      elif isinstance(arg, int):  # Allow bare ints.
+        args.append([arg])
+      else:  # Allow tuples or iterators.
+        args.append(list(arg))
+    return cls(func.id, args)
 
   @classmethod
   def all_arguments(cls, function, arguments):

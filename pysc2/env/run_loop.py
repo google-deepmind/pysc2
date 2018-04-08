@@ -25,10 +25,10 @@ def run_loop(agents, env, max_frames=0):
   total_frames = 0
   start_time = time.time()
 
-  action_spec = env.action_spec()
   observation_spec = env.observation_spec()
-  for agent in agents:
-    agent.setup(observation_spec, action_spec)
+  action_spec = env.action_spec()
+  for agent, obs_spec, act_spec in zip(agents, observation_spec, action_spec):
+    agent.setup(obs_spec, act_spec)
 
   try:
     while True:

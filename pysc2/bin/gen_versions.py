@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # Copyright 2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,36 +12,32 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""A base agent to write custom scripted agents."""
+"""Generate the list of versions for run_configs."""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from pysc2.lib import actions
+from absl import app
+import requests
+
+# raw version of:
+# https://github.com/Blizzard/s2client-proto/blob/master/buildinfo/versions.json
+VERSIONS_FILE = "https://raw.githubusercontent.com/Blizzard/s2client-proto/master/buildinfo/versions.json"
 
 
-class BaseAgent(object):
-  """A base agent to write custom scripted agents.
+def main(argv):
+  del argv  # Unused.
 
-  It can also act as a passive agent that does nothing but no-ops.
-  """
+  versions = requests.get(VERSIONS_FILE).json()
 
-  def __init__(self):
-    self.reward = 0
-    self.episodes = 0
-    self.steps = 0
-    self.obs_spec = None
-    self.action_spec = None
+  for v in versions:
+    version_str = v["label"]
+    if version_str.count(".") == 1:
+      version_str += ".0"
+    print('    lib.Version("%s", %i, "%s", None),' % (
+        version_str, v["base-version"], v["data-hash"]))
 
-  def setup(self, obs_spec, action_spec):
-    self.obs_spec = obs_spec
-    self.action_spec = action_spec
 
-  def reset(self):
-    self.episodes += 1
-
-  def step(self, obs):
-    self.steps += 1
-    self.reward += obs.reward
-    return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
+if __name__ == "__main__":
+  app.run(main)

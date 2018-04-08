@@ -18,11 +18,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from absl.testing import absltest
 from future.builtins import int  # pylint: disable=redefined-builtin
 
 from pysc2.lib import point
-
-from absl.testing import absltest as basetest
 
 
 class FakePoint(object):
@@ -32,7 +31,7 @@ class FakePoint(object):
     self.y = 8
 
 
-class PointTest(basetest.TestCase):
+class PointTest(absltest.TestCase):
 
   def testBuild(self):
     self.assertEqual(point.Point(5, 8), point.Point.build(FakePoint()))
@@ -122,7 +121,7 @@ class PointTest(basetest.TestCase):
     self.assertEqual(point.Point(1.5, 2), point.Point(1.5, 0).bound(tl, br))
 
 
-class RectTest(basetest.TestCase):
+class RectTest(absltest.TestCase):
 
   def testInit(self):
     r = point.Rect(1, 2, 3, 4)
@@ -207,4 +206,4 @@ class RectTest(basetest.TestCase):
 
 
 if __name__ == '__main__':
-  basetest.main()
+  absltest.main()
