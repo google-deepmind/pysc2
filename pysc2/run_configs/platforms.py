@@ -102,8 +102,14 @@ class LocalBase(lib.RunConfig):
       version = _get_version(version)
     elif not version:
       versions_dir = os.path.join(self.data_dir, "Versions")
-      build_version = max(int(v[4:]) for v in os.listdir(versions_dir)
-                          if v.startswith("Base"))
+      version_prefix = "Base"
+      versions_found = [int(v[len(version_prefix):])
+                        for v in os.listdir(versions_dir)
+                        if v.startswith(version_prefix)]
+      if not versions_found:
+        raise sc_process.SC2LaunchError(
+            "No SC2 Versions found in %s" % versions_dir)
+      build_version = max(versions_found)
       version = lib.Version(None, build_version, None, None)
     if version.build_version < VERSIONS["3.16.1"].build_version:
       raise sc_process.SC2LaunchError(
