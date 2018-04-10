@@ -48,23 +48,27 @@ class DQNAgent:
         self.state_shape = (4, _MAP_LENGTH, _MAP_LENGTH)
         self.output_size = _MAP_SIZE
         self.learning_rate = 0.5
-        self.epsilon = 1
+        self.epsilon = 0.9
         self.epsilon_min = 0.01
-        self.epsilon_decay = 0.995
-        self.gamma = 0.95
+        self.epsilon_decay = 0.98
+        self.gamma = 0.2
+        self.living_expense = 0.1
         self.memory = deque(maxlen=5000)
         self.model = self._build_model()
-        self.rewardfilter = 0
+        self.reward_filter = 0
 
     def _build_model(self):
         # Neural Net for Deep-Q learning Model
         model = Sequential()
-        model.add(Conv2D(16, kernel_size=(3, 3), strides=(1, 1), activation='relu', input_shape=self.state_shape))
+        model.add(Conv2D(16, kernel_size=(4, 4), strides=(2, 2), activation='relu', input_shape=self.state_shape, data_format="channels_first"))
+        model.add(MaxPooling2D(pool_size=(2, 2), strides=None, data_format='channels_first'))
+        model.add(Conv2D(64, kernel_size=(4, 4), strides=(2, 2), activation='relu', data_format='channels_first'))
+        model.add(MaxPooling2D(pool_size=(2, 2), strides=None, data_format='channels_first'))
         model.add(Flatten())
         model.add(Dense(_MAP_SIZE * 8, activation='relu'))
         model.add(Dense(self.output_size, activation='linear'))
         model.compile(loss=keras.losses.categorical_crossentropy,
-                      optimizer=keras.optimizers.SGD(lr=0.01),
+                      optimizer=keras.optimizers.Adam(lr=0.01),
                       metrics=['accuracy'])
         return model
 
@@ -72,10 +76,16 @@ class DQNAgent:
         if numpy.random.rand() <= self.epsilon:
             return numpy.random.randint(0, self.output_size)
         pred_values = self.model.predict(state)
-        return numpy.argmax(pred_values,axis=1)
+        # if numpy.argmax(pred_values) == 0:
+        #     print("pred0")
+        # else:
+        #     print("pred1")
+        return numpy.argmax(pred_values)
 
     def remember(self, state, action, next_state, reward):
-        if reward == 0 and self.rewardfilter != 0:
+        if reward == 0 and self.reward_filter != 0:
+            self.reward_filter += 1
+            self.reward_filter %= 8
             return
         self.memory.append((state, action, next_state, reward))
 
@@ -84,9 +94,10 @@ class DQNAgent:
             batch_size = int((len(self.memory)) / 10)
         choice = numpy.random.choice(range(len(self.memory)), batch_size)
         minibatch = [self.memory[index] for index in choice]
+        history = None
         for state, action, next_state, reward in minibatch:
-            target = (reward + self.gamma *
-                      numpy.max(self.model.predict(next_state), axis=1))
+            target = (reward - self.living_expense + self.gamma *
+                      numpy.max(self.model.predict(next_state)))
             target_f = self.model.predict(state)
             target_f[0][action] = target
             history = self.model.fit(state, target_f, epochs=1, verbose=0)
@@ -104,10 +115,14 @@ class DefeatRoaches(base_agent.BaseAgent):
         self.batch_size = 10
         self.last_action = None
         self.last_state = None
+        self.step_filter = 0
 
     def step(self, obs):
         super(DefeatRoaches, self).step(obs)
-
+        if self.step_filter != 0:
+            self.step_filter += 1
+            self.step_filter %= 10
+            return actions.FunctionCall(_NO_OP, [])
         if _ATTACK_SCREEN in obs.observation["available_actions"]:
             player_relative = obs.observation.feature_screen.player_relative
             roaches = player_relative == _PLAYER_ENEMY
@@ -120,14 +135,14 @@ class DefeatRoaches(base_agent.BaseAgent):
             ])])
 
             if self.last_action is not None:
-                reward = obs.reward
+                reward = obs.reward - self.agent.living_expense
                 self.agent.remember(self.last_state, self.last_action, feature, reward)
 
             self.last_action = self.agent.act(feature)
             self.last_state = feature
 
             target = [self.last_action % 84, int(self.last_action / 84)]
-            # print("Attack: ", target[0], target[1])
+            # print("action:", self.last_action,"Attack: ", target[0], target[1])
             return actions.FunctionCall(_ATTACK_SCREEN, [_NOT_QUEUED, target])
         elif _SELECT_ARMY in obs.observation["available_actions"]:
             return actions.FunctionCall(_SELECT_ARMY, [_SELECT_ALL])
@@ -137,5 +152,5 @@ class DefeatRoaches(base_agent.BaseAgent):
     def reset(self):
         super(DefeatRoaches, self).reset()
         if self.episodes > self.batch_size:
-            hitory = self.agent.replay(16)
+            hitory = self.agent.replay(8)
             print("loss:", hitory.history['loss'], "eplison:", self.agent.epsilon)
