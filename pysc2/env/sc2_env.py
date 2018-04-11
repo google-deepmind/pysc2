@@ -511,10 +511,13 @@ class SC2Env(environment.Base):
                                       discount=discount, observation=o)
                  for r, o in zip(reward, agent_obs))
 
-  def save_replay(self, replay_dir):
+  def save_replay(self, replay_dir, prefix=None):
+    if prefix is None:
+      prefix = self._map_name
     replay_path = self._run_config.save_replay(
-        self._controllers[0].save_replay(), replay_dir, self._map.name)
+        self._controllers[0].save_replay(), replay_dir, prefix)
     logging.info("Wrote replay to: %s", replay_path)
+    return replay_path
 
   def close(self):
     self._metrics.close()
