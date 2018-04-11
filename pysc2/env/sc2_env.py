@@ -29,6 +29,7 @@ from pysc2 import run_configs
 from pysc2.env import environment
 from pysc2.lib import actions as actions_lib
 from pysc2.lib import features
+from pysc2.lib import metrics
 from pysc2.lib import renderer_human
 from pysc2.lib import run_parallel
 from pysc2.lib import stopwatch
@@ -321,6 +322,9 @@ class SC2Env(environment.Base):
     else:
       self._renderer_human = None
 
+    self._metrics = metrics.Metrics(map_name)
+    self._metrics.increment_instance()
+
     self._episode_count = 0
     self._obs = None
     self._state = environment.StepType.LAST  # Want to jump to `reset`.
@@ -428,6 +432,7 @@ class SC2Env(environment.Base):
 
     self._episode_count += 1
     logging.info("Starting episode: %s", self._episode_count)
+    self._metrics.increment_episode()
 
     self._last_score = [0] * self._num_players
     self._state = environment.StepType.FIRST
@@ -447,6 +452,7 @@ class SC2Env(environment.Base):
     return self._step()
 
   def _step(self):
+    self._metrics.increment_step(self._step_mul)
     self._parallel.run((c.step, self._step_mul) for c in self._controllers)
     self._obs = self._parallel.run(c.observe for c in self._controllers)
     agent_obs = [self._features.transform_obs(o) for o in self._obs]
@@ -511,6 +517,7 @@ class SC2Env(environment.Base):
     logging.info("Wrote replay to: %s", replay_path)
 
   def close(self):
+    self._metrics.close()
     logging.info("Environment Close")
     if hasattr(self, "_renderer_human") and self._renderer_human:
       self._renderer_human.close()
