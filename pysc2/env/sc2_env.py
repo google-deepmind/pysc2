@@ -537,8 +537,10 @@ class SC2Env(environment.Base):
     return replay_path
 
   def close(self):
-    self._metrics.close()
     logging.info("Environment Close")
+    if hasattr(self, "_metrics") and self._metrics:
+      self._metrics.close()
+      self._metrics = None
     if hasattr(self, "_renderer_human") and self._renderer_human:
       self._renderer_human.close()
       self._renderer_human = None
