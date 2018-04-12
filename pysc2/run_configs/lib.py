@@ -73,21 +73,29 @@ class RunConfig(object):
       if f.lower().endswith(".sc2replay"):
         yield os.path.join(replay_dir, f)
 
-  def save_replay(self, replay_data, replay_dir, map_name):
+  def save_replay(self, replay_data, replay_dir, prefix=None):
     """Save a replay to a directory, returning the path to the replay.
 
     Args:
       replay_data: The result of controller.save_replay(), ie the binary data.
       replay_dir: Where to save the replay. This can be absolute or relative.
-      map_name: The map name, used as a prefix for the replay name.
+      prefix: Optional prefix for the replay filename.
 
     Returns:
       The full path where the replay is saved.
+
+    Raises:
+      ValueError: If the prefix contains the path seperator.
     """
+    if not prefix:
+      replay_filename = ""
+    elif os.path.sep in prefix:
+      raise ValueError("Prefix '%s' contains '%s', use replay_dir instead." % (
+          prefix, os.path.sep))
+    else:
+      replay_filename = prefix + "_"
     now = datetime.datetime.utcnow().replace(microsecond=0)
-    replay_filename = "%s_%s.SC2Replay" % (
-        os.path.splitext(os.path.basename(map_name))[0],
-        now.isoformat("-").replace(":", "-"))
+    replay_filename += "%s.SC2Replay" % now.isoformat("-").replace(":", "-")
     replay_dir = self.abs_replay_path(replay_dir)
     if not gfile.Exists(replay_dir):
       gfile.MakeDirs(replay_dir)

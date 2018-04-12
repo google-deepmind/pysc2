@@ -610,8 +610,10 @@ class RendererHuman(object):
     self._queued_action = None
 
   def save_replay(self, run_config, controller):
+    prefix, _ = os.path.splitext(
+        os.path.basename(self._game_info.local_map_path))
     replay_path = run_config.save_replay(
-        controller.save_replay(), "local", self._game_info.local_map_path)
+        controller.save_replay(), "local", prefix)
     print("Wrote replay to:", replay_path)
 
   @sw.decorate
