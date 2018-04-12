@@ -230,31 +230,6 @@ class SC2Env(environment.Base):
     if not 1 <= len(players) <= 2 or not 1 <= self._num_players <= 2:
       raise ValueError("Only 1 or 2 players is supported at the moment.")
 
-    feature_screen_px = features.point_from_size_width_height(
-        feature_screen_size, feature_screen_width, feature_screen_height)
-    feature_minimap_px = features.point_from_size_width_height(
-        feature_minimap_size, feature_minimap_width, feature_minimap_height)
-    rgb_screen_px = features.point_from_size_width_height(
-        rgb_screen_size, rgb_screen_width, rgb_screen_height)
-    rgb_minimap_px = features.point_from_size_width_height(
-        rgb_minimap_size, rgb_minimap_width, rgb_minimap_height)
-
-    if bool(feature_screen_px) != bool(feature_minimap_px):
-      raise ValueError("Must set all the feature layer sizes.")
-    if bool(rgb_screen_px) != bool(rgb_minimap_px):
-      raise ValueError("Must set all the rgb sizes.")
-    if not feature_screen_px and not rgb_screen_px:
-      raise ValueError("Must set either the feature layer or rgb sizes.")
-
-    if rgb_screen_px and (rgb_screen_px.x < rgb_minimap_px.x or
-                          rgb_screen_px.y < rgb_minimap_px.y):
-      raise ValueError("Screen (%s) can't be smaller than the minimap (%s)." % (
-          rgb_screen_px, rgb_minimap_px))
-
-    if feature_screen_px and rgb_screen_px and not action_space:
-      raise ValueError(
-          "You must specify the action space if you have both observations.")
-
     if save_replay_episodes and not replay_dir:
       raise ValueError("Missing replay_dir")
 
@@ -290,15 +265,12 @@ class SC2Env(environment.Base):
     self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
 
-    interface = sc_pb.InterfaceOptions(raw=(visualize or use_feature_units),
-                                       score=True)
-    if feature_screen_px:
-      interface.feature_layer.width = camera_width_world_units or 24
-      feature_screen_px.assign_to(interface.feature_layer.resolution)
-      feature_minimap_px.assign_to(interface.feature_layer.minimap_resolution)
-    if rgb_screen_px:
-      rgb_screen_px.assign_to(interface.render.resolution)
-      rgb_minimap_px.assign_to(interface.render.minimap_resolution)
+    interface = self._get_interface(
+        feature_screen_size, feature_screen_width, feature_screen_height,
+        feature_minimap_size, feature_minimap_width, feature_minimap_height,
+        rgb_screen_size, rgb_screen_width, rgb_screen_height, rgb_minimap_size,
+        rgb_minimap_width, rgb_minimap_height, action_space,
+        camera_width_world_units, use_feature_units, visualize)
 
     if self._num_players == 1:
       self._launch_sp(interface)
@@ -329,6 +301,51 @@ class SC2Env(environment.Base):
     self._obs = None
     self._state = environment.StepType.LAST  # Want to jump to `reset`.
     logging.info("Environment is ready.")
+
+  @staticmethod
+  def _get_interface(
+      feature_screen_size, feature_screen_width, feature_screen_height,
+      feature_minimap_size, feature_minimap_width, feature_minimap_height,
+      rgb_screen_size, rgb_screen_width, rgb_screen_height, rgb_minimap_size,
+      rgb_minimap_width, rgb_minimap_height, action_space,
+      camera_width_world_units, use_feature_units, visualize):
+    feature_screen_px = features.point_from_size_width_height(
+        feature_screen_size, feature_screen_width, feature_screen_height)
+    feature_minimap_px = features.point_from_size_width_height(
+        feature_minimap_size, feature_minimap_width, feature_minimap_height)
+    rgb_screen_px = features.point_from_size_width_height(
+        rgb_screen_size, rgb_screen_width, rgb_screen_height)
+    rgb_minimap_px = features.point_from_size_width_height(
+        rgb_minimap_size, rgb_minimap_width, rgb_minimap_height)
+
+    if bool(feature_screen_px) != bool(feature_minimap_px):
+      raise ValueError("Must set all the feature layer sizes.")
+    if bool(rgb_screen_px) != bool(rgb_minimap_px):
+      raise ValueError("Must set all the rgb sizes.")
+    if not feature_screen_px and not rgb_screen_px:
+      raise ValueError("Must set either the feature layer or rgb sizes.")
+
+    if rgb_screen_px  and rgb_minimap_px and (
+        rgb_screen_px.x < rgb_minimap_px.x or
+        rgb_screen_px.y < rgb_minimap_px.y):
+      raise ValueError("Screen (%s) can't be smaller than the minimap (%s)." % (
+          rgb_screen_px, rgb_minimap_px))
+
+    if feature_screen_px and rgb_screen_px and not action_space:
+      raise ValueError(
+          "You must specify the action space if you have both observations.")
+
+    interface = sc_pb.InterfaceOptions(
+        raw=(use_feature_units or visualize), score=True)
+    if feature_screen_px and feature_minimap_px:
+      interface.feature_layer.width = camera_width_world_units or 24
+      feature_screen_px.assign_to(interface.feature_layer.resolution)
+      feature_minimap_px.assign_to(interface.feature_layer.minimap_resolution)
+    if rgb_screen_px and rgb_minimap_px:
+      rgb_screen_px.assign_to(interface.render.resolution)
+      rgb_minimap_px.assign_to(interface.render.minimap_resolution)
+
+    return interface
 
   def _launch_sp(self, interface):
     self._sc2_procs = [self._run_config.start()]
