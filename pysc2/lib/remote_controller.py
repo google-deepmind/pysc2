@@ -102,7 +102,8 @@ class RemoteController(object):
   than a Response* object.
   """
 
-  def __init__(self, host, port, proc=None, timeout_seconds=120):
+  def __init__(self, host, port, proc=None, timeout_seconds=None):
+    timeout_seconds = timeout_seconds or 120
     sock = self._connect(host, port, proc, timeout_seconds)
     self._client = protocol.StarcraftProtocol(sock)
     self.ping()
