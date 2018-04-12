@@ -513,7 +513,7 @@ class SC2Env(environment.Base):
 
   def save_replay(self, replay_dir, prefix=None):
     if prefix is None:
-      prefix = self._map_name
+      prefix = self._map.name
     replay_path = self._run_config.save_replay(
         self._controllers[0].save_replay(), replay_dir, prefix)
     logging.info("Wrote replay to: %s", replay_path)
