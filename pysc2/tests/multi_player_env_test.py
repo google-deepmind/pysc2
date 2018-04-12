@@ -29,7 +29,7 @@ from pysc2.tests import utils
 
 class TestMultiplayerEnv(utils.TestCase):
 
-  def test_multi_player_env(self):
+  def test_multi_player_env_features(self):
     steps = 100
     step_mul = 16
     players = 2
@@ -39,6 +39,21 @@ class TestMultiplayerEnv(utils.TestCase):
                  sc2_env.Agent(sc2_env.Race.terran)],
         feature_screen_size=84,
         feature_minimap_size=64,
+        step_mul=step_mul,
+        game_steps_per_episode=steps * step_mul // 2) as env:
+      agents = [random_agent.RandomAgent() for _ in range(players)]
+      run_loop.run_loop(agents, env, steps)
+
+  def test_multi_player_env_rgb(self):
+    steps = 100
+    step_mul = 16
+    players = 2
+    with sc2_env.SC2Env(
+        map_name="Simple64",
+        players=[sc2_env.Agent(sc2_env.Race.zerg),
+                 sc2_env.Agent(sc2_env.Race.terran)],
+        rgb_screen_size=84,
+        rgb_minimap_size=64,
         step_mul=step_mul,
         game_steps_per_episode=steps * step_mul // 2) as env:
       agents = [random_agent.RandomAgent() for _ in range(players)]
