@@ -213,6 +213,14 @@ class RemoteController(object):
     if action:
       return self.actions(sc_pb.RequestAction(actions=[action]))
 
+  def chat(self, message):
+    """Send chat message as a broadcast."""
+    if message:
+      action_chat = sc_pb.ActionChat(
+          channel=sc_pb.ActionChat.Broadcast, message=message)
+      action = sc_pb.Action(action_chat=action_chat)
+      return self.act(action)
+
   @valid_status(Status.in_game, Status.ended)
   @sw.decorate
   def leave(self):

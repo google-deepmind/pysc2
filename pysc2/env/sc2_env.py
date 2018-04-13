@@ -528,6 +528,11 @@ class SC2Env(environment.Base):
                                       discount=discount, observation=o)
                  for r, o in zip(reward, agent_obs))
 
+  def send_chat_messages(self, messages):
+    """Useful for logging messages into the replay."""
+    self._parallel.run(
+        (c.chat, message) for c, message in zip(self._controllers, messages))
+
   def save_replay(self, replay_dir, prefix=None):
     if prefix is None:
       prefix = self._map.name
