@@ -40,7 +40,7 @@ from s2clientprotocol import sc2api_pb2 as sc_pb
 sw = stopwatch.sw
 
 
-_possible_results = {
+possible_results = {
     sc_pb.Victory: 1,
     sc_pb.Defeat: -1,
     sc_pb.Tie: 0,
@@ -244,7 +244,6 @@ class SC2Env(environment.Base):
     self._step_mul = step_mul or self._map.step_mul
     self._save_replay_episodes = save_replay_episodes
     self._replay_dir = replay_dir
-    self._total_steps = 0
     self._random_seed = random_seed
 
     if score_index is None:
@@ -255,12 +254,10 @@ class SC2Env(environment.Base):
       self._score_multiplier = self._map.score_multiplier
     else:
       self._score_multiplier = score_multiplier
-    self._last_score = None
 
     self._episode_length = game_steps_per_episode
     if self._episode_length is None:
       self._episode_length = self._map.game_steps_per_episode
-    self._episode_steps = 0
 
     self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
@@ -277,6 +274,11 @@ class SC2Env(environment.Base):
     else:
       self._launch_mp(interface)
 
+    self._finalize(interface, action_space, use_feature_units, visualize,
+                   map_name)
+
+  def _finalize(self, interface, action_space, use_feature_units, visualize,
+                map_name):
     game_info = self._controllers[0].game_info()
     static_data = self._controllers[0].data()
 
@@ -297,6 +299,9 @@ class SC2Env(environment.Base):
     self._metrics = metrics.Metrics(map_name)
     self._metrics.increment_instance()
 
+    self._last_score = None
+    self._total_steps = 0
+    self._episode_steps = 0
     self._episode_count = 0
     self._obs = None
     self._state = environment.StepType.LAST  # Want to jump to `reset`.
@@ -485,7 +490,7 @@ class SC2Env(environment.Base):
         player_id = o.observation.player_common.player_id
         for result in o.player_result:
           if result.player_id == player_id:
-            outcome[i] = _possible_results.get(result.result, 0)
+            outcome[i] = possible_results.get(result.result, 0)
 
     if self._score_index >= 0:  # Game score, not win/loss reward.
       cur_score = [o["score_cumulative"][self._score_index] for o in agent_obs]
