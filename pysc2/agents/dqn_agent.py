@@ -4,21 +4,33 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy
+from scipy.stats import multivariate_normal
+
+from os import listdir
+from os.path import isfile, join
 
 from pysc2.agents import base_agent
 from pysc2.lib import actions
 from pysc2.lib import features
 
 from collections import deque
+import keras
+from keras.models import load_model
 from keras.models import Sequential
 from keras.layers import Dense
+from keras.layers import Conv2D
+from keras.layers import MaxPooling2D
+from keras.layers import Flatten
+from keras.layers import BatchNormalization
 
-
-_PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
-_PLAYER_FRIENDLY = 1
-_PLAYER_NEUTRAL = 3  # beacon/minerals
-_PLAYER_HOSTILE = 4
 _UNIT_TYPE = features.SCREEN_FEATURES.unit_type.index
+_SCREEN_FEATURE = features.SCREEN_FEATURES
+_PLAYER_ID = features.SCREEN_FEATURES.player_id.index
+_HIT_POINTS = features.SCREEN_FEATURES.unit_hit_points.index
+_UNIT_DENSITY_AA = features.SCREEN_FEATURES.unit_density_aa.index
+_PLAYER_SELF = features.PlayerRelative.SELF
+_PLAYER_NEUTRAL = features.PlayerRelative.NEUTRAL  # beacon/minerals
+_PLAYER_ENEMY = features.PlayerRelative.ENEMY
 
 _NO_OP = actions.FUNCTIONS.no_op.id
 _MOVE_SCREEN = actions.FUNCTIONS.Move_screen.id
@@ -29,96 +41,186 @@ _SELECT_ALL = [0]
 
 MAP_SIZE = 84 * 84
 
+MODEL_SAVE_PATH = "model1\\"
+
 class DQNAgent:
-  def __init__(self):
-    self.state_size = MAP_SIZE
-    self.output_size = MAP_SIZE
-    self.learning_rate = 0.5
-    self.epsilon = 1
-    self.epsilon_min = 0.01
-    self.epsilon_decay = 0.995
-    self.gamma = 0.9
-    self.memory = deque(maxlen=2000)
-    self.model = self._build_model()
+    def __init__(self):
+        self.state_shape = (2, 42, 42)
+        self.output_size = 42*42
+        # self.learning_rate = 0.5
+        self.epsilon = 1
+        self.epsilon_min = 0.01
+        self.epsilon_decay = 0.995
+        # self.gamma = 0.9
+        self.start_episode = 0
+        self.memory = deque(maxlen=2000)
+        self.model = self._build_model()
+        self.reward_filter = 0
 
-  def _build_model(self):
-    # Neural Net for Deep-Q learning Model
-    model = Sequential()
-    model.add(Dense(MAP_SIZE, input_dim=self.state_size, activation='relu'))
-    model.add(Dense(MAP_SIZE, activation='relu'))
-    model.add(Dense(MAP_SIZE, activation='relu'))
-    model.add(Dense(MAP_SIZE, activation='relu'))
-    model.compile(loss='binary_crossentropy', optimizer='sgd')
-    return model
+    def read_file(self):
+        onlyfiles = [f for f in listdir(MODEL_SAVE_PATH) if isfile(join(MODEL_SAVE_PATH, f))]
+        max_id = 0
+        max_filename = ""
+        for filename in onlyfiles:
+            if filename[-4:] == ".mod":
+                end = filename.find('-')
+                model_id = 0
+                if end == -1:
+                    model_id = int(filename[5:])
+                else:
+                    model_id = int(filename[5:end])
+                if model_id > max_id:
+                    max_id = model_id
+                    max_filename = filename
+        if max_id != 0:
+            self.start_episode = max_id
+            return load_model(MODEL_SAVE_PATH+max_filename)
 
-  def act(self, state):
-    if numpy.random.rand() <= self.epsilon:
-      return numpy.random.randint(0,self.output_size)
-    pred_values = self.model.predict(state)
-    return numpy.argmax(pred_values)
+    def _build_model(self):
+        # Neural Net for Deep-Q learning Model
+        model = Sequential()
+        model.add(BatchNormalization(input_shape=self.state_shape))
+        model.add(Conv2D(filters=16, kernel_size=(2, 2), strides=(2, 2), activation='relu', data_format="channels_first"))
+        model.add(MaxPooling2D(pool_size=(2, 2), strides=None, data_format='channels_first'))
+        model.add(Conv2D(filters=64, kernel_size=(2, 2), strides=(4, 4), activation='relu', data_format='channels_first'))
+        model.add(MaxPooling2D(pool_size=(2, 2), strides=None, data_format='channels_first'))
+        model.add(Flatten())
+        model.add(Dense(units=84*84, activation='relu'))
+        model.add(Dense(units=self.output_size, activation='linear'))
+        model.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.SGD())
+        return model
 
-  def remember(self, state, action, reward, next_state, done):
-      self.memory.append((state, action, reward, next_state, done))
+    def act(self, state):
+        if numpy.random.rand() <= self.epsilon:
+            return numpy.random.randint(0, self.output_size)
+        pred_values = self.model.predict(state)
+        index = numpy.argmax(pred_values)
+        return index
 
-  def replay(self, batch_size):
-    choice = numpy.random.choice(range(len(self.memory)), batch_size)
-    minibatch = [self.memory[index] for index in choice]
-    for state, action, reward, next_state, done in minibatch:
-      target = reward
-      if not done:
-        target = (reward + self.gamma *
-                  numpy.amax(self.model.predict(next_state)[0]))
-      target_f = self.model.predict(state)
-      target_f[0][action] = target
-      self.model.fit(state, target_f, epochs=1, verbose=0)
-    if self.epsilon > self.epsilon_min:
-      self.epsilon *= self.epsilon_decay
+    def remember(self, state, action, reward):
+        if reward == 0 and self.reward_filter != 0:
+            self.reward_filter += 1
+            self.reward_filter %= 8
+            return
+        self.memory.append((state, action, reward))
+
+    def replay(self, batch_size=None):
+        if batch_size is None:
+            batch_size = int((len(self.memory)) / 10)
+        x = []
+        y = []
+        # r = 0
+        rad = numpy.random.choice(range(len(self.memory)), batch_size)
+        for i in rad:
+            state, action, reward = self.memory[i]
+            x.append(state)
+            # r = r*self.gamma + reward
+
+            rv = multivariate_normal([int(action % 42), int(action / 42)], [[2.0, 0.0], [0.0, 2.0]])
+            m, n = numpy.mgrid[0:42, 0:42]
+            pos = numpy.empty(m.shape + (2,))
+            pos[:, :, 0] = m
+            pos[:, :, 1] = n
+            yy = rv.pdf(pos) * reward
+            yy = yy.flatten()
+            y.append(yy)
+            # if i % batch_size == 0:
+
+        x = numpy.array(x)
+        y = numpy.array(y)
+        self.model.fit(x, y, epochs=1, verbose=0)
 
 
 class DefeatRoaches(base_agent.BaseAgent):
-  """An agent specifically for solving the DefeatRoaches map."""
-  def __init__(self):
-    super(DefeatRoaches, self).__init__()
-    self.agent = DQNAgent()
-    self.batch_size = 1000
-    self.last_action = None
-    self.last_state = None
+    """An agent specifically for solving the DefeatRoaches map."""
 
-  def step(self, obs):
-    super(DefeatRoaches, self).step(obs)
+    def __init__(self):
+        super(DefeatRoaches, self).__init__()
+        self.agent = DQNAgent()
+        self.start_episode = 20
+        self.last_action = None
+        self.last_state = None
+        self.step_filter = 0
+        self.step_reward = 0
+        self.first_step = False
+        self.score = 0
+        self.episodes = self.agent.start_episode
+        self.max_score = -9
+        self.min_score = 500
 
-    if len(self.agent.memory) > self.batch_size:
-      self.agent.replay(int(self.batch_size/10))
-      self.agent.memory.clear()
+    def step(self, obs):
+        super(DefeatRoaches, self).step(obs)
 
-    if _ATTACK_SCREEN in obs.observation["available_actions"]:
-      player_relative = obs.observation["screen"][_PLAYER_RELATIVE]
-      # roach_y, roach_x = (player_relative == _PLAYER_HOSTILE).nonzero()
-      # if not roach_y.any():
-      #   return actions.FunctionCall(_NO_OP, [])
-      # marine_y, marine_x = (player_relative == _PLAYER_FRIENDLY).nonzero()
-      # if not marine_y.any():
-      #   return actions.FunctionCall(_NO_OP, [])
-      # while len(roach_y) < 4:
-      #   numpy.append(roach_y, numpy.mean(roach_y))
-      #   numpy.append(roach_x, numpy.mean(roach_x))
-      # while len(marine_y) < 9:
-      #   numpy.append(marine_y, numpy.mean(marine_y))
-      #   numpy.append(marine_x, numpy.mean(marine_x))
+        self.step_reward += obs.reward
 
-      state = player_relative.reshape([1,-1])
+        self.step_filter += 1
+        self.step_filter %= 20
+        if self.step_filter != 0:
+            return actions.FunctionCall(_NO_OP, [])
 
-      if self.last_action is not None:
-        reward = obs.reward
-        self.agent.remember(self.last_state, self.last_action, reward, state, False)
+        if _ATTACK_SCREEN in obs.observation["available_actions"]:
+            player_relative = obs.observation.feature_screen.player_relative
+            roaches = self.downscale(1*numpy.array(player_relative == _PLAYER_ENEMY))
+            marines = self.downscale(1*numpy.array(player_relative == _PLAYER_SELF))
+            hitpoint = numpy.array(obs.observation['feature_screen'][_HIT_POINTS])
+            unitdensity = numpy.array(obs.observation['feature_screen'][_UNIT_DENSITY_AA])
+            feature = numpy.array([
+                roaches,
+                marines,
+            ])
 
-      self.last_action = self.agent.act(state)
-      self.last_state = state
+            if self.first_step and self.episodes < 20:
+                y = roaches*20 + marines * -5 - 5
+                self.agent.model.fit(numpy.array([feature]), numpy.array([y.flatten()]), epochs=200, verbose=0)
+                self.first_step = False
 
-      target = [self.last_action % 84, int(self.last_action / 84)]
-      # print("Attack: ", target[0], target[1])
-      return actions.FunctionCall(_ATTACK_SCREEN, [_NOT_QUEUED, target])
-    elif _SELECT_ARMY in obs.observation["available_actions"]:
-      return actions.FunctionCall(_SELECT_ARMY, [_SELECT_ALL])
-    else:
-      return actions.FunctionCall(_NO_OP, [])
+            if self.last_action is not None:
+                self.agent.remember(self.last_state, self.last_action, self.step_reward)
+                self.step_reward = 0
+                self.agent.replay(10)
+
+            self.last_action = self.agent.act(numpy.array([feature]))
+            self.last_state = feature
+
+            target = [int(self.last_action % 42) * 2 + 1, int(self.last_action / 42) * 2 + 1]
+            # print("action:", self.last_action,"Attack: ", target[0], target[1])
+
+            self.step_reward = 0
+            return actions.FunctionCall(_ATTACK_SCREEN, [_NOT_QUEUED, target])
+        elif _SELECT_ARMY in obs.observation["available_actions"]:
+            return actions.FunctionCall(_SELECT_ARMY, [_SELECT_ALL])
+        else:
+            return actions.FunctionCall(_NO_OP, [])
+
+    def reset(self):
+        super(DefeatRoaches, self).reset()
+        print("eplison:", self.agent.epsilon)
+        self.first_step = True
+        if self.agent.epsilon > self.agent.epsilon_min:
+            self.agent.epsilon *= self.agent.epsilon_decay
+
+        self.score += self.reward
+        if self.reward > self.max_score:
+            self.max_score = self.reward
+        if self.reward < self.min_score:
+            self.min_score = self.reward
+
+        self.reward = 0
+
+        if self.episodes != 0 and self.episodes % 100 == 0:
+            self.agent.model.save(MODEL_SAVE_PATH + str(self.episodes) + "-" + str(self.score / 100)
+                                  + "-max" + str(self.max_score) + "-min" + str(self.min_score) + ".mod")
+            print("============================\nepisode", self.episodes - 50, "-", self.episodes, "score", self.score / 100
+                  , "-max", str(self.max_score), "-min" + str(self.min_score))
+            self.score = 0
+            self.max_score = -9
+            self.min_score = 500
+
+    def downscale(self, feature):
+        m, n = feature.shape
+        l = 2
+        res = numpy.empty([int(m/l), int(n/l)])
+        for i in range(int(m/l)):
+            for j in range(int(n/l)):
+                res[i, j] = numpy.max(feature[i*l:i*l+l, j*l:j*l+l])
+        return res
