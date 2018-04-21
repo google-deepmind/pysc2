@@ -76,9 +76,9 @@ class DQNAgent:
                 end = filename.find('-')
                 model_id = 0
                 if end == -1:
-                    model_id = int(filename[5:])
+                    model_id = int(filename[:-4])
                 else:
-                    model_id = int(filename[5:end])
+                    model_id = int(filename[:end])
                 if model_id > max_id:
                     max_id = model_id
                     max_filename = filename

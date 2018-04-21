@@ -48,7 +48,7 @@ class DQNAgent:
         self.state_shape = (2, 42, 42)
         self.output_size = 42*42
         # self.learning_rate = 0.5
-        self.epsilon = 1
+        self.epsilon = 0.5
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
         # self.gamma = 0.9
@@ -66,9 +66,9 @@ class DQNAgent:
                 end = filename.find('-')
                 model_id = 0
                 if end == -1:
-                    model_id = int(filename[5:])
+                    model_id = int(filename[:-4])
                 else:
-                    model_id = int(filename[5:end])
+                    model_id = int(filename[:end])
                 if model_id > max_id:
                     max_id = model_id
                     max_filename = filename
@@ -77,17 +77,21 @@ class DQNAgent:
             return load_model(MODEL_SAVE_PATH+max_filename)
 
     def _build_model(self):
+        model = self.read_file()
+
+        if model is None:
         # Neural Net for Deep-Q learning Model
-        model = Sequential()
-        model.add(BatchNormalization(input_shape=self.state_shape))
-        model.add(Conv2D(filters=16, kernel_size=(2, 2), strides=(2, 2), activation='relu', data_format="channels_first"))
-        model.add(MaxPooling2D(pool_size=(2, 2), strides=None, data_format='channels_first'))
-        model.add(Conv2D(filters=64, kernel_size=(2, 2), strides=(4, 4), activation='relu', data_format='channels_first'))
-        model.add(MaxPooling2D(pool_size=(2, 2), strides=None, data_format='channels_first'))
-        model.add(Flatten())
-        model.add(Dense(units=84*84, activation='relu'))
-        model.add(Dense(units=self.output_size, activation='linear'))
-        model.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.SGD())
+            model = Sequential()
+            model.add(BatchNormalization(input_shape=self.state_shape))
+            model.add(Conv2D(filters=16, kernel_size=(2, 2), strides=(2, 2), activation='relu', data_format="channels_first"))
+            model.add(MaxPooling2D(pool_size=(2, 2), strides=None, data_format='channels_first'))
+            model.add(Conv2D(filters=64, kernel_size=(2, 2), strides=(4, 4), activation='relu', data_format='channels_first'))
+            model.add(MaxPooling2D(pool_size=(2, 2), strides=None, data_format='channels_first'))
+            model.add(Flatten())
+            model.add(Dense(units=84*84, activation='relu'))
+            model.add(Dense(units=self.output_size, activation='linear'))
+            model.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.SGD())
+        print(model.summary())
         return model
 
     def act(self, state):
