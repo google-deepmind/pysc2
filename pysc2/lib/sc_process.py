@@ -61,10 +61,10 @@ class StarcraftProcess(object):
                host="127.0.0.1", connect=True, timeout_seconds=None, **kwargs):
     self._proc = None
     self._controller = None
+    self._check_exists(exec_path)
     self._tmp_dir = tempfile.mkdtemp(prefix="sc-", dir=run_config.tmp_dir)
     self._host = host
     self._port = portpicker.pick_unused_port()
-    self._check_exists(exec_path)
 
     args = [
         exec_path,
@@ -102,7 +102,7 @@ class StarcraftProcess(object):
     if hasattr(self, "_port") and self._port:
       portpicker.return_port(self._port)
       self._port = None
-    if os.path.exists(self._tmp_dir):
+    if hasattr(self, "_tmp_dir") and os.path.exists(self._tmp_dir):
       shutil.rmtree(self._tmp_dir)
 
   @property
