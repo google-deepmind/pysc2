@@ -111,6 +111,10 @@ class RemoteController(object):
   @sw.decorate
   def _connect(self, host, port, proc, timeout_seconds):
     """Connect to the websocket, retrying as needed. Returns the socket."""
+    if ":" in host and not host.startswith("["):  # Support ipv6 addresses.
+      host = "[%s]" % host
+    url = "ws://%s:%s/sc2api" % (host, port)
+
     was_running = False
     for i in range(timeout_seconds):
       is_running = proc and proc.running
@@ -119,11 +123,10 @@ class RemoteController(object):
         logging.warning(
             "SC2 isn't running, so bailing early on the websocket connection.")
         break
-      logging.info("Connection attempt %s (running: %s)", i, is_running)
-      time.sleep(1)
+      logging.info("Connecting to: %s, attempt: %s, running: %s", url, i,
+                   is_running)
       try:
-        return websocket.create_connection("ws://%s:%s/sc2api" % (host, port),
-                                           timeout=timeout_seconds)
+        return websocket.create_connection(url, timeout=timeout_seconds)
       except socket.error:
         pass  # SC2 hasn't started listening yet.
       except websocket.WebSocketBadStatusException as err:
@@ -131,6 +134,7 @@ class RemoteController(object):
           pass  # SC2 is listening, but hasn't set up the /sc2api endpoint yet.
         else:
           raise
+      time.sleep(1)
     raise ConnectError("Failed to connect to the SC2 websocket. Is it up?")
 
   def close(self):
