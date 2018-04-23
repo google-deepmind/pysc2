@@ -41,7 +41,7 @@ _SELECT_ALL = [0]
 
 MAP_SIZE = 84 * 84
 
-MODEL_SAVE_PATH = "model1\\"
+MODEL_SAVE_PATH = "model-cnn\\"
 
 class DQNAgent:
     def __init__(self):
@@ -51,7 +51,7 @@ class DQNAgent:
         self.epsilon = 0.5
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
-        # self.gamma = 0.9
+        self.gamma = 0.
         self.start_episode = 0
         self.memory = deque(maxlen=2000)
         self.model = self._build_model()
@@ -84,8 +84,7 @@ class DQNAgent:
             model = Sequential()
             model.add(BatchNormalization(input_shape=self.state_shape))
             model.add(Conv2D(filters=16, kernel_size=(2, 2), strides=(2, 2), activation='relu', data_format="channels_first"))
-            model.add(MaxPooling2D(pool_size=(2, 2), strides=None, data_format='channels_first'))
-            model.add(Conv2D(filters=64, kernel_size=(2, 2), strides=(4, 4), activation='relu', data_format='channels_first'))
+            model.add(Conv2D(filters=64, kernel_size=(4, 4), strides=(2, 2), activation='relu', data_format='channels_first'))
             model.add(MaxPooling2D(pool_size=(2, 2), strides=None, data_format='channels_first'))
             model.add(Flatten())
             model.add(Dense(units=84*84, activation='relu'))
@@ -101,12 +100,12 @@ class DQNAgent:
         index = numpy.argmax(pred_values)
         return index
 
-    def remember(self, state, action, reward):
+    def remember(self, state, action, next_state, reward):
         if reward == 0 and self.reward_filter != 0:
             self.reward_filter += 1
             self.reward_filter %= 8
             return
-        self.memory.append((state, action, reward))
+        self.memory.append((state, action, next_state, reward))
 
     def replay(self, batch_size=None):
         if batch_size is None:
@@ -116,7 +115,7 @@ class DQNAgent:
         # r = 0
         rad = numpy.random.choice(range(len(self.memory)), batch_size)
         for i in rad:
-            state, action, reward = self.memory[i]
+            state, action, next_state, reward = self.memory[i]
             x.append(state)
             # r = r*self.gamma + reward
 
@@ -127,8 +126,9 @@ class DQNAgent:
             pos[:, :, 1] = n
             yy = rv.pdf(pos) * reward
             yy = yy.flatten()
+            r = numpy.max(self.model.predict(numpy.array([next_state])))
+            yy += r * self.gamma
             y.append(yy)
-            # if i % batch_size == 0:
 
         x = numpy.array(x)
         y = numpy.array(y)
@@ -173,13 +173,13 @@ class DefeatRoaches(base_agent.BaseAgent):
                 marines,
             ])
 
-            if self.first_step and self.episodes < 20:
+            if self.first_step and self.episodes < 200:
                 y = roaches*20 + marines * -5 - 5
                 self.agent.model.fit(numpy.array([feature]), numpy.array([y.flatten()]), epochs=200, verbose=0)
                 self.first_step = False
 
             if self.last_action is not None:
-                self.agent.remember(self.last_state, self.last_action, self.step_reward)
+                self.agent.remember(self.last_state, self.last_action, feature, self.step_reward)
                 self.step_reward = 0
                 self.agent.replay(10)
 
