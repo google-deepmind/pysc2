@@ -35,8 +35,8 @@ class TestMultiplayerEnv(utils.TestCase):
     players = 2
     with sc2_env.SC2Env(
         map_name="Simple64",
-        players=[sc2_env.Agent(sc2_env.Race.zerg),
-                 sc2_env.Agent(sc2_env.Race.terran)],
+        players=[sc2_env.Agent(sc2_env.Race.random),
+                 sc2_env.Agent(sc2_env.Race.random)],
         feature_screen_size=84,
         feature_minimap_size=64,
         step_mul=step_mul,
@@ -50,8 +50,8 @@ class TestMultiplayerEnv(utils.TestCase):
     players = 2
     with sc2_env.SC2Env(
         map_name="Simple64",
-        players=[sc2_env.Agent(sc2_env.Race.zerg),
-                 sc2_env.Agent(sc2_env.Race.terran)],
+        players=[sc2_env.Agent(sc2_env.Race.random),
+                 sc2_env.Agent(sc2_env.Race.random)],
         rgb_screen_size=84,
         rgb_minimap_size=64,
         step_mul=step_mul,
