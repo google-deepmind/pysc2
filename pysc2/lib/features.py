@@ -25,9 +25,13 @@ import numpy as np
 import six
 from pysc2.lib import actions
 from pysc2.lib import colors
+from pysc2.lib import named_array
 from pysc2.lib import point
+from pysc2.lib import static_data
 from pysc2.lib import stopwatch
+from pysc2.lib import transform
 
+from s2clientprotocol import raw_pb2 as sc_raw
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 sw = stopwatch.sw
@@ -36,6 +40,113 @@ sw = stopwatch.sw
 class FeatureType(enum.Enum):
   SCALAR = 1
   CATEGORICAL = 2
+
+
+class PlayerRelative(enum.IntEnum):
+  """The values for the `player_relative` feature layers."""
+  NONE = 0
+  SELF = 1
+  ALLY = 2
+  NEUTRAL = 3
+  ENEMY = 4
+
+
+class Visibility(enum.IntEnum):
+  """Values for the `visibility` feature layers."""
+  HIDDEN = 0
+  SEEN = 1
+  VISIBLE = 2
+
+
+class Effects(enum.IntEnum):
+  """Values for the `effects` feature layer."""
+  # pylint: disable=invalid-name
+  PsiStorm = 1
+  GuardianShield = 2
+  TemporalFieldGrowing = 3
+  TemporalField = 4
+  ThermalLance = 5
+  ScannerSweep = 6
+  NukeDot = 7
+  LiberatorDefenderZoneSetup = 8
+  LiberatorDefenderZone = 9
+  BlindingCloud = 10
+  CorrosiveBile = 11
+  LurkerSpines = 12
+  # pylint: enable=invalid-name
+
+
+class ScoreCumulative(enum.IntEnum):
+  """Indices into the `score_cumulative` observation."""
+  score = 0
+  idle_production_time = 1
+  idle_worker_time = 2
+  total_value_units = 3
+  total_value_structures = 4
+  killed_value_units = 5
+  killed_value_structures = 6
+  collected_minerals = 7
+  collected_vespene = 8
+  collection_rate_minerals = 9
+  collection_rate_vespene = 10
+  spent_minerals = 11
+  spent_vespene = 12
+
+
+class Player(enum.IntEnum):
+  """Indices into the `player` observation."""
+  player_id = 0
+  minerals = 1
+  vespene = 2
+  food_used = 3
+  food_cap = 4
+  food_army = 5
+  food_workers = 6
+  idle_worker_count = 7
+  army_count = 8
+  warp_gate_count = 9
+  larva_count = 10
+
+
+class UnitLayer(enum.IntEnum):
+  """Indices into the unit layers in the observations."""
+  unit_type = 0
+  player_relative = 1
+  health = 2
+  shields = 3
+  energy = 4
+  transport_slots_taken = 5
+  build_progress = 6
+
+
+class FeatureUnit(enum.IntEnum):
+  """Indices for the `feature_unit` observations."""
+  unit_type = 0
+  alliance = 1
+  health = 2
+  shield = 3
+  energy = 4
+  cargo_space_taken = 5
+  build_progress = 6
+  health_ratio = 7
+  shield_ratio = 8
+  energy_ratio = 9
+  display_type = 10
+  owner = 11
+  x = 12
+  y = 13
+  facing = 14
+  radius = 15
+  cloak = 16
+  is_selected = 17
+  is_blip = 18
+  is_powered = 19
+  mineral_contents = 20
+  vespene_contents = 21
+  cargo_space_max = 22
+  assigned_harvesters = 23
+  ideal_harvesters = 24
+  weapon_cooldown = 25
 
 
 class Feature(collections.namedtuple(
@@ -76,18 +187,23 @@ class Feature(collections.namedtuple(
     if size == (0, 0):
       # New layer that isn't implemented in this SC2 version.
       return None
-    data = np.fromstring(plane.data, dtype=Feature.dtypes[plane.bits_per_pixel])
+    data = np.frombuffer(plane.data, dtype=Feature.dtypes[plane.bits_per_pixel])
     if plane.bits_per_pixel == 1:
       data = np.unpackbits(data)
-    return data.reshape(size.transpose())
+      if data.shape[0] != size.x * size.y:
+        # This could happen if the correct length isn't a multiple of 8, leading
+        # to some padding bits at the end of the string which are incorrectly
+        # interpreted as data.
+        data = data[:size.x * size.y]
+    return data.reshape(size.y, size.x)
 
   @staticmethod
   @sw.decorate
   def unpack_rgb_image(plane):
     """Return a correctly shaped numpy array given the image bytes."""
-    assert plane.bits_per_pixel == 24
+    assert plane.bits_per_pixel == 24, "{} != 24".format(plane.bits_per_pixel)
     size = point.Point.build(plane.size)
-    data = np.fromstring(plane.data, dtype=np.uint8)
+    data = np.frombuffer(plane.data, dtype=np.uint8)
     return data.reshape(size.y, size.x, 3)
 
   @sw.decorate
@@ -117,7 +233,7 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
           type=type_,
           palette=palette(scale) if callable(palette) else palette,
           clip=clip)
-    return super(ScreenFeatures, cls).__new__(cls, **feats)
+    return super(ScreenFeatures, cls).__new__(cls, **feats)  # pytype: disable=missing-parameter
 
 
 class MinimapFeatures(collections.namedtuple("MinimapFeatures", [
@@ -138,7 +254,7 @@ class MinimapFeatures(collections.namedtuple("MinimapFeatures", [
           type=type_,
           palette=palette(scale) if callable(palette) else palette,
           clip=False)
-    return super(MinimapFeatures, cls).__new__(cls, **feats)
+    return super(MinimapFeatures, cls).__new__(cls, **feats)  # pytype: disable=missing-parameter
 
 
 SCREEN_FEATURES = ScreenFeatures(
@@ -151,7 +267,8 @@ SCREEN_FEATURES = ScreenFeatures(
                colors.PLAYER_ABSOLUTE_PALETTE, False),
     player_relative=(5, FeatureType.CATEGORICAL,
                      colors.PLAYER_RELATIVE_PALETTE, False),
-    unit_type=(1850, FeatureType.CATEGORICAL, colors.unit_type, False),
+    unit_type=(max(static_data.UNIT_TYPES) + 1, FeatureType.CATEGORICAL,
+               colors.unit_type, False),
     selected=(2, FeatureType.CATEGORICAL, colors.SELECTED_PALETTE, False),
     unit_hit_points=(1600, FeatureType.SCALAR, colors.hot, True),
     unit_hit_points_ratio=(256, FeatureType.SCALAR, colors.hot, False),
@@ -176,6 +293,19 @@ MINIMAP_FEATURES = MinimapFeatures(
 )
 
 
+def point_from_size_width_height(size, width, height):
+  if not size and not width and not height:
+    return None
+  if size:
+    if width or height:
+      raise ValueError("Either specify size or width and height, not both.")
+    return point.Point(size, size)
+  if width and height:
+    return point.Point(width, height)
+  else:
+    raise ValueError("Specify both width and height.")
+
+
 class Features(object):
   """Render feature layers from SC2 Observation protos into numpy arrays.
 
@@ -188,15 +318,56 @@ class Features(object):
   contexts, eg a supervised dataset pipeline.
   """
 
-  def __init__(self, game_info=None, screen_size_px=None, minimap_size_px=None,
+  def __init__(self,
+               _only_use_kwargs=None,
+               game_info=None,
+               feature_screen_size=None,
+               feature_screen_width=None,
+               feature_screen_height=None,
+               feature_minimap_size=None,
+               feature_minimap_width=None,
+               feature_minimap_height=None,
+               rgb_screen_size=None,
+               rgb_screen_width=None,
+               rgb_screen_height=None,
+               rgb_minimap_size=None,
+               rgb_minimap_width=None,
+               rgb_minimap_height=None,
+               use_feature_units=False,
+               map_size=None,
+               camera_width_world_units=None,
+               action_space=None,
                hide_specific_actions=True):
     """Initialize a Features instance.
 
+    You must specify the resolutions. This can come from a game_info object from
+    the game, or you can specify them directly. If you specify size then both
+    width and height will take that value.
+
     Args:
+      _only_use_kwargs: Don't pass args, only kwargs.
       game_info: A `sc_pb.ResponseGameInfo` from the game. Can be None if you
-          instead set `screen_size_px` and `minimap_size_px`.
-      screen_size_px: The screen resolution.
-      minimap_size_px: The minimap resolution.
+          instead set the sizes explicitly.
+      feature_screen_size: Sets feature_screen_width and feature_screen_width.
+      feature_screen_width: The width of the feature layer screen observation.
+      feature_screen_height: The height of the feature layer screen observation.
+      feature_minimap_size: Sets feature_minimap_width and
+          feature_minimap_height.
+      feature_minimap_width: The width of the feature layer minimap observation.
+      feature_minimap_height: The height of the feature layer minimap
+          observation.
+      rgb_screen_size: Sets rgb_screen_width and rgb_screen_height.
+      rgb_screen_width: The width of the rgb screen observation.
+      rgb_screen_height: The height of the rgb screen observation.
+      rgb_minimap_size: Sets rgb_minimap_width and rgb_minimap_height.
+      rgb_minimap_width: The width of the rgb minimap observation.
+      rgb_minimap_height: The height of the rgb minimap observation.
+      use_feature_units: Whether to include the feature unit observation.
+      map_size: The size of the map in world units, needed for feature_units.
+      camera_width_world_units: The width of the feature layer camera in world
+          units. This is needed for feature_units.
+      action_space: If you pass both feature and rgb sizes, then you must also
+          specify which you want to use for your actions as an ActionSpace enum.
       hide_specific_actions: [bool] Some actions (eg cancel) have many
           specific versions (cancel this building, cancel that spell) and can
           be represented in a more general form. If a specific action is
@@ -209,46 +380,155 @@ class Features(object):
           only the general actions.
 
     Raises:
-      ValueError: if game_info is None and screen or minimap sizes are missing.
+      ValueError: if game_info is None and the resolutions aren't well
+          specified.
+      ValueError: if the action_space is poorly specified or doesn't match the
+          observations.
     """
+    if _only_use_kwargs:
+      raise ValueError("All arguments must be passed as keyword arguments.")
+
     if game_info:
-      fl_opts = game_info.options.feature_layer
-      screen_size_px = point.Point.build(fl_opts.resolution)
-      minimap_size_px = point.Point.build(fl_opts.minimap_resolution)
-    elif not (screen_size_px and minimap_size_px):
-      raise ValueError(
-          "Must provide either game_info or screen and minimap sizes")
-    self._screen_size_px = point.Point(*screen_size_px)
-    self._minimap_size_px = point.Point(*minimap_size_px)
+      if any(
+          (feature_screen_size, feature_screen_width, feature_screen_height,
+           feature_minimap_size, feature_minimap_width, feature_minimap_height,
+           rgb_screen_size, rgb_screen_width, rgb_screen_height,
+           rgb_minimap_size, rgb_minimap_width, rgb_minimap_height)):
+        raise ValueError(
+            "Either pass the game_info or explicit sizes, not both.")
+
+      if game_info.options.HasField("feature_layer"):
+        fl_opts = game_info.options.feature_layer
+        self._feature_screen_px = point.Point.build(fl_opts.resolution)
+        self._feature_minimap_px = point.Point.build(fl_opts.minimap_resolution)
+      else:
+        self._feature_screen_px = self._feature_minimap_px = None
+      if game_info.options.HasField("render"):
+        render_opts = game_info.options.render
+        self._rgb_screen_px = point.Point.build(render_opts.resolution)
+        self._rgb_minimap_px = point.Point.build(render_opts.minimap_resolution)
+      else:
+        self._rgb_screen_px = self._rgb_minimap_px = None
+      if use_feature_units:
+        self._init_camera(game_info.start_raw.map_size,
+                          game_info.options.feature_layer.width)
+    else:
+      self._feature_screen_px = point_from_size_width_height(
+          feature_screen_size, feature_screen_width, feature_screen_height)
+      self._feature_minimap_px = point_from_size_width_height(
+          feature_minimap_size, feature_minimap_width, feature_minimap_height)
+      self._rgb_screen_px = point_from_size_width_height(
+          rgb_screen_size, rgb_screen_width, rgb_screen_height)
+      self._rgb_minimap_px = point_from_size_width_height(
+          rgb_minimap_size, rgb_minimap_width, rgb_minimap_height)
+      if use_feature_units:
+        self._init_camera(map_size, camera_width_world_units)
+
+    if bool(self._feature_screen_px) != bool(self._feature_minimap_px):
+      raise ValueError("Must set all the feature layer sizes.")
+    if bool(self._rgb_screen_px) != bool(self._rgb_minimap_px):
+      raise ValueError("Must set all the rgb sizes.")
+    if not self._feature_screen_px and not self._rgb_screen_px:
+      raise ValueError("Must set either the feature layer or rgb sizes.")
+
+    if action_space:
+      if not isinstance(action_space, actions.ActionSpace):
+        raise ValueError("action_space must be of type ActionSpace.")
+      if ((action_space == actions.ActionSpace.FEATURES and
+           not self._feature_screen_px) or
+          (action_space == actions.ActionSpace.RGB and
+           not self._rgb_screen_px)):
+        raise ValueError("Action space must match the observations.")
+      self._action_space = action_space
+    else:
+      if self._feature_screen_px and self._rgb_screen_px:
+        raise ValueError(
+            "You must specify the action space if you have both observations.")
+      if self._feature_screen_px:
+        self._action_space = actions.ActionSpace.FEATURES
+      else:
+        self._action_space = actions.ActionSpace.RGB
+
+    if self._action_space == actions.ActionSpace.FEATURES:
+      self._action_screen_px = self._feature_screen_px
+      self._action_minimap_px = self._feature_minimap_px
+    else:
+      self._action_screen_px = self._rgb_screen_px
+      self._action_minimap_px = self._rgb_minimap_px
+
+    self._feature_units = use_feature_units
     self._hide_specific_actions = hide_specific_actions
     self._valid_functions = self._init_valid_functions()
 
+  def _init_camera(self, map_size, camera_width_world_units):
+    """Initialize the feature_units camera."""
+    if not map_size or not camera_width_world_units:
+      raise ValueError(
+          "Either pass the game_info with raw enabled, or map_size and "
+          "camera_width_world_units in order to use feature_units.")
+    map_size = point.Point.build(map_size)
+    self._world_to_world_tl = transform.Linear(point.Point(1, -1),
+                                               point.Point(0, map_size.y))
+    self._world_tl_to_world_camera_rel = transform.Linear(offset=-map_size / 4)
+    world_camera_rel_to_feature_screen = transform.Linear(
+        self._feature_screen_px / camera_width_world_units,
+        self._feature_screen_px / 2)
+    self._world_to_feature_screen_px = transform.Chain(
+        self._world_to_world_tl,
+        self._world_tl_to_world_camera_rel,
+        world_camera_rel_to_feature_screen,
+        transform.PixelToCoord())
+
+  def _update_camera(self, camera_center):
+    """Update the camera transform based on the new camera center."""
+    self._world_tl_to_world_camera_rel.offset = (
+        -self._world_to_world_tl.fwd_pt(camera_center) *
+        self._world_tl_to_world_camera_rel.scale)
+
   def observation_spec(self):
     """The observation spec for the SC2 environment.
+
+    It's worth noting that the image-like observations are in y,x/row,column
+    order which is different than the actions which are in x,y order. This is
+    due to conflicting conventions, and to facilitate printing of the images.
 
     Returns:
       The dict of observation names to their tensor shapes. Shapes with a 0 can
       vary in length, for example the number of valid actions depends on which
       units you have selected.
     """
-    return {
-        "screen": (len(SCREEN_FEATURES),
-                   self._screen_size_px.y,
-                   self._screen_size_px.x),
-        "minimap": (len(MINIMAP_FEATURES),
-                    self._minimap_size_px.y,
-                    self._minimap_size_px.x),
-        "player": (11,),
-        "game_loop": (1,),
-        "score_cumulative": (13,),
+    obs_spec = named_array.NamedDict({
         "available_actions": (0,),
-        "single_select": (0, 7),  # Actually only (n, 7) for n in (0, 1)
-        "multi_select": (0, 7),
-        "cargo": (0, 7),
+        "build_queue": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
+        "cargo": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
         "cargo_slots_available": (1,),
-        "build_queue": (0, 7),
         "control_groups": (10, 2),
-    }
+        "game_loop": (1,),
+        "last_actions": (0,),
+        "multi_select": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
+        "player": (len(Player),),  # pytype: disable=wrong-arg-types
+        "score_cumulative": (len(ScoreCumulative),),  # pytype: disable=wrong-arg-types
+        "single_select": (0, len(UnitLayer)),  # Only (n, 7) for n in (0, 1).  # pytype: disable=wrong-arg-types
+    })
+    if self._feature_screen_px:
+      obs_spec["feature_screen"] = (len(SCREEN_FEATURES),
+                                    self._feature_screen_px.y,
+                                    self._feature_screen_px.x)
+    if self._feature_minimap_px:
+      obs_spec["feature_minimap"] = (len(MINIMAP_FEATURES),
+                                     self._feature_minimap_px.y,
+                                     self._feature_minimap_px.x)
+    if self._rgb_screen_px:
+      obs_spec["rgb_screen"] = (self._rgb_screen_px.y,
+                                self._rgb_screen_px.x,
+                                3)
+    if self._rgb_minimap_px:
+      obs_spec["rgb_minimap"] = (self._rgb_minimap_px.y,
+                                 self._rgb_minimap_px.x,
+                                 3)
+    if self._feature_units:
+      obs_spec["feature_units"] = (0, len(FeatureUnit))  # pytype: disable=wrong-arg-types
+    return obs_spec
 
   def action_spec(self):
     """The action space pretty complicated and fills the ValidFunctions."""
@@ -258,55 +538,74 @@ class Features(object):
   def transform_obs(self, obs):
     """Render some SC2 observations into something an agent can handle."""
     empty = np.array([], dtype=np.int32).reshape((0, 7))
-    out = {  # Fill out some that are sometimes empty.
+    out = named_array.NamedDict({  # Fill out some that are sometimes empty.
         "single_select": empty,
         "multi_select": empty,
         "build_queue": empty,
         "cargo": empty,
         "cargo_slots_available": np.array([0], dtype=np.int32),
-    }
+    })
 
     def or_zeros(layer, size):
       if layer is not None:
         return layer.astype(np.int32, copy=False)
       else:
-        return np.zeros(size.transpose(), dtype=np.int32)
+        return np.zeros((size.y, size.x), dtype=np.int32)
 
-    with sw("feature_layers"):
-      out["screen"] = np.stack(or_zeros(f.unpack(obs), self._screen_size_px)
-                               for f in SCREEN_FEATURES)
-      out["minimap"] = np.stack(or_zeros(f.unpack(obs), self._minimap_size_px)
-                                for f in MINIMAP_FEATURES)
+    if self._feature_screen_px:
+      out["feature_screen"] = named_array.NamedNumpyArray(
+          np.stack(or_zeros(f.unpack(obs.observation), self._feature_screen_px)
+                   for f in SCREEN_FEATURES),
+          names=[ScreenFeatures, None, None])
+    if self._feature_minimap_px:
+      out["feature_minimap"] = named_array.NamedNumpyArray(
+          np.stack(or_zeros(f.unpack(obs.observation), self._feature_minimap_px)
+                   for f in MINIMAP_FEATURES),
+          names=[MinimapFeatures, None, None])
+    if self._rgb_screen_px:
+      out["rgb_screen"] = Feature.unpack_rgb_image(
+          obs.observation.render_data.map).astype(np.int32)
+    if self._rgb_minimap_px:
+      out["rgb_minimap"] = Feature.unpack_rgb_image(
+          obs.observation.render_data.minimap).astype(np.int32)
 
-    out["game_loop"] = np.array([obs.game_loop], dtype=np.int32)
-    out["score_cumulative"] = np.array([
-        obs.score.score,
-        obs.score.score_details.idle_production_time,
-        obs.score.score_details.idle_worker_time,
-        obs.score.score_details.total_value_units,
-        obs.score.score_details.total_value_structures,
-        obs.score.score_details.killed_value_units,
-        obs.score.score_details.killed_value_structures,
-        obs.score.score_details.collected_minerals,
-        obs.score.score_details.collected_vespene,
-        obs.score.score_details.collection_rate_minerals,
-        obs.score.score_details.collection_rate_vespene,
-        obs.score.score_details.spent_minerals,
-        obs.score.score_details.spent_vespene,
-    ], dtype=np.int32)
-    out["player"] = np.array([
-        obs.player_common.player_id,
-        obs.player_common.minerals,
-        obs.player_common.vespene,
-        obs.player_common.food_used,
-        obs.player_common.food_cap,
-        obs.player_common.food_army,
-        obs.player_common.food_workers,
-        obs.player_common.idle_worker_count,
-        obs.player_common.army_count,
-        obs.player_common.warp_gate_count,
-        obs.player_common.larva_count,
-    ], dtype=np.int32)
+    out["last_actions"] = np.array(
+        [self.reverse_action(a).function for a in obs.actions],
+        dtype=np.int32)
+
+    out["game_loop"] = np.array([obs.observation.game_loop], dtype=np.int32)
+
+    score_details = obs.observation.score.score_details
+    out["score_cumulative"] = named_array.NamedNumpyArray([
+        obs.observation.score.score,
+        score_details.idle_production_time,
+        score_details.idle_worker_time,
+        score_details.total_value_units,
+        score_details.total_value_structures,
+        score_details.killed_value_units,
+        score_details.killed_value_structures,
+        score_details.collected_minerals,
+        score_details.collected_vespene,
+        score_details.collection_rate_minerals,
+        score_details.collection_rate_vespene,
+        score_details.spent_minerals,
+        score_details.spent_vespene,
+    ], names=ScoreCumulative, dtype=np.int32)
+
+    player = obs.observation.player_common
+    out["player"] = named_array.NamedNumpyArray([
+        player.player_id,
+        player.minerals,
+        player.vespene,
+        player.food_used,
+        player.food_cap,
+        player.food_army,
+        player.food_workers,
+        player.idle_worker_count,
+        player.army_count,
+        player.warp_gate_count,
+        player.larva_count,
+    ], names=Player, dtype=np.int32)
 
     def unit_vec(u):
       return np.array((
@@ -319,7 +618,7 @@ class Features(object):
           int(u.build_progress * 100),  # discretize
       ), dtype=np.int32)
 
-    ui = obs.ui_data
+    ui = obs.observation.ui_data
 
     with sw("ui"):
       groups = np.zeros((10, 2), dtype=np.int32)
@@ -328,23 +627,78 @@ class Features(object):
       out["control_groups"] = groups
 
       if ui.single:
-        out["single_select"] = np.array([unit_vec(ui.single.unit)])
+        out["single_select"] = named_array.NamedNumpyArray(
+            [unit_vec(ui.single.unit)], [None, UnitLayer])
 
       if ui.multi and ui.multi.units:
-        out["multi_select"] = np.stack(unit_vec(u) for u in ui.multi.units)
+        out["multi_select"] = named_array.NamedNumpyArray(
+            [unit_vec(u) for u in ui.multi.units], [None, UnitLayer])
 
       if ui.cargo and ui.cargo.passengers:
         out["single_select"] = np.array([unit_vec(ui.single.unit)])
-        out["cargo"] = np.stack(unit_vec(u) for u in ui.cargo.passengers)
+        out["cargo"] = named_array.NamedNumpyArray(
+            [unit_vec(u) for u in ui.cargo.passengers], [None, UnitLayer])
         out["cargo_slots_available"] = np.array([ui.cargo.slots_available],
                                                 dtype=np.int32)
 
       if ui.production and ui.production.build_queue:
         out["single_select"] = np.array([unit_vec(ui.production.unit)])
-        out["build_queue"] = np.stack(unit_vec(u)
-                                      for u in ui.production.build_queue)
+        out["build_queue"] = named_array.NamedNumpyArray(
+            [unit_vec(u) for u in ui.production.build_queue],
+            [None, UnitLayer])
 
-    out["available_actions"] = np.array(self.available_actions(obs),
+    def feature_unit_vec(u):
+      screen_pos = self._world_to_feature_screen_px.fwd_pt(
+          point.Point.build(u.pos))
+      screen_radius = self._world_to_feature_screen_px.fwd_dist(u.radius)
+      return np.array((
+          # Match unit_vec order
+          u.unit_type,
+          u.alliance,  # Self = 1, Ally = 2, Neutral = 3, Enemy = 4
+          u.health,
+          u.shield,
+          u.energy,
+          u.cargo_space_taken,
+          int(u.build_progress * 100),  # discretize
+
+          # Resume API order
+          int(u.health / u.health_max * 255) if u.health_max > 0 else 0,
+          int(u.shield / u.shield_max * 255) if u.shield_max > 0 else 0,
+          int(u.energy / u.energy_max * 255) if u.energy_max > 0 else 0,
+          u.display_type,  # Visible = 1, Snapshot = 2, Hidden = 3
+          u.owner,  # 1-15, 16 = neutral
+          screen_pos.x,
+          screen_pos.y,
+          u.facing,
+          screen_radius,
+          u.cloak,  # Cloaked = 1, CloakedDetected = 2, NotCloaked = 3
+          u.is_selected,
+          u.is_blip,
+          u.is_powered,
+          u.mineral_contents,
+          u.vespene_contents,
+
+          # Not populated for enemies or neutral
+          u.cargo_space_max,
+          u.assigned_harvesters,
+          u.ideal_harvesters,
+          u.weapon_cooldown,
+      ), dtype=np.int32)
+
+    raw = obs.observation.raw_data
+
+    if self._feature_units:
+      with sw("feature_units"):
+        # Update the camera location so we can calculate world to screen pos
+        self._update_camera(point.Point.build(raw.player.camera))
+        feature_units = []
+        for u in raw.units:
+          if u.is_on_screen and u.display_type != sc_raw.Hidden:
+            feature_units.append(feature_unit_vec(u))
+        out["feature_units"] = named_array.NamedNumpyArray(
+            feature_units, [None, FeatureUnit], dtype=np.int32)
+
+    out["available_actions"] = np.array(self.available_actions(obs.observation),
                                         dtype=np.int32)
 
     return out
@@ -410,9 +764,9 @@ class Features(object):
     # Args are valid?
     for t, arg in zip(func.args, func_call.arguments):
       if t.name in ("screen", "screen2"):
-        sizes = self._screen_size_px
+        sizes = self._action_screen_px
       elif t.name == "minimap":
-        sizes = self._minimap_size_px
+        sizes = self._action_minimap_px
       else:
         sizes = t.sizes
 
@@ -433,6 +787,7 @@ class Features(object):
     # Call the right callback to get an SC2 action proto.
     sc2_action = sc_pb.Action()
     kwargs["action"] = sc2_action
+    kwargs["action_space"] = self._action_space
     if func.ability_id:
       kwargs["ability_id"] = func.ability_id
     actions.FUNCTIONS[func_id].function_type(**kwargs)
@@ -453,16 +808,15 @@ class Features(object):
     Raises:
       ValueError: if it doesn't know how to transform this action.
     """
-    def func_call(func_id, args):
-      return actions.FunctionCall(func_id, [[int(v) for v in a] for a in args])
+    FUNCTIONS = actions.FUNCTIONS  # pylint: disable=invalid-name
 
-    def func_call_ability(ability_id, cmd_type, args):
+    def func_call_ability(ability_id, cmd_type, *args):
       """Get the function id for a specific ability id and action type."""
       if ability_id not in actions.ABILITY_IDS:
         logging.warning("Unknown ability_id: %s. This is probably dance or "
                         "cheer, or some unknown new or map specific ability. "
                         "Treating it as a no-op.", ability_id)
-        return func_call_name("no_op", [])
+        return FUNCTIONS.no_op()
 
       if self._hide_specific_actions:
         general_id = next(iter(actions.ABILITY_IDS[ability_id])).general_id
@@ -471,88 +825,79 @@ class Features(object):
 
       for func in actions.ABILITY_IDS[ability_id]:
         if func.function_type is cmd_type:
-          return func_call(func.id, args)
+          return FUNCTIONS[func.id](*args)
       raise ValueError("Unknown ability_id: %s, type: %s. Likely a bug." % (
           ability_id, cmd_type.__name__))
-
-    def func_call_name(name, args):
-      return func_call(actions.FUNCTIONS[name].id, args)
 
     if action.HasField("action_ui"):
       act_ui = action.action_ui
       if act_ui.HasField("multi_panel"):
-        return func_call_name("select_unit", [[act_ui.multi_panel.type - 1],
-                                              [act_ui.multi_panel.unit_index]])
+        return FUNCTIONS.select_unit(act_ui.multi_panel.type - 1,
+                                     act_ui.multi_panel.unit_index)
       if act_ui.HasField("control_group"):
-        return func_call_name("select_control_group",
-                              [[act_ui.control_group.action - 1],
-                               [act_ui.control_group.control_group_index]])
+        return FUNCTIONS.select_control_group(
+            act_ui.control_group.action - 1,
+            act_ui.control_group.control_group_index)
       if act_ui.HasField("select_idle_worker"):
-        return func_call_name("select_idle_worker",
-                              [[act_ui.select_idle_worker.type - 1]])
+        return FUNCTIONS.select_idle_worker(act_ui.select_idle_worker.type - 1)
       if act_ui.HasField("select_army"):
-        return func_call_name("select_army",
-                              [[act_ui.select_army.selection_add]])
+        return FUNCTIONS.select_army(act_ui.select_army.selection_add)
       if act_ui.HasField("select_warp_gates"):
-        return func_call_name("select_warp_gates",
-                              [[act_ui.select_warp_gates.selection_add]])
+        return FUNCTIONS.select_warp_gates(
+            act_ui.select_warp_gates.selection_add)
       if act_ui.HasField("select_larva"):
-        return func_call_name("select_larva", [])
+        return FUNCTIONS.select_larva()
       if act_ui.HasField("cargo_panel"):
-        return func_call_name("unload", [[act_ui.cargo_panel.unit_index]])
+        return FUNCTIONS.unload(act_ui.cargo_panel.unit_index)
       if act_ui.HasField("production_panel"):
-        return func_call_name("build_queue",
-                              [[act_ui.production_panel.unit_index]])
+        return FUNCTIONS.build_queue(act_ui.production_panel.unit_index)
       if act_ui.HasField("toggle_autocast"):
         return func_call_ability(act_ui.toggle_autocast.ability_id,
-                                 actions.autocast, [])
+                                 actions.autocast)
 
-    if action.HasField("action_feature_layer"):
-      act_fl = action.action_feature_layer
-      if act_fl.HasField("camera_move"):
-        coord = point.Point.build(act_fl.camera_move.center_minimap)
-        return func_call_name("move_camera", [coord])
-      if act_fl.HasField("unit_selection_point"):
-        select_point = act_fl.unit_selection_point
+    if (action.HasField("action_feature_layer") or
+        action.HasField("action_render")):
+      act_sp = actions.spatial(action, self._action_space)
+      if act_sp.HasField("camera_move"):
+        coord = point.Point.build(act_sp.camera_move.center_minimap)
+        return FUNCTIONS.move_camera(coord)
+      if act_sp.HasField("unit_selection_point"):
+        select_point = act_sp.unit_selection_point
         coord = point.Point.build(select_point.selection_screen_coord)
-        return func_call_name("select_point", [[select_point.type - 1], coord])
-      if act_fl.HasField("unit_selection_rect"):
-        select_rect = act_fl.unit_selection_rect
-        if len(select_rect.selection_screen_coord) > 1:
-          # TODO(tewalds): After looking at some replays we should decide if
-          # this is good enough. Maybe we need to simulate multiple actions or
-          # merge the selection rects into a bigger one.
-          logging.info("Multi-rect selection, just using the first one:\n%s",
-                       select_rect.selection_screen_coord)
+        return FUNCTIONS.select_point(select_point.type - 1, coord)
+      if act_sp.HasField("unit_selection_rect"):
+        select_rect = act_sp.unit_selection_rect
+        # TODO(tewalds): After looking at some replays we should decide if
+        # this is good enough. Maybe we need to simulate multiple actions or
+        # merge the selection rects into a bigger one.
         tl = point.Point.build(select_rect.selection_screen_coord[0].p0)
         br = point.Point.build(select_rect.selection_screen_coord[0].p1)
-        return func_call_name("select_rect", [[select_rect.selection_add],
-                                              [tl.x, tl.y], [br.x, br.y]])
-      if act_fl.HasField("unit_command"):
-        cmd = act_fl.unit_command
-        queue = [int(cmd.queue_command)]
+        return FUNCTIONS.select_rect(select_rect.selection_add, tl, br)
+      if act_sp.HasField("unit_command"):
+        cmd = act_sp.unit_command
+        queue = int(cmd.queue_command)
         if cmd.HasField("target_screen_coord"):
           coord = point.Point.build(cmd.target_screen_coord)
           return func_call_ability(cmd.ability_id, actions.cmd_screen,
-                                   [queue, coord])
+                                   queue, coord)
         elif cmd.HasField("target_minimap_coord"):
           coord = point.Point.build(cmd.target_minimap_coord)
           return func_call_ability(cmd.ability_id, actions.cmd_minimap,
-                                   [queue, coord])
+                                   queue, coord)
         else:
-          return func_call_ability(cmd.ability_id, actions.cmd_quick, [queue])
+          return func_call_ability(cmd.ability_id, actions.cmd_quick, queue)
 
     if action.HasField("action_raw") or action.HasField("action_render"):
       raise ValueError("Unknown action:\n%s" % action)
 
-    return func_call_name("no_op", [])  # No-op
+    return FUNCTIONS.no_op()
 
   def _init_valid_functions(self):
     """Initialize ValidFunctions and set up the callbacks."""
     sizes = {
-        "screen": tuple(int(i) for i in self._screen_size_px),
-        "minimap": tuple(int(i) for i in self._minimap_size_px),
-        "screen2": tuple(int(i) for i in self._screen_size_px),
+        "screen": tuple(int(i) for i in self._action_screen_px),
+        "screen2": tuple(int(i) for i in self._action_screen_px),
+        "minimap": tuple(int(i) for i in self._action_minimap_px),
     }
 
     types = actions.Arguments(*[

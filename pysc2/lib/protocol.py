@@ -24,11 +24,11 @@ import socket
 import sys
 import time
 
+from absl import flags
 import enum
 from pysc2.lib import stopwatch
 import websocket
 
-from absl import flags
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
@@ -77,6 +77,12 @@ class StarcraftProtocol(object):
   def status(self):
     return self._status
 
+  def close(self):
+    if self._sock:
+      self._sock.close()
+      self._sock = None
+    self._status = Status.quit
+
   @sw.decorate
   def read(self):
     """Read a Response, do some validation, and return it."""
@@ -90,12 +96,12 @@ class StarcraftProtocol(object):
     if not response.HasField("status"):
       raise ProtocolError("Got an incomplete response without a status.")
     prev_status = self._status
-    self._status = Status(response.status)
+    self._status = Status(response.status)  # pytype: disable=not-callable
     if response.error:
       err_str = ("Error in RPC response (likely a bug). "
                  "Prev status: %s, new status: %s, error:\n%s" % (
                      prev_status, self._status, "\n".join(response.error)))
-      logging.critical(err_str)
+      logging.error(err_str)
       raise ProtocolError(err_str)
     return response
 

@@ -20,11 +20,11 @@ from __future__ import print_function
 
 import os
 
+from absl import app
 from future.builtins import str  # pylint: disable=redefined-builtin
 
 from pysc2 import run_configs
 
-from absl import app
 from pysc2.lib import gfile
 from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb

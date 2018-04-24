@@ -18,16 +18,24 @@ from __future__ import division
 from __future__ import print_function
 
 import functools
+from absl import logging
+import socket
+import time
 
 from pysc2.lib import protocol
 from pysc2.lib import static_data
 from pysc2.lib import stopwatch
+import websocket
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 sw = stopwatch.sw
 
 Status = protocol.Status  # pylint: disable=invalid-name
+
+
+class ConnectError(Exception):
+  pass
 
 
 class RequestError(Exception):
@@ -94,8 +102,38 @@ class RemoteController(object):
   than a Response* object.
   """
 
-  def __init__(self, client):
-    self._client = client
+  def __init__(self, host, port, proc=None, timeout_seconds=120):
+    sock = self._connect(host, port, proc, timeout_seconds)
+    self._client = protocol.StarcraftProtocol(sock)
+    self.ping()
+
+  @sw.decorate
+  def _connect(self, host, port, proc, timeout_seconds):
+    """Connect to the websocket, retrying as needed. Returns the socket."""
+    was_running = False
+    for i in range(timeout_seconds):
+      is_running = proc and proc.running
+      was_running = was_running or is_running
+      if (i >= timeout_seconds // 4 or was_running) and not is_running:
+        logging.warning(
+            "SC2 isn't running, so bailing early on the websocket connection.")
+        break
+      logging.info("Connection attempt %s (running: %s)", i, is_running)
+      time.sleep(1)
+      try:
+        return websocket.create_connection("ws://%s:%s/sc2api" % (host, port),
+                                           timeout=timeout_seconds)
+      except socket.error:
+        pass  # SC2 hasn't started listening yet.
+      except websocket.WebSocketBadStatusException as err:
+        if err.status_code == 404:
+          pass  # SC2 is listening, but hasn't set up the /sc2api endpoint yet.
+        else:
+          raise
+    raise ConnectError("Failed to connect to the SC2 websocket. Is it up?")
+
+  def close(self):
+    self._client.close()
 
   @valid_status(Status.launched, Status.ended, Status.in_game, Status.in_replay)
   @decorate_check_error(sc_pb.ResponseCreateGame.Error)

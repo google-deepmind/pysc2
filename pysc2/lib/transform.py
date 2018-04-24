@@ -74,7 +74,7 @@ class Linear(Transform):
     return (pt - self.offset) / self.scale
 
   def __str__(self):
-    return "scale: %s, offset: %s" % (self.scale, self.offset)
+    return "Linear(scale=%s, offset=%s)" % (self.scale, self.offset)
 
 
 class Chain(Transform):
@@ -103,34 +103,25 @@ class Chain(Transform):
       pt = transform.back_pt(pt)
     return pt
 
+  def __str__(self):
+    return "Chain(%s)" % (self.transforms,)
 
-class Floor(Transform):
-  """Round down all values. eg 15.8 => 15."""
+
+class PixelToCoord(Transform):
+  """Take a point within a pixel and use the tl, or tl to pixel center."""
 
   def fwd_dist(self, dist):
-    return int(round(dist))
+    return dist
 
   def fwd_pt(self, pt):
     return pt.floor()
 
   def back_dist(self, dist):
-    return int(round(dist))
-
-  def back_pt(self, pt):
-    return pt.floor()
-
-
-class Center(Transform):
-  """Round all values towards the center. eg 15.8 => 15.5."""
-
-  def fwd_dist(self, dist):
-    return int(round(dist)) + 0.5
-
-  def fwd_pt(self, pt):
-    return pt.floor() + 0.5
-
-  def back_dist(self, dist):
-    return int(round(dist)) + 0.5
+    return dist
 
   def back_pt(self, pt):
     return pt.floor() + 0.5
+
+  def __str__(self):
+    return "PixelToCoord()"
+

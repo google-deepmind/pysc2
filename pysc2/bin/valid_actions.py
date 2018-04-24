@@ -18,25 +18,24 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from pysc2.lib import actions
-from pysc2.lib import features
-
 from absl import app
 from absl import flags
 
+from pysc2.lib import actions
+from pysc2.lib import features
+
 FLAGS = flags.FLAGS
-flags.DEFINE_string("screen_resolution", "84,84",
-                    "Resolution for screen feature layers.")
-flags.DEFINE_string("minimap_resolution", "64,64",
-                    "Resolution for minimap feature layers.")
+flags.DEFINE_integer("screen_size", 84, "Resolution for screen actions.")
+flags.DEFINE_integer("minimap_size", 64, "Resolution for minimap actions.")
 flags.DEFINE_bool("hide_specific", False, "Hide the specific actions")
 
 
 def main(unused_argv):
   """Print the valid actions."""
   feats = features.Features(
-      screen_size_px=(int(i) for i in FLAGS.screen_resolution.split(",")),
-      minimap_size_px=(int(i) for i in FLAGS.minimap_resolution.split(",")))
+      # Actually irrelevant whether it's feature or rgb size.
+      feature_screen_size=FLAGS.screen_size,
+      feature_minimap_size=FLAGS.minimap_size)
   action_spec = feats.action_spec()
   flattened = 0
   count = 0

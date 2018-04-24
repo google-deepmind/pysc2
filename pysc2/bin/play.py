@@ -23,6 +23,8 @@ import platform
 import sys
 import time
 
+from absl import app
+from absl import flags
 import mpyq
 import six
 from pysc2 import maps
@@ -30,9 +32,8 @@ from pysc2 import run_configs
 from pysc2.env import sc2_env
 from pysc2.lib import renderer_human
 from pysc2.lib import stopwatch
+from pysc2.run_configs import lib as run_configs_lib
 
-from absl import app
-from absl import flags
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 FLAGS = flags.FLAGS
@@ -43,17 +44,24 @@ flags.DEFINE_bool("full_screen", False, "Whether to run full screen.")
 flags.DEFINE_float("fps", 22.4, "Frames per second to run the game.")
 flags.DEFINE_integer("step_mul", 1, "Game steps per observation.")
 flags.DEFINE_bool("render_sync", False, "Turn on sync rendering.")
-flags.DEFINE_integer("screen_resolution", 84,
+flags.DEFINE_integer("feature_screen_size", 84,
                      "Resolution for screen feature layers.")
-flags.DEFINE_integer("minimap_resolution", 64,
+flags.DEFINE_integer("feature_minimap_size", 64,
                      "Resolution for minimap feature layers.")
+flags.DEFINE_integer("rgb_screen_size", 256,
+                     "Resolution for rendered screen.")
+flags.DEFINE_integer("rgb_minimap_size", 128,
+                     "Resolution for rendered minimap.")
+flags.DEFINE_string("video", None, "Path to render a video of observations.")
 
 flags.DEFINE_integer("max_game_steps", 0, "Total game steps to run.")
 flags.DEFINE_integer("max_episode_steps", 0, "Total game steps per episode.")
 
-flags.DEFINE_enum("user_race", "R", sc2_env.races.keys(), "User's race.")
-flags.DEFINE_enum("bot_race", "R", sc2_env.races.keys(), "AI race.")
-flags.DEFINE_enum("difficulty", "1", sc2_env.difficulties.keys(),
+flags.DEFINE_enum("user_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
+                  "User's race.")
+flags.DEFINE_enum("bot_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
+                  "AI race.")
+flags.DEFINE_enum("difficulty", "very_easy", sc2_env.Difficulty._member_names_,  # pylint: disable=protected-access
                   "Bot's strength.")
 flags.DEFINE_bool("disable_fog", False, "Disable fog of war.")
 flags.DEFINE_integer("observed_player", 1, "Which player to observe.")
@@ -99,10 +107,17 @@ def main(unused_argv):
   interface.raw = FLAGS.render
   interface.score = True
   interface.feature_layer.width = 24
-  interface.feature_layer.resolution.x = FLAGS.screen_resolution
-  interface.feature_layer.resolution.y = FLAGS.screen_resolution
-  interface.feature_layer.minimap_resolution.x = FLAGS.minimap_resolution
-  interface.feature_layer.minimap_resolution.y = FLAGS.minimap_resolution
+  interface.feature_layer.resolution.x = FLAGS.feature_screen_size
+  interface.feature_layer.resolution.y = FLAGS.feature_screen_size
+  interface.feature_layer.minimap_resolution.x = FLAGS.feature_minimap_size
+  interface.feature_layer.minimap_resolution.y = FLAGS.feature_minimap_size
+  if FLAGS.rgb_screen_size and FLAGS.rgb_minimap_size:
+    if FLAGS.rgb_screen_size < FLAGS.rgb_minimap_size:
+      sys.exit("Screen size can't be smaller than minimap size.")
+    interface.render.resolution.x = FLAGS.rgb_screen_size
+    interface.render.resolution.y = FLAGS.rgb_screen_size
+    interface.render.minimap_resolution.x = FLAGS.rgb_minimap_size
+    interface.render.minimap_resolution.y = FLAGS.rgb_minimap_size
 
   max_episode_steps = FLAGS.max_episode_steps
 
@@ -117,11 +132,11 @@ def main(unused_argv):
                                  map_data=map_inst.data(run_config)))
     create.player_setup.add(type=sc_pb.Participant)
     create.player_setup.add(type=sc_pb.Computer,
-                            race=sc2_env.races[FLAGS.bot_race],
-                            difficulty=sc2_env.difficulties[FLAGS.difficulty])
-    join = sc_pb.RequestJoinGame(race=sc2_env.races[FLAGS.user_race],
+                            race=sc2_env.Race[FLAGS.bot_race],
+                            difficulty=sc2_env.Difficulty[FLAGS.difficulty])
+    join = sc_pb.RequestJoinGame(race=sc2_env.Race[FLAGS.user_race],
                                  options=interface)
-    game_version = None
+    version = None
   else:
     replay_data = run_config.replay_data(FLAGS.replay)
     start_replay = sc_pb.RequestStartReplay(
@@ -129,9 +144,9 @@ def main(unused_argv):
         options=interface,
         disable_fog=FLAGS.disable_fog,
         observed_player_id=FLAGS.observed_player)
-    game_version = get_game_version(replay_data)
+    version = get_replay_version(replay_data)
 
-  with run_config.start(game_version=game_version,
+  with run_config.start(version=version,
                         full_screen=FLAGS.full_screen) as controller:
     if FLAGS.map:
       controller.create_game(create)
@@ -149,7 +164,7 @@ def main(unused_argv):
     if FLAGS.render:
       renderer = renderer_human.RendererHuman(
           fps=FLAGS.fps, step_mul=FLAGS.step_mul,
-          render_sync=FLAGS.render_sync)
+          render_sync=FLAGS.render_sync, video=FLAGS.video)
       renderer.run(
           run_config, controller, max_game_steps=FLAGS.max_game_steps,
           game_steps_per_episode=max_episode_steps,
@@ -181,14 +196,17 @@ def main(unused_argv):
     print(stopwatch.sw)
 
 
-def get_game_version(replay_data):
+def get_replay_version(replay_data):
   replay_io = six.BytesIO()
   replay_io.write(replay_data)
   replay_io.seek(0)
   archive = mpyq.MPQArchive(replay_io).extract()
   metadata = json.loads(archive[b"replay.gamemetadata.json"].decode("utf-8"))
-  version = metadata["GameVersion"]
-  return ".".join(version.split(".")[:-1])
+  return run_configs_lib.Version(
+      game_version=".".join(metadata["GameVersion"].split(".")[:-1]),
+      build_version=int(metadata["BaseBuild"][4:]),
+      data_version=metadata.get("DataVersion"),  # Only in replays version 4.1+.
+      binary=None)
 
 
 def entry_point():  # Needed so setup.py scripts work.

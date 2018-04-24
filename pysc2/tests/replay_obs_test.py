@@ -22,40 +22,57 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from absl.testing import absltest
 from future.builtins import range  # pylint: disable=redefined-builtin
-import six
 
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.lib import actions
 from pysc2.lib import features
 from pysc2.lib import point
+from pysc2.lib import units
 from pysc2.tests import utils
 
-from absl.testing import absltest as basetest
 from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
-# TODO(tewalds): define unit types in static data?
 _EMPTY = 0
-_COMMANDCENTER = 18
-_SUPPLYDEPOT = 19
-_BARRACKS = 21
-_SCV = 45
-_MINERALFIELD = 341
-_GEYSER = 343
-_MINERALFIELD750 = 483
-
 printable_unit_types = {
     _EMPTY: '.',
-    _COMMANDCENTER: 'C',
-    _SUPPLYDEPOT: 'D',
-    _BARRACKS: 'B',
-    _SCV: 's',
-    _MINERALFIELD: 'M',
-    _GEYSER: 'G',
-    _MINERALFIELD750: 'm',
+    units.Neutral.MineralField: 'm',
+    units.Neutral.MineralField750: 'm',
+    units.Neutral.SpacePlatformGeyser: 'G',
+    units.Neutral.VespeneGeyser: 'G',
+    units.Terran.Barracks: 'B',
+    units.Terran.CommandCenter: 'C',
+    units.Terran.SCV: 's',
+    units.Terran.Marine: 'M',
+    units.Terran.SupplyDepot: 'D',
 }
+
+
+def identity_function(name, args):
+  return lambda _: actions.FUNCTIONS[name](*args)
+
+
+def any_point(unit_type, obs):
+  unit_layer = obs.feature_screen.unit_type
+  y, x = (unit_layer == unit_type).nonzero()
+  if not y.any():
+    return None, None
+  return [x[-1], y[-1]]
+
+
+def avg_point(unit_type, obs):
+  unit_layer = obs.feature_screen.unit_type
+  y, x = (unit_layer == unit_type).nonzero()
+  if not y.any():
+    return None, None
+  return [int(x.mean()), int(y.mean())]
+
+
+def select(func, unit_type):
+  return lambda o: actions.FUNCTIONS.select_point('select', func(unit_type, o))
 
 
 class Config(object):
@@ -63,57 +80,64 @@ class Config(object):
 
   def __init__(self):
     # Environment.
-    self.map_name = 'NewkirkPrecinct'
-    self.screen_size_px = (32, 32)
-    self.minimap_size_px = (32, 32)
+    self.map_name = 'Flat64'
+    screen_resolution = point.Point(32, 32)
+    minimap_resolution = point.Point(32, 32)
     self.camera_width = 24
     self.random_seed = 42
 
     self.interface = sc_pb.InterfaceOptions(
         raw=True, score=True,
         feature_layer=sc_pb.SpatialCameraSetup(width=self.camera_width))
-    resolution = point.Point(*self.screen_size_px)
-    resolution.assign_to(self.interface.feature_layer.resolution)
-    minimap_resolution = point.Point(*self.minimap_size_px)
+    screen_resolution.assign_to(self.interface.feature_layer.resolution)
     minimap_resolution.assign_to(
         self.interface.feature_layer.minimap_resolution)
 
-    # Feature layer with the unit types.
-    self.unit_type_id = features.SCREEN_FEATURES.unit_type.index
-    self.num_observations = 3000
+    # Hard code an action sequence.
+    # TODO(petkoig): Consider whether the Barracks and Supply Depot positions
+    # need to be dynamically determined.
+    self.actions = {
+        507: select(any_point, units.Terran.SCV),
+        963: identity_function('Build_SupplyDepot_screen', ['now', [25, 15]]),
+        1152: select(avg_point, units.Terran.CommandCenter),
+        1320: identity_function('Train_SCV_quick', ['now']),
+        1350: identity_function('Train_SCV_quick', ['now']),
+        1393: identity_function('Train_SCV_quick', ['now']),
+        1437: identity_function('Train_SCV_quick', ['now']),
+        1522: select(any_point, units.Terran.SCV),
+        1548: identity_function('Build_Barracks_screen', ['now', [25, 25]]),
+        1752: select(avg_point, units.Terran.CommandCenter),
+        1937: identity_function('Train_SCV_quick', ['now']),
+        2400: select(avg_point, units.Terran.Barracks),
+        2700: identity_function('Train_Marine_quick', ['now']),
+        3300: select(any_point, units.Terran.Marine),
+    }
+    self.num_observations = max(self.actions.keys()) + 2
     self.player_id = 1
 
-    # Hard code an action sequence.
-    # TODO(petkoig): This is very brittle. A random seed reduces flakiness, but
-    # isn't guaranteed to give the same actions between game versions. The pixel
-    # coords should be computed at run-time, maybe with a trigger type system in
-    # case build times also change.
-    self.action_sequence = {
-        507: ('select_point', [[1], [9, 18]]),  # Target an SCV.
-        963: ('Build_SupplyDepot_screen', [[0], [4, 19]]),
-        1152: ('select_point', [[0], [15, 13]]),  # Select the Command Center.
-        1320: ('Train_SCV_quick', [[0]]),
-        1350: ('Train_SCV_quick', [[0]]),
-        1393: ('Train_SCV_quick', [[0]]),
-        1437: ('Train_SCV_quick', [[0]]),
-        1564: ('Train_SCV_quick', [[0]]),
-        1602: ('Train_SCV_quick', [[0]]),
-        1822: ('select_idle_worker', [[2]]),
-        2848: ('Build_Barracks_screen', [[0], [22, 22]])
-    }
 
-    self.actions = {
-        frame: self.action_to_function_call(*action)
-        for frame, action in six.iteritems(self.action_sequence)
-    }
-
-  def action_to_function_call(self, name, args):
-    return actions.FunctionCall(getattr(actions.FUNCTIONS, name).id, args)
-
-
-def _layer_string(layer):
-  return '\n'.join(' '.join(printable_unit_types.get(v, str(v))
-                            for v in row) for row in layer)
+def _obs_string(obs):
+  unit_type = obs.feature_screen.unit_type
+  selected = obs.feature_screen.selected
+  max_y, max_x = unit_type.shape
+  out = ''
+  for y in range(max_y):
+    started = False
+    for x in range(max_x):
+      s = selected[y, x]
+      u = unit_type[y, x]
+      if started and not s:
+        out += ')'
+      elif not started and s:
+        out += '('
+      else:
+        out += ' '
+      out += printable_unit_types.get(u, str(u))
+      started = s
+    if started:
+      out += ')'
+    out += '\n'
+  return out
 
 
 class GameController(object):
@@ -190,41 +214,54 @@ class ReplayObsTest(utils.TestCase):
 
   def _get_replay_data(self, controller, config):
     """Runs a replay to get the replay data."""
-    f = features.Features(controller.game_info())
+    f = features.Features(game_info=controller.game_info())
 
     observations = {}
+    last_actions = []
     for _ in range(config.num_observations):
-      o = controller.observe().observation
-      obs = f.transform_obs(o)
+      raw_obs = controller.observe()
+      o = raw_obs.observation
+      obs = f.transform_obs(raw_obs)
 
-      unit_type = obs['screen'][config.unit_type_id]
+      if raw_obs.action_errors:
+        print('action errors:', raw_obs.action_errors)
+
+      if o.game_loop == 2:
+        # Center camera is initiated automatically by the game and reported
+        # at frame 2.
+        last_actions = [actions.FUNCTIONS.move_camera.id]
+
+      self.assertEqual(last_actions, list(obs.last_actions))
+
+      unit_type = obs.feature_screen.unit_type
       observations[o.game_loop] = unit_type
 
       if o.game_loop in config.actions:
-        func = config.actions[o.game_loop]
-        print(str(func))
-        print(_layer_string(unit_type))
-        scv_y, scv_x = (_SCV == unit_type).nonzero()
-        print('scv locations: ', zip(scv_x, scv_y))
+        func = config.actions[o.game_loop](obs)
+
+        print((' loop: %s ' % o.game_loop).center(80, '-'))
+        print(_obs_string(obs))
+        scv_y, scv_x = (units.Terran.SCV == unit_type).nonzero()
+        print('scv locations: ', sorted(list(zip(scv_x, scv_y))))
+        print('available actions: ', list(sorted(obs.available_actions)))
+        print('Making action: %s' % (func,))
 
         # Ensure action is available.
         # If a build action is available, we have managed to target an SCV.
-        self.assertIn(func.function, obs['available_actions'])
+        self.assertIn(func.function, obs.available_actions)
 
-        if (config.actions[o.game_loop].function ==
-            actions.FUNCTIONS.select_point.id):
-          # Ensure we have selected an SCV or the command center.
-          x, y = func.arguments[1]
-          self.assertIn(unit_type[y, x], (_SCV, _COMMANDCENTER))
-        elif (config.actions[o.game_loop].function in
-              (actions.FUNCTIONS.Build_SupplyDepot_screen.id,
-               actions.FUNCTIONS.Build_Barracks_screen.id)):
+        if (func.function in
+            (actions.FUNCTIONS.Build_SupplyDepot_screen.id,
+             actions.FUNCTIONS.Build_Barracks_screen.id)):
           # Ensure we can build on that position.
           x, y = func.arguments[1]
           self.assertEqual(_EMPTY, unit_type[y, x])
 
         action = f.transform_action(o, func)
+        last_actions = [func.function]
         controller.act(action)
+      else:
+        last_actions = []
 
       controller.step()
 
@@ -232,16 +269,16 @@ class ReplayObsTest(utils.TestCase):
     return replay_data, observations
 
   def _process_replay(self, controller, observations, config):
-    f = features.Features(controller.game_info())
+    f = features.Features(game_info=controller.game_info())
 
     while True:
       o = controller.observe()
-      obs = f.transform_obs(o.observation)
+      obs = f.transform_obs(o)
 
       if o.player_result:  # end of game
         break
 
-      unit_type = obs['screen'][config.unit_type_id]
+      unit_type = obs.feature_screen.unit_type
       self.assertEqual(
           tuple(observations[o.observation.game_loop].flatten()),
           tuple(unit_type.flatten()))
@@ -250,7 +287,13 @@ class ReplayObsTest(utils.TestCase):
 
       if o.actions:
         func = f.reverse_action(o.actions[0])
-        print('Action ', func.function)
+
+        # Action is reported one frame later.
+        executed = config.actions.get(o.observation.game_loop - 1, None)
+
+        executed_func = executed(obs) if executed else None
+        print('%4d Sent:     %s' % (o.observation.game_loop, executed_func))
+        print('%4d Returned: %s' % (o.observation.game_loop, func))
 
         if o.observation.game_loop == 2:
           # Center camera is initiated automatically by the game and reported
@@ -258,17 +301,11 @@ class ReplayObsTest(utils.TestCase):
           self.assertEqual(actions.FUNCTIONS.move_camera.id, func.function)
           continue
 
-        # Action is reported one frame later.
-        executed = config.actions.get(o.observation.game_loop - 1, None)
-        if not executed:
-          self.assertEqual(
-              actions.FUNCTIONS.move_camera.id, func.function,
-              'A camera move to center the idle worker is expected.')
-          continue
-
-        print('Parsed and executed funcs: ', func, executed)
-        self.assertEqual(func.function, executed.function)
-        self.assertEqual(func.arguments, executed.arguments)
+        self.assertEqual(func.function, executed_func.function)
+        if func.function != actions.FUNCTIONS.select_point.id:
+          # select_point likes to return Toggle instead of Select.
+          self.assertEqual(func.arguments, executed_func.arguments)
+        self.assertEqual(func.function, obs.last_actions[0])
 
       controller.step()
 
@@ -287,4 +324,4 @@ class ReplayObsTest(utils.TestCase):
 
 
 if __name__ == '__main__':
-  basetest.main()
+  absltest.main()

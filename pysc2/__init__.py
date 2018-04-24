@@ -11,3 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""PySC2 module: https://github.com/deepmind/pysc2 ."""
+
+import os
+
+
+def load_tests(loader, standard_tests, unused_pattern):
+  """Our tests end in `_test.py`, so need to override the test discovery."""
+  this_dir = os.path.dirname(__file__)
+  package_tests = loader.discover(start_dir=this_dir, pattern="*_test.py")
+  standard_tests.addTests(package_tests)
+  return standard_tests
