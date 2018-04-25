@@ -860,11 +860,12 @@ class RendererHuman(object):
   @sw.decorate
   def draw_selection(self, surf):
     """Draw the selection rectange."""
-    if self._select_start:
+    select_start = self._select_start  # Cache to avoid a race condition.
+    if select_start:
       mouse_pos = self.get_mouse_pos()
       if (mouse_pos and mouse_pos.surf.surf_type & SurfType.SCREEN and
-          mouse_pos.surf.surf_type == self._select_start.surf.surf_type):
-        rect = point.Rect(self._select_start.world_pos, mouse_pos.world_pos)
+          mouse_pos.surf.surf_type == select_start.surf.surf_type):
+        rect = point.Rect(select_start.world_pos, mouse_pos.world_pos)
         surf.draw_rect(colors.green, rect, 1)
 
   @sw.decorate
@@ -872,8 +873,9 @@ class RendererHuman(object):
     """Draw the build target."""
     round_half = lambda v, cond: round(v - 0.5) + 0.5 if cond else round(v)
 
-    if self._queued_action:
-      radius = self._queued_action.footprint_radius
+    queued_action = self._queued_action
+    if queued_action:
+      radius = queued_action.footprint_radius
       if radius:
         pos = self.get_mouse_pos()
         if pos:
