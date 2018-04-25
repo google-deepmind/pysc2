@@ -58,17 +58,17 @@ class StarcraftProcess(object):
 
   def __init__(self, run_config, exec_path, data_version=None,
                full_screen=False, extra_args=None, verbose=False,
-               host="127.0.0.1", connect=True, timeout_seconds=None, **kwargs):
+               host=None, connect=True, timeout_seconds=None, **kwargs):
     self._proc = None
     self._controller = None
     self._check_exists(exec_path)
     self._tmp_dir = tempfile.mkdtemp(prefix="sc-", dir=run_config.tmp_dir)
-    self._host = host
+    self._host = host or run_config.host
     self._port = portpicker.pick_unused_port()
 
     args = [
         exec_path,
-        "-listen", host,
+        "-listen", self._host,
         "-port", str(self._port),
         "-dataDir", os.path.join(run_config.data_dir, ""),
         "-tempDir", os.path.join(self._tmp_dir, ""),
@@ -86,7 +86,7 @@ class StarcraftProcess(object):
         self._proc = self._launch(run_config, args, **kwargs)
         if connect:
           self._controller = remote_controller.RemoteController(
-              host, self._port, self, timeout_seconds=timeout_seconds)
+              self._host, self._port, self, timeout_seconds=timeout_seconds)
     except:
       self.close()
       raise

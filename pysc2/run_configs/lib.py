@@ -33,6 +33,8 @@ class Version(collections.namedtuple("Version", [
 class RunConfig(object):
   """Base class for different run configs."""
 
+  host = "127.0.0.1"
+
   def __init__(self, replay_dir, data_dir, tmp_dir, cwd=None, env=None):
     """Initialize the runconfig with the various directories needed.
 
