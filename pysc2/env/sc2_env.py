@@ -474,10 +474,12 @@ class SC2Env(environment.Base):
     return self._step()
 
   def _step(self):
-    self._metrics.increment_step(self._step_mul)
-    self._parallel.run((c.step, self._step_mul) for c in self._controllers)
-    self._obs = self._parallel.run(c.observe for c in self._controllers)
-    agent_obs = [self._features.transform_obs(o) for o in self._obs]
+    with self._metrics.measure_step_time(self._step_mul):
+      self._parallel.run((c.step, self._step_mul) for c in self._controllers)
+
+    with self._metrics.measure_observation_time():
+      self._obs = self._parallel.run(c.observe for c in self._controllers)
+      agent_obs = [self._features.transform_obs(o) for o in self._obs]
 
     # TODO(tewalds): How should we handle more than 2 agents and the case where
     # the episode can end early for some agents?

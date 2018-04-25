@@ -11,15 +11,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""An interface for tracking the number of episodes and steps taken."""
+"""Interface for tracking the number and/or latency of episodes and steps."""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 
+class _EventTimer(object):
+  """Example event timer to measure step and observation times."""
+
+  def __enter__(self):
+    pass
+
+  def __exit__(self, unused_exception_type, unused_exc_value, unused_traceback):
+    pass
+
+
 class Metrics(object):
-  """An interface for tracking the number of episodes and steps taken."""
+  """Interface for tracking the number and/or latency of episodes and steps."""
 
   def __init__(self, map_name):
     pass
@@ -30,8 +40,14 @@ class Metrics(object):
   def increment_episode(self):
     pass
 
-  def increment_step(self, count=1):
-    pass
+  def measure_step_time(self, num_steps=1):
+    """Return a context manager to measure the time to perform N game steps."""
+    del num_steps
+    return _EventTimer()
+
+  def measure_observation_time(self):
+    """Return a context manager to measure the time to get an observation."""
+    return _EventTimer()
 
   def close(self):
     pass
