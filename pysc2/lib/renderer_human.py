@@ -679,14 +679,13 @@ class RendererHuman(object):
                     self._obs.observation.raw_data.player.camera) +
                 self.camera_actions[event.key]))
         elif event.key == pygame.K_ESCAPE:
-          cmds = self._abilities(lambda cmd: cmd.hotkey == "escape")  # Cancel
-          if cmds:
-            assert len(cmds) == 1
-            cmd = cmds[0]
-            assert cmd.target == sc_data.AbilityData.Target.Value("None")
-            controller.act(self.unit_action(cmd, None, shift))
-          else:
+          if self._queued_action:
             self.clear_queued_action()
+          else:
+            cmds = self._abilities(lambda cmd: cmd.hotkey == "escape")  # Cancel
+            for cmd in cmds:  # There could be multiple cancels.
+              assert cmd.target == sc_data.AbilityData.Target.Value("None")
+              controller.act(self.unit_action(cmd, None, shift))
         else:
           if not self._queued_action:
             key = pygame.key.name(event.key).lower()
@@ -796,8 +795,16 @@ class RendererHuman(object):
 
   def _abilities(self, fn=None):
     """Return the list of abilities filtered by `fn`."""
-    return list(filter(fn, (self._static_data.abilities[cmd.ability_id]
-                            for cmd in self._obs.observation.abilities)))
+    out = {}
+    for cmd in self._obs.observation.abilities:
+      ability = self._static_data.abilities[cmd.ability_id]
+      if ability.remaps_to_ability_id:  # Prefer general abilities.
+        hotkey = ability.hotkey
+        ability = self._static_data.abilities[ability.remaps_to_ability_id]
+        ability.hotkey = hotkey  # Keep the specific hotkey
+      if not fn or fn(ability):
+        out[ability.ability_id] = ability
+    return list(out.values())
 
   def _visible_units(self):
     """A generator of visible units and their positions as `Point`s, sorted."""
@@ -923,16 +930,20 @@ class RendererHuman(object):
     """Draw the list of available commands."""
     y = self._scale * 2
 
-    for cmd in sorted(self._abilities(), key=lambda c: c.hotkey):
+    def name(cmd):
+      return cmd.friendly_name or cmd.button_name or cmd.link_name
+
+    for cmd in sorted(self._abilities(), key=name):
       if cmd.button_name != "Smart":
         if self._queued_action and cmd == self._queued_action:
           color = colors.green
         elif self._queued_hotkey and cmd.hotkey.startswith(self._queued_hotkey):
-          color = colors.green / 2
+          color = colors.green * 0.75
         else:
           color = colors.yellow
+        hotkey = cmd.hotkey[0:3]  # truncate "escape" -> "esc"
         text = self._font_large.render(
-            "%s - %s" % (cmd.hotkey, cmd.button_name), True, color)
+            "%s - %s" % (hotkey, name(cmd)), True, color)
         surf.surf.blit(text, (3, y))
         y += self._scale
 
