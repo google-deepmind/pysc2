@@ -145,6 +145,12 @@ class _Surface(object):
     with sw("draw"):
       pygame.transform.scale(raw_surface, self.surf.get_size(), self.surf)
 
+  def write_screen(self, font, color, screen_pos, text):
+    """Write to the screen in font.size relative coordinates."""
+    self.surf.blit(
+        font.render(text, True, color),
+        point.Point(*screen_pos) * point.Point(0.75, 1) * font.get_linesize())
+
 
 class MousePos(collections.namedtuple("MousePos", ["world_pos", "surf"])):
   """Holds the mouse position in world coordinates and the surf it came from."""
@@ -354,7 +360,7 @@ class RendererHuman(object):
       self._surfaces.append(_Surface(
           sub_surf, surf_type, surf_loc, world_to_surf, world_to_obs, draw_fn))
 
-    self._scale = window_size_px.y // 30
+    self._scale = window_size_px.y // 32
     self._font_small = pygame.font.Font(None, int(self._scale * 0.5))
     self._font_large = pygame.font.Font(None, self._scale)
 
@@ -896,17 +902,17 @@ class RendererHuman(object):
   @sw.decorate
   def draw_overlay(self, surf):
     """Draw the overlay describing resources."""
-    player = self._obs.observation.player_common
-    text = self._font_large.render(
-        "Minerals: %s, Vespene: %s, Food: %s / %s; Score: %s, Frame: %s, "
+    obs = self._obs.observation
+    player = obs.player_common
+    text = "; ".join((
+        "Minerals: %s, Vespene: %s, Food: %s / %s" % (
+            player.minerals, player.vespene, player.food_used, player.food_cap),
+        "Score: %s, Step: %s" % (obs.score.score, obs.game_loop),
         "FPS: G:%.1f, R:%.1f" % (
-            player.minerals, player.vespene,
-            player.food_used, player.food_cap,
-            self._obs.observation.score.score, self._obs.observation.game_loop,
             len(self._game_times) / (sum(self._game_times) or 1),
             len(self._render_times) / (sum(self._render_times) or 1)),
-        True, colors.green)
-    surf.surf.blit(text, (3, 3))
+    ))
+    surf.write_screen(self._font_large, colors.green, (0.2, 0.2), text)
 
   @sw.decorate
   def draw_help(self, surf):
@@ -914,38 +920,34 @@ class RendererHuman(object):
     if not self._help:
       return
 
-    def write(line, loc):
-      surf.surf.blit(self._font_large.render(line, True, colors.black), loc)
+    def write(loc, text):
+      surf.write_screen(self._font_large, colors.black, loc, text)
 
     surf.surf.fill(colors.white * 0.8)
-    write("Shortcuts:", point.Point(self._scale, self._scale))
+    write((1, 1), "Shortcuts:")
 
-    align = max(len(s) for s, _ in self.shortcuts) * 0.4 + 3
+    max_len = max(len(s) for s, _ in self.shortcuts)
     for i, (hotkey, description) in enumerate(self.shortcuts, start=2):
-      write(hotkey, point.Point(self._scale * 2, self._scale * i))
-      write(description, point.Point(self._scale * align, self._scale * i))
+      write((2, i), hotkey)
+      write((3 + max_len * 0.7, i), description)
 
   @sw.decorate
   def draw_commands(self, surf):
     """Draw the list of available commands."""
-    y = self._scale * 2
-
     def name(cmd):
       return cmd.friendly_name or cmd.button_name or cmd.link_name
 
-    for cmd in sorted(self._abilities(), key=name):
-      if cmd.button_name != "Smart":
-        if self._queued_action and cmd == self._queued_action:
-          color = colors.green
-        elif self._queued_hotkey and cmd.hotkey.startswith(self._queued_hotkey):
-          color = colors.green * 0.75
-        else:
-          color = colors.yellow
-        hotkey = cmd.hotkey[0:3]  # truncate "escape" -> "esc"
-        text = self._font_large.render(
-            "%s - %s" % (hotkey, name(cmd)), True, color)
-        surf.surf.blit(text, (3, y))
-        y += self._scale
+    for y, cmd in enumerate(sorted(self._abilities(
+        lambda c: c.button_name != "Smart"), key=name), start=2):
+      if self._queued_action and cmd == self._queued_action:
+        color = colors.green
+      elif self._queued_hotkey and cmd.hotkey.startswith(self._queued_hotkey):
+        color = colors.green * 0.75
+      else:
+        color = colors.yellow
+      hotkey = cmd.hotkey[0:3]  # truncate "escape" -> "esc"
+      surf.write_screen(self._font_large, color, (0.2, y), hotkey)
+      surf.write_screen(self._font_large, color, (3, y), name(cmd))
 
   @sw.decorate
   def draw_actions(self):
