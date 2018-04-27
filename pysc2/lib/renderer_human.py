@@ -24,6 +24,8 @@ import itertools
 from absl import logging
 import math
 import os
+import re
+import subprocess
 import threading
 import time
 
@@ -174,14 +176,20 @@ class MousePos(collections.namedtuple("MousePos", ["world_pos", "surf"])):
       assert self.surf.surf_type & (SurfType.RGB | SurfType.FEATURE)
 
 
-max_window_size = None
-def _get_max_window_size():  # pylint: disable=g-wrong-blank-lines
-  global max_window_size
-  if max_window_size is None:
-    display_info = pygame.display.Info()
-    desktop_size = point.Point(display_info.current_w, display_info.current_h)
-    max_window_size = desktop_size * 0.75
-  return max_window_size
+def _get_desktop_size():
+  """Get the desktop size."""
+  if os.name == "posix":
+    try:
+      xrandr_query = subprocess.check_output(["xrandr", "--query"])
+      sizes = re.findall(r"\bconnected primary (\d+)x(\d+)", xrandr_query)
+      if sizes[0]:
+        return point.Point(int(sizes[0][0]), int(sizes[0][1]))
+    except:  # pylint: disable=bare-except
+      logging.error("Failed to get the resolution from xrandr.")
+
+  # Most general, but doesn't understand multiple monitors.
+  display_info = pygame.display.Info()
+  return point.Point(display_info.current_w, display_info.current_h)
 
 
 def circle_mask(shape, pt, radius):
@@ -236,6 +244,8 @@ class RendererHuman(object):
     self._render_rgb = None
     self._render_feature_grid = render_feature_grid
     self._window = None
+    self._desktop_size = None
+    self._window_scale = 0.75
     self._obs_queue = queue.Queue()
     self._render_thread = threading.Thread(target=self.render_thread,
                                            name="Renderer")
@@ -323,6 +333,9 @@ class RendererHuman(object):
 
     pygame.init()
 
+    if self._desktop_size is None:
+      self._desktop_size = _get_desktop_size()
+
     if self._render_rgb and self._rgb_screen_px:
       main_screen_px = self._rgb_screen_px
     else:
@@ -344,7 +357,7 @@ class RendererHuman(object):
       window_size_ratio += point.Point(features_aspect_ratio.x, 0)
 
     window_size_px = window_size_ratio.scale_max_size(
-        _get_max_window_size()).ceil()
+        self._desktop_size * self._window_scale).ceil()
 
     # Create the actual window surface. This should only be blitted to from one
     # of the sub-surfaces defined below.
@@ -595,8 +608,7 @@ class RendererHuman(object):
 
   def zoom(self, factor):
     """Zoom the window in/out."""
-    global max_window_size
-    max_window_size *= factor
+    self._window_scale *= factor
     self.init_window()
 
   def get_mouse_pos(self, window_pos=None):
