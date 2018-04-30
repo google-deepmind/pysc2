@@ -149,9 +149,18 @@ class _Surface(object):
 
   def write_screen(self, font, color, screen_pos, text):
     """Write to the screen in font.size relative coordinates."""
-    self.surf.blit(
-        font.render(text, True, color),
-        point.Point(*screen_pos) * point.Point(0.75, 1) * font.get_linesize())
+    pos = point.Point(*screen_pos) * point.Point(0.75, 1) * font.get_linesize()
+    text_surf = font.render(text, True, color)
+    rect = text_surf.get_rect()
+    if pos.x >= 0:
+      rect.left = pos.x
+    else:
+      rect.right = self.surf.get_width() + pos.x
+    if pos.y >= 0:
+      rect.top = pos.y
+    else:
+      rect.bottom = self.surf.get_height() + pos.y
+    self.surf.blit(text_surf, rect)
 
 
 class MousePos(collections.namedtuple("MousePos", ["world_pos", "surf"])):
@@ -916,15 +925,22 @@ class RendererHuman(object):
     """Draw the overlay describing resources."""
     obs = self._obs.observation
     player = obs.player_common
-    text = "; ".join((
+    surf.write_screen(
+        self._font_large, colors.green, (0.2, 0.2),
         "Minerals: %s, Vespene: %s, Food: %s / %s" % (
-            player.minerals, player.vespene, player.food_used, player.food_cap),
-        "Score: %s, Step: %s" % (obs.score.score, obs.game_loop),
-        "FPS: G:%.1f, R:%.1f" % (
-            len(self._game_times) / (sum(self._game_times) or 1),
-            len(self._render_times) / (sum(self._render_times) or 1)),
-    ))
-    surf.write_screen(self._font_large, colors.green, (0.2, 0.2), text)
+            player.minerals, player.vespene, player.food_used, player.food_cap))
+    times, steps = zip(*self._game_times)
+    sec = obs.game_loop // 22.4  # http://liquipedia.net/starcraft2/Game_Speed
+    surf.write_screen(
+        self._font_large, colors.green, (-0.2, 0.2),
+        "Score: %s, Step: %s, %.1f/s, Time: %d:%02d" % (
+            obs.score.score, obs.game_loop, sum(steps) / (sum(times) or 1),
+            sec // 60, sec % 60))
+    surf.write_screen(
+        self._font_large, colors.green * 0.8, (-0.2, 1.2),
+        "FPS: O:%.1f, R:%.1f" % (
+            len(times) / (sum(times) or 1),
+            len(self._render_times) / (sum(self._render_times) or 1)))
 
   @sw.decorate
   def draw_help(self, surf):
@@ -1151,9 +1167,9 @@ class RendererHuman(object):
     if not self._initialized:
       return
     now = time.time()
-    self._game_times.append((now - self._last_time) /
-                            max(1, (obs.observation.game_loop -
-                                    self._obs.observation.game_loop)))
+    self._game_times.append(
+        (now - self._last_time,
+         max(1, obs.observation.game_loop - self._obs.observation.game_loop)))
     self._last_time = now
     self._last_game_loop = self._obs.observation.game_loop
     self._obs_queue.put(obs)
