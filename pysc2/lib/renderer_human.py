@@ -654,13 +654,13 @@ class RendererHuman(object):
           pause = True
           while pause:
             time.sleep(0.1)
-            for event in pygame.event.get():
-              if event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_PAUSE, pygame.K_ESCAPE):
+            for event2 in pygame.event.get():
+              if event2.type == pygame.KEYDOWN:
+                if event2.key in (pygame.K_PAUSE, pygame.K_ESCAPE):
                   pause = False
-                elif event.key == pygame.K_F4:
+                elif event2.key == pygame.K_F4:
                   return ActionCmd.QUIT
-                elif event.key == pygame.K_F5:
+                elif event2.key == pygame.K_F5:
                   return ActionCmd.RESTART
         elif event.key == pygame.K_F4:
           return ActionCmd.QUIT
