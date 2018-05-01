@@ -58,7 +58,8 @@ class StarcraftProcess(object):
 
   def __init__(self, run_config, exec_path, data_version=None,
                full_screen=False, extra_args=None, verbose=False,
-               host=None, connect=True, timeout_seconds=None, **kwargs):
+               host=None, connect=True, timeout_seconds=None,
+               window_size=(640, 480), window_loc=(50, 50), **kwargs):
     self._proc = None
     self._controller = None
     self._check_exists(exec_path)
@@ -72,8 +73,18 @@ class StarcraftProcess(object):
         "-port", str(self._port),
         "-dataDir", os.path.join(run_config.data_dir, ""),
         "-tempDir", os.path.join(self._tmp_dir, ""),
-        "-displayMode", "1" if full_screen else "0",
     ]
+    if full_screen:
+      args += ["-displayMode", "1"]
+    else:
+      args += [
+          "-displayMode", "0",
+          "-windowwidth", str(window_size[0]),
+          "-windowheight", str(window_size[1]),
+          "-windowx", str(window_loc[0]),
+          "-windowy", str(window_loc[1]),
+      ]
+
     if verbose or FLAGS.sc2_verbose:
       args += ["-verbose"]
     if data_version:

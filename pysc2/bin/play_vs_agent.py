@@ -130,9 +130,9 @@ def host():
       break
 
   host_proc = run_config.start(extra_ports=ports, host=FLAGS.host,
-                               timeout_seconds=300)
+                               timeout_seconds=300, window_loc=(50, 50))
   client_proc = run_config.start(extra_ports=ports, host=FLAGS.host,
-                                 connect=False)
+                                 connect=False, window_loc=(700, 50))
 
   create = sc_pb.RequestCreateGame(
       realtime=FLAGS.realtime, local_map=sc_pb.LocalMap(map_path=map_inst.path))
