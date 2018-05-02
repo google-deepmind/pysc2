@@ -305,7 +305,7 @@ class SC2Env(environment.Base):
     self._episode_count = 0
     self._obs = None
     self._state = environment.StepType.LAST  # Want to jump to `reset`.
-    logging.info("Environment is ready.")
+    logging.info("Environment is ready on map: %s", map_name)
 
   @staticmethod
   def _get_interface(
