@@ -74,6 +74,8 @@ class StarcraftProcess(object):
         "-dataDir", os.path.join(run_config.data_dir, ""),
         "-tempDir", os.path.join(self._tmp_dir, ""),
     ]
+    if ":" in self._host:
+      args += ["-ipv6"]
     if full_screen:
       args += ["-displayMode", "1"]
     else:
