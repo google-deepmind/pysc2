@@ -54,7 +54,7 @@ class TestMultiplayer(utils.TestCase):
     minimap_size_px.assign_to(interface.feature_layer.minimap_resolution)
 
     # Reserve a whole bunch of ports for the weird multiplayer implementation.
-    ports = [portpicker.pick_unused_port() for _ in range(1 + players * 2)]
+    ports = [portpicker.pick_unused_port() for _ in range(players * 2)]
     logging.info("Valid Ports: %s", ports)
 
     # Actually launch the game processes.
@@ -77,7 +77,7 @@ class TestMultiplayer(utils.TestCase):
 
       # Create the join request.
       join = sc_pb.RequestJoinGame(race=sc_common.Random, options=interface)
-      join.shared_port = ports.pop()
+      join.shared_port = 0  # unused
       join.server_ports.game_port = ports.pop()
       join.server_ports.base_port = ports.pop()
       for _ in range(players - 1):

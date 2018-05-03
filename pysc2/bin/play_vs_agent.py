@@ -125,7 +125,7 @@ def host():
 
   while True:
     start_port = portpicker.pick_unused_port()
-    ports = [start_port + p for p in range(5)]  # 1 + 2 * num_players
+    ports = [start_port + p for p in range(4)]  # 2 * num_players
     if all(portpicker.is_port_free(p) for p in ports):
       break
 
@@ -149,7 +149,7 @@ def host():
   print("-" * 80)
 
   join = sc_pb.RequestJoinGame()
-  join.shared_port = ports.pop()
+  join.shared_port = 0  # unused
   join.server_ports.game_port = ports.pop()
   join.server_ports.base_port = ports.pop()
   join.client_ports.add(game_port=ports.pop(), base_port=ports.pop())

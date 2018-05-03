@@ -165,10 +165,10 @@ class RemoteSC2Env(sc2_env.SC2Env):
     logging.info("Connected")
 
     # Create the join request.
-    ports = [lan_port + p for p in range(5)]  # 1 + 2 * num_players
+    ports = [lan_port + p for p in range(4)]  # 2 * num_players
     join = sc_pb.RequestJoinGame(options=interface)
     join.race = race
-    join.shared_port = ports.pop()
+    join.shared_port = 0  # unused
     join.server_ports.game_port = ports.pop()
     join.server_ports.base_port = ports.pop()
     join.client_ports.add(game_port=ports.pop(), base_port=ports.pop())

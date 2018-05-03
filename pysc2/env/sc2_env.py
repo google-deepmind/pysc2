@@ -376,7 +376,7 @@ class SC2Env(environment.Base):
 
   def _launch_mp(self, interface):
     # Reserve a whole bunch of ports for the weird multiplayer implementation.
-    self._ports = _pick_unused_ports(1 + self._num_players * 2)
+    self._ports = _pick_unused_ports(self._num_players * 2)
 
     # Actually launch the game processes.
     self._sc2_procs = [self._run_config.start(extra_ports=self._ports)
@@ -403,7 +403,7 @@ class SC2Env(environment.Base):
 
     # Create the join request.
     join = sc_pb.RequestJoinGame(options=interface)
-    join.shared_port = self._ports.pop()
+    join.shared_port = 0  # unused
     join.server_ports.game_port = self._ports.pop()
     join.server_ports.base_port = self._ports.pop()
     for _ in range(self._num_players - 1):
