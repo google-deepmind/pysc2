@@ -50,6 +50,7 @@ flags.DEFINE_bool("use_feature_units", False,
 
 flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
 flags.DEFINE_integer("game_steps_per_episode", None, "Game steps per episode.")
+flags.DEFINE_integer("max_episodes", 0, "Total episodes.")
 flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
 
 flags.DEFINE_string("agent", "pysc2.agents.random_agent.RandomAgent",
@@ -90,7 +91,7 @@ def run_thread(agent_classes, players, map_name, visualize):
       visualize=visualize) as env:
     env = available_actions_printer.AvailableActionsPrinter(env)
     agents = [agent_cls() for agent_cls in agent_classes]
-    run_loop.run_loop(agents, env, FLAGS.max_agent_steps)
+    run_loop.run_loop(agents, env, FLAGS.max_agent_steps, FLAGS.max_episodes)
     if FLAGS.save_replay:
       env.save_replay(agent_classes[0].__name__)
 
