@@ -39,9 +39,10 @@ from s2clientprotocol import sc2api_pb2 as sc_pb
 
 sw = stopwatch.sw
 
+
 possible_results = {
     sc_pb.Victory: 1,
-    sc_pb.Defeat:-1,
+    sc_pb.Defeat: -1,
     sc_pb.Tie: 0,
     sc_pb.Undecided: 0,
 }
@@ -67,9 +68,9 @@ class Difficulty(enum.IntEnum):
   cheat_money = sc_pb.CheatMoney
   cheat_insane = sc_pb.CheatInsane
 
-
 # Re-export this enum to make it easy to construct the environment.
 ActionSpace = actions_lib.ActionSpace  # pylint: disable=invalid-name
+
 
 Agent = collections.namedtuple("Agent", ["race"])
 Bot = collections.namedtuple("Bot", ["race", "difficulty"])
