@@ -74,6 +74,7 @@ flags.mark_flag_as_required("map")
 
 
 def run_thread(agent_classes, players, map_name, visualize):
+  """Run one thread worth of the environment with agents."""
   with sc2_env.SC2Env(
       map_name=map_name,
       players=players,
