@@ -21,6 +21,10 @@ import numpy as np
 from pysc2.env import environment
 from pysc2.env import sc2_env
 from pysc2.lib import features
+from pysc2.lib import point
+
+
+DUMMY_MAP_SIZE = point.Point(256, 256)
 
 
 class _TestEnvironment(environment.Base):
@@ -150,7 +154,17 @@ class SC2TestEnv(_TestEnvironment):
                rgb_minimap_width=None,
                rgb_minimap_height=None,
                action_space=None,
-               **kwargs):
+               camera_width_world_units=None,
+               discount=1.,
+               visualize=False,
+               step_mul=None,
+               save_replay_episodes=0,
+               replay_dir=None,
+               game_steps_per_episode=None,
+               score_index=None,
+               score_multiplier=None,
+               use_feature_units=False,
+               random_seed=None):
     """Initializes an SC2TestEnv.
 
     Args:
@@ -173,12 +187,34 @@ class SC2TestEnv(_TestEnvironment):
       rgb_minimap_height: The height of the rgb minimap observation.
       action_space: If you pass both feature and rgb sizes, then you must also
           specify which you want to use for your actions as an ActionSpace enum.
-      **kwargs: Ignored.
+      camera_width_world_units: The width of your screen in world units. If your
+          feature_screen=(64, 48) and camera_width is 24, then each px
+          represents 24 / 64 = 0.375 world units in each of x and y. It'll then
+          represent a camera of size (24, 0.375 * 48) = (24, 18) world units.
+      discount: Unused.
+      visualize: Unused.
+      step_mul: Unused.
+      save_replay_episodes: Unused.
+      replay_dir: Unused.
+      game_steps_per_episode: Unused.
+      score_index: Unused.
+      score_multiplier: Unused.
+      use_feature_units: Whether to include feature unit data in observations.
+      random_seed: Unused.
 
     Raises:
       ValueError: if args are passed.
     """
-    del map_name, kwargs  # Unused.
+    del map_name  # Unused.
+    del discount  # Unused.
+    del visualize  # Unused.
+    del step_mul  # Unused.
+    del save_replay_episodes  # Unused.
+    del replay_dir  # Unused.
+    del game_steps_per_episode  # Unused.
+    del score_index  # Unused.
+    del score_multiplier  # Unused.
+    del random_seed  # Unused.
 
     if _only_use_kwargs:
       raise ValueError('All arguments must be passed as keyword arguments.')
@@ -196,6 +232,9 @@ class SC2TestEnv(_TestEnvironment):
         rgb_minimap_size=rgb_minimap_size,
         rgb_minimap_width=rgb_minimap_width,
         rgb_minimap_height=rgb_minimap_height,
+        use_feature_units=use_feature_units,
+        map_size=DUMMY_MAP_SIZE,
+        camera_width_world_units=camera_width_world_units or 24,
         action_space=action_space)
 
     if not players:

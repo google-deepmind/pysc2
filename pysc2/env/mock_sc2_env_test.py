@@ -155,6 +155,15 @@ class TestSC2TestEnv(_TestMixin, absltest.TestCase):
     self.assert_spec(timestep[0].observation['feature_minimap'],
                      [len(features.MINIMAP_FEATURES), 67, 64], np.int32)
 
+  def test_feature_units_are_supported(self):
+    env = mock_sc2_env.SC2TestEnv(
+        map_name='nonexistant map',
+        feature_screen_size=64,
+        feature_minimap_size=32,
+        use_feature_units=True)
+
+    self.assertIn('feature_units', env.observation_spec()[0])
+
 
 if __name__ == '__main__':
   absltest.main()
