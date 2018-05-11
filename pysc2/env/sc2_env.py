@@ -576,5 +576,3 @@ class SC2Env(environment.Base):
       for port in self._ports:
         portpicker.return_port(port)
       self._ports = None
-
-    logging.info("%s", sw)
