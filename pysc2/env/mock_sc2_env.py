@@ -164,7 +164,8 @@ class SC2TestEnv(_TestEnvironment):
                score_index=None,
                score_multiplier=None,
                use_feature_units=False,
-               random_seed=None):
+               random_seed=None,
+               disable_fog=False):
     """Initializes an SC2TestEnv.
 
     Args:
@@ -201,6 +202,7 @@ class SC2TestEnv(_TestEnvironment):
       score_multiplier: Unused.
       use_feature_units: Whether to include feature unit data in observations.
       random_seed: Unused.
+      disable_fog: Unused.
 
     Raises:
       ValueError: if args are passed.
@@ -215,6 +217,7 @@ class SC2TestEnv(_TestEnvironment):
     del score_index  # Unused.
     del score_multiplier  # Unused.
     del random_seed  # Unused.
+    del disable_fog  # Unused.
 
     if _only_use_kwargs:
       raise ValueError('All arguments must be passed as keyword arguments.')

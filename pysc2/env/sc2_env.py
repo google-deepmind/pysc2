@@ -134,7 +134,8 @@ class SC2Env(environment.Base):
                score_index=None,
                score_multiplier=None,
                use_feature_units=False,
-               random_seed=None):
+               random_seed=None,
+               disable_fog=False):
     """Create a SC2 Env.
 
     You must pass a resolution that you want to play at. You can send either
@@ -193,6 +194,7 @@ class SC2Env(environment.Base):
       use_feature_units: Whether to include feature unit data in observations.
       random_seed: Random number seed to use when initializing the game. This
           lets you run repeatable games/tests.
+      disable_fog: Whether to disable fog of war.
 
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
@@ -245,6 +247,7 @@ class SC2Env(environment.Base):
     self._save_replay_episodes = save_replay_episodes
     self._replay_dir = replay_dir
     self._random_seed = random_seed
+    self._disable_fog = disable_fog
 
     if score_index is None:
       self._score_index = self._map.score_index
@@ -357,8 +360,10 @@ class SC2Env(environment.Base):
     self._controllers = [p.controller for p in self._sc2_procs]
 
     # Create the game.
-    create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
-        map_path=self._map.path, map_data=self._map.data(self._run_config)))
+    create = sc_pb.RequestCreateGame(
+        local_map=sc_pb.LocalMap(
+            map_path=self._map.path, map_data=self._map.data(self._run_config)),
+        disable_fog=self._disable_fog)
     agent_race = Race.random
     for p in self._players:
       if isinstance(p, Agent):
