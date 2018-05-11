@@ -243,9 +243,12 @@ class RemoteController(object):
   def quit(self):
     """Shut down the SC2 process."""
     try:
-      return self._client.send(quit=sc_pb.RequestQuit())
+      # Don't expect a response.
+      self._client.write(sc_pb.Request(quit=sc_pb.RequestQuit()))
     except protocol.ConnectionError:
       pass  # It's likely already (shutting) down, so continue as if it worked.
+    finally:
+      self.close()
 
   @sw.decorate
   def ping(self):

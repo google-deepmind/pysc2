@@ -57,11 +57,14 @@ class ProtocolError(Exception):
 
 @contextlib.contextmanager
 def catch_websocket_connection_errors():
+  """A context manager that translates websocket errors into ConnectionError."""
   try:
     yield
   except websocket.WebSocketConnectionClosedException:
     raise ConnectionError("Connection already closed. SC2 probably crashed. "
                           "Check the error log.")
+  except websocket.WebSocketTimeoutException:
+    raise ConnectionError("Websocket timed out.")
   except socket.error as e:
     raise ConnectionError("Socket error: %s" % e)
 
