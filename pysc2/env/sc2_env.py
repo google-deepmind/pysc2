@@ -39,10 +39,9 @@ from s2clientprotocol import sc2api_pb2 as sc_pb
 
 sw = stopwatch.sw
 
-
 possible_results = {
     sc_pb.Victory: 1,
-    sc_pb.Defeat: -1,
+    sc_pb.Defeat:-1,
     sc_pb.Tie: 0,
     sc_pb.Undecided: 0,
 }
@@ -68,9 +67,9 @@ class Difficulty(enum.IntEnum):
   cheat_money = sc_pb.CheatMoney
   cheat_insane = sc_pb.CheatInsane
 
+
 # Re-export this enum to make it easy to construct the environment.
 ActionSpace = actions_lib.ActionSpace  # pylint: disable=invalid-name
-
 
 Agent = collections.namedtuple("Agent", ["race"])
 Bot = collections.namedtuple("Bot", ["race", "difficulty"])
@@ -194,7 +193,7 @@ class SC2Env(environment.Base):
       use_feature_units: Whether to include feature unit data in observations.
       random_seed: Random number seed to use when initializing the game. This
           lets you run repeatable games/tests.
-      disable_fog: Whether to disable fog of ware
+      disable_fog: Whether to disable fog of war
 
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
