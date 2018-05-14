@@ -167,6 +167,31 @@ class NamedArrayTest(parameterized.TestCase):
     with self.assertRaises(TypeError):
       a.a  # pylint: disable=pointless-statement
 
+  def test_string(self):
+    a = named_array.NamedNumpyArray([1, 3, 6], ["a", "b", "c"], dtype=np.int32)
+    self.assertEqual(str(a), "[1 3 6]")
+    self.assertEqual(repr(a), ("NamedNumpyArray([1, 3, 6], ['a', 'b', 'c'], "
+                               "dtype=int32)"))
+
+    a = named_array.NamedNumpyArray([[1, 3], [6, 8]], [None, ["a", "b"]])
+    self.assertEqual(str(a), "[[1 3]\n [6 8]]")
+    self.assertEqual(repr(a), ("NamedNumpyArray([[1, 3],\n"
+                               "                 [6, 8]], [None, ['a', 'b']])"))
+
+    a = named_array.NamedNumpyArray([[1, 3], [6, 8]], [["a", "b"], None])
+    self.assertEqual(str(a), "[[1 3]\n [6 8]]")
+    self.assertEqual(repr(a), ("NamedNumpyArray([[1, 3],\n"
+                               "                 [6, 8]], [['a', 'b'], None])"))
+
+    a = named_array.NamedNumpyArray([list(range(50))] * 50,
+                                    [None, ["a%s" % i for i in range(50)]])
+    self.assertIn("49", str(a))
+    self.assertIn("49", repr(a))
+
+    a = named_array.NamedNumpyArray([list(range(50))] * 50,
+                                    [["a%s" % i for i in range(50)], None])
+    self.assertIn("49", str(a))
+    self.assertIn("49", repr(a))
 
 if __name__ == "__main__":
   absltest.main()

@@ -22,6 +22,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numbers
+import re
 
 import enum
 import numpy as np
@@ -115,7 +116,7 @@ class NamedNumpyArray(np.ndarray):
 
     # Finally convert to a NamedNumpyArray.
     obj = obj.view(cls)
-    obj._index_names = index_names
+    obj._index_names = index_names  # [{name: index}, ...], dict per dimension.
     return obj
 
   def __array_finalize__(self, obj):
@@ -146,7 +147,7 @@ class NamedNumpyArray(np.ndarray):
       if isinstance(obj, np.ndarray):  # If this is a view, index the names too.
         if isinstance(index, numbers.Integral):
           obj._index_names = obj._index_names[1:]
-        elif isinstance(index, slice):
+        elif isinstance(index, slice) and self._index_names[0]:
           # Rebuild the index of names.
           names = sorted(obj._index_names[0].items(), key=lambda item: item[1])
           sliced = {n: i for i, (n, _) in enumerate(names[index])}
@@ -169,8 +170,29 @@ class NamedNumpyArray(np.ndarray):
   def __setslice__(self, i, j, seq):  # deprecated, but still needed...
     self[max(0, i):max(0, j):] = seq
 
+  def __repr__(self):
+    """A repr, parsing the original and adding the names param."""
+    names = []
+    for dim_names in self._index_names:
+      if dim_names:
+        dim_names = [n for n, _ in sorted(dim_names.items(),
+                                          key=lambda item: item[1])]
+        if len(dim_names) > 11:
+          dim_names = dim_names[:5] + ["..."] + dim_names[-5:]
+      names.append(dim_names)
+    if len(names) == 1:
+      names = names[0]
+
+    # "NamedNumpyArray([1, 3, 6], dtype=int32)" ->
+    # ["NamedNumpyArray", "[1, 3, 6]", ", dtype=int32"]
+    matches = re.findall(r"^(\w+)\(([\d\., \n\[\]]*)(, \w+=.+)?\)$",
+                         np.array_repr(self))[0]
+    return "%s(%s, %s%s)" % (
+        matches[0], matches[1], names, matches[2])
+
 
 def _get_index(obj, index):
+  """Turn a generalized index (int/slice/str) into a real index (int/slice)."""
   if isinstance(index, (numbers.Integral, slice)):
     return index
   elif isinstance(index, str):
