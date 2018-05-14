@@ -64,7 +64,7 @@ class StarcraftProcess(object):
     self._controller = None
     self._check_exists(exec_path)
     self._tmp_dir = tempfile.mkdtemp(prefix="sc-", dir=run_config.tmp_dir)
-    self._host = host or run_config.host
+    self._host = host or "127.0.0.1"
     self._port = portpicker.pick_unused_port()
 
     args = [
