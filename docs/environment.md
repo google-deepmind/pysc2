@@ -339,18 +339,17 @@ specific types. The full set of valid types and functions are defined in
 of the available function is valid this frame. Each action is a single
 `FunctionCall` in `pysc2.lib.actions` with all its arguments filled.
 
-The full set of types and functions are defined in `pysc2.lib.actions`.
-The set of functions is hard coded and limited to just the actions that humans
-have taken, as seen by a large number of replays. It lists both general and
-specific functions such that the many forms of cancel are exposed as a single
-action.
-
-Hard coding the functions means that actions created in custom maps won't be
-usable until they are added to `pysc2.lib.actions`.
+The full set of types and functions are defined in `pysc2.lib.actions`. The set
+of functions is hard coded and limited to just the actions that humans have
+taken, as seen by a large number of replays. Hard coding the functions means
+that actions created in custom maps won't be usable until they are added to
+`pysc2.lib.actions`.
 
 The semantic meaning of these actions can mainly be found by searching:
 [liquipedia.net/starcraft2](http://liquipedia.net/starcraft2/) or
 [starcraft.wikia](http://starcraft.wikia.com/).
+
+#### List of actions
 
 To see which actions exist run:
 
@@ -419,20 +418,46 @@ type ids are the index into the list of `functions` and `types`.
 The `types` are a predefined list of argument types that can be used in a
 function call. The exact definitions are in `pysc2.lib.actions.TYPES`
 
-Some actions are general. This is visible in `actions.py` through an extra param
-at function construction. It's often exposed in the name as longer versions
-being the specific versions. Above you see `Attack_screen` (general),
-`Attack_Attack_screen` and `Scan_Move_screen` (specific). For now only
-the general actions are exposed through the environment api.
+#### Action categories
 
 A `Morph` action transform a unit to a different unit, at least according to the
 unit_type in the observation. For example `Morph_Lair_quick` morphs a hatchery
-to a lair. `Morph_SiegeMode_quick` and `Morph_Unsiege_quick` morphs a siege tank
+to a lair; `Morph_SiegeMode_quick` and `Morph_Unsiege_quick` morphs a siege tank
 between tank and siege mode. An `Effect` is a single effect, rarely cancelable.
 A `Behavior` can be turned on and off but doesn't change the unit type.
 
-Take a look at the `random_agent` for an example of how to consume
-`ValidActions` and fill `FunctionCall`s.
+#### General vs Specific actions
+
+StarCraft II speaks in terms of abilities. Sometimes a single concept that can
+be done by many units is implemented as a single ability (eg Move, Halt,
+Patrol), and sometimes as many abilities (eg Attack, Burrow, Cancel, Lift/Land).
+`Burrow` is a simple example where each zerg unit that can burrow has its own
+ability (`BurrowDown_Drone`, `BurrowDown_Zergling`, etc). Exposing those
+individually would make the action space even more complicated, and make it hard
+to burrow a whole army at once given a [limited APM](#apm-and-fairness), so we
+added a concept of general abilities that merge all of the specific abilities
+that would happen together or using the same key in the game UI. If you give the
+specific ability (eg `BurrowDown_Zergling`) it'll only affect the specific units
+that support that ability (eg Zerglings), while if you give the corresponding
+general ability (`BurrowDown`) it'll affect all units that support it.
+
+Attack is a non-obvious case of this. There is `Attack`, which is the general
+ability that corresponds to what the UI does, but under the hood that actually
+executes `Attack_Attack` for offensive units, `Scan_Move` for support units like
+medivacs that can't attack but should come along as if they can,
+`Attack_AttackBuilding` for defensive buildings (eg missile turret) and
+`Attack_Redirect` for bunkers to tell their loaded units to attack.
+
+For now only the general actions are exposed through the environment api so only
+the general actions should be returned in the available actions observation.
+
+In `pysc2.lib.actions.FUNCTIONS` specific functions have an additional parameter
+that references the general parameter.
+
+#### Example usage
+
+Take a look at the [random agent](../pysc2/agents/random_agent.py) for an
+example of how to consume `ValidActions` and fill `FunctionCall`s.
 
 The following snippet shows how to print a human-readable list of available
 actions:
@@ -440,7 +465,7 @@ actions:
 ```python
     from pysc2.lib import actions
 
-    for action in obs.observation['available_actions']:
+    for action in obs.observation.available_actions:
         print(actions.FUNCTIONS[action])
 ```
 
