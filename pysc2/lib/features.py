@@ -499,6 +499,8 @@ class Features(object):
       units you have selected.
     """
     obs_spec = named_array.NamedDict({
+        "action_result": (0,),  # See error.proto: ActionResult.
+        "alerts": (0,),  # See sc2api.proto: Alert.
         "available_actions": (0,),
         "build_queue": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
         "cargo": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
@@ -573,6 +575,11 @@ class Features(object):
     out["last_actions"] = np.array(
         [self.reverse_action(a).function for a in obs.actions],
         dtype=np.int32)
+
+    out["action_result"] = np.array([o.result for o in obs.action_errors],
+                                    dtype=np.int32)
+
+    out["alerts"] = np.array(obs.observation.alerts, dtype=np.int32)
 
     out["game_loop"] = np.array([obs.observation.game_loop], dtype=np.int32)
 

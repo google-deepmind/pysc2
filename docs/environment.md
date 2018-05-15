@@ -322,6 +322,16 @@ observation.
 A `(n)` tensor listing all the action ids that were made successfully since the
 last observation. An action that was attempted but failed is not included here.
 
+##### Action Result
+
+A `(n)` tensor (usually size 1) giving the result of the action. The values are
+listed in
+[error.proto](https://github.com/Blizzard/s2client-proto/blob/master/s2clientprotocol/error.proto)
+
+##### Alerts
+
+A `(n)` tensor (usually empty, occasionally size 1, max 2) for when you're being attacked in a major way.
+
 ### Actions
 
 The SC2 action space is very big. There are hundreds of possible actions, many
