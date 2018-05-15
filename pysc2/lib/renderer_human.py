@@ -43,6 +43,7 @@ from pysc2.lib import transform
 
 from pysc2.lib import video_writer
 from s2clientprotocol import data_pb2 as sc_data
+from s2clientprotocol import error_pb2 as sc_err
 from s2clientprotocol import sc2api_pb2 as sc_pb
 from s2clientprotocol import spatial_pb2 as sc_spatial
 
@@ -330,6 +331,7 @@ class RendererHuman(object):
     self._queued_action = None
     self._queued_hotkey = ""
     self._select_start = None
+    self._alerts = {}
     self._help = False
 
   @with_lock(render_lock)
@@ -941,6 +943,13 @@ class RendererHuman(object):
         "FPS: O:%.1f, R:%.1f" % (
             len(times) / (sum(times) or 1),
             len(self._render_times) / (sum(self._render_times) or 1)))
+    line = 3
+    for alert, ts in sorted(self._alerts.items(), key=lambda (_, t): t):
+      if time.time() < ts + 3:  # Show for 3 seconds.
+        surf.write_screen(self._font_large, colors.red, (20, line), alert)
+        line += 1
+      else:
+        del self._alerts[alert]
 
   @sw.decorate
   def draw_help(self, surf):
@@ -1181,12 +1190,18 @@ class RendererHuman(object):
     obs = True
     while obs:  # Send something falsy through the queue to shut down.
       obs = self._obs_queue.get()
-      if obs and self._obs_queue.empty():
-        # Only render the latest observation so we keep up with the game.
-        self.render_obs(obs)
-      if self._video_writer:
-        self._video_writer.add(np.transpose(
-            pygame.surfarray.pixels3d(self._window), axes=(1, 0, 2)))
+      if obs:
+        for alert in obs.observation.alerts:
+          self._alerts[sc_pb.Alert.Name(alert)] = time.time()
+        for err in obs.action_errors:
+          if err.result != sc_err.Success:
+            self._alerts[sc_err.ActionResult.Name(err.result)] = time.time()
+        if self._obs_queue.empty():
+          # Only render the latest observation so we keep up with the game.
+          self.render_obs(obs)
+        if self._video_writer:
+          self._video_writer.add(np.transpose(
+              pygame.surfarray.pixels3d(self._window), axes=(1, 0, 2)))
       self._obs_queue.task_done()
 
   @with_lock(render_lock)
