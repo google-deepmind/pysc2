@@ -294,6 +294,7 @@ MINIMAP_FEATURES = MinimapFeatures(
 
 
 def point_from_size_width_height(size, width, height):
+  """Get a point from size, width and height."""
   if not size and not width and not height:
     return None
   if size:
