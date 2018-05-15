@@ -1,4 +1,4 @@
-# Copyright 2017 Google Inc. All Rights Reserved.
+# Copyright 2017-2018 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -166,7 +166,8 @@ class StarcraftProcess(object):
 
   @property
   def running(self):
-    return self._proc.poll() if self._proc else False
+    # poll returns None if it's running, otherwise the exit code.
+    return self._proc and (self._proc.poll() is None)
 
 
 def _shutdown_proc(p, timeout):
