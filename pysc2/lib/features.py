@@ -643,14 +643,16 @@ class Features(object):
             [unit_vec(u) for u in ui.multi.units], [None, UnitLayer])
 
       if ui.cargo and ui.cargo.passengers:
-        out["single_select"] = np.array([unit_vec(ui.single.unit)])
+        out["single_select"] = named_array.NamedNumpyArray(
+            [unit_vec(ui.single.unit)], [None, UnitLayer])
         out["cargo"] = named_array.NamedNumpyArray(
             [unit_vec(u) for u in ui.cargo.passengers], [None, UnitLayer])
         out["cargo_slots_available"] = np.array([ui.cargo.slots_available],
                                                 dtype=np.int32)
 
       if ui.production and ui.production.build_queue:
-        out["single_select"] = np.array([unit_vec(ui.production.unit)])
+        out["single_select"] = named_array.NamedNumpyArray(
+            [unit_vec(ui.production.unit)], [None, UnitLayer])
         out["build_queue"] = named_array.NamedNumpyArray(
             [unit_vec(u) for u in ui.production.build_queue],
             [None, UnitLayer])
