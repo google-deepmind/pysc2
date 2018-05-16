@@ -180,4 +180,5 @@ class RemoteSC2Env(sc2_env.SC2Env):
   def _restart(self):
     # Can't restart since it's not clear how you'd coordinate that with the
     # other players.
+    self._controllers[0].leave()
     raise RestartException("Can't restart")
