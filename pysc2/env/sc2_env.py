@@ -409,11 +409,11 @@ class SC2Env(environment.Base):
     # Create the join request.
     join = sc_pb.RequestJoinGame(options=interface)
     join.shared_port = 0  # unused
-    join.server_ports.game_port = self._ports.pop()
-    join.server_ports.base_port = self._ports.pop()
+    join.server_ports.game_port = self._ports.pop(0)
+    join.server_ports.base_port = self._ports.pop(0)
     for _ in range(self._num_players - 1):
-      join.client_ports.add(game_port=self._ports.pop(),
-                            base_port=self._ports.pop())
+      join.client_ports.add(game_port=self._ports.pop(0),
+                            base_port=self._ports.pop(0))
 
     join_reqs = []
     for p in self._players:
