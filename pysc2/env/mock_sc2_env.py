@@ -50,7 +50,7 @@ class _TestEnvironment(environment.Base):
       set to `float('inf')` (the default).
   """
 
-  def __init__(self, num_players, observation_spec, action_spec):
+  def __init__(self, num_agents, observation_spec, action_spec):
     """Initializes the TestEnvironment.
 
     The `next_observation` is initialized to be reward = 0., discount = 1.,
@@ -58,13 +58,13 @@ class _TestEnvironment(environment.Base):
     to `float('inf')`.
 
     Args:
-      num_players: The number of players.
+      num_agents: The number of agents.
       observation_spec: The observation spec for each player.
       action_spec: The action spec for each player.
     """
-    self._num_players = num_players
-    self._observation_spec = (observation_spec,) * self._num_players
-    self._action_spec = (action_spec,) * self._num_players
+    self._num_agents = num_agents
+    self._observation_spec = (observation_spec,) * self._num_agents
+    self._action_spec = (action_spec,) * self._num_agents
     self._episode_steps = 0
 
     self.next_timestep = environment.TimeStep(
@@ -77,13 +77,13 @@ class _TestEnvironment(environment.Base):
   def reset(self):
     """Restarts episode and returns `next_observation` with `StepType.FIRST`."""
     self._episode_steps = 0
-    return self.step([None] * self._num_players)
+    return self.step([None] * self._num_agents)
 
   def step(self, actions):
     """Returns `next_observation` modifying its `step_type` if necessary."""
-    if len(actions) != self._num_players:
-      raise ValueError('Expected %d players, received %d.' % (self._num_players,
-                                                              len(actions)))
+    if len(actions) != self._num_agents:
+      raise ValueError('Expected %d actions, received %d.' % (
+          self._num_agents, len(actions)))
 
     if self._episode_steps == 0:
       timestep = self.next_timestep._replace(
@@ -99,7 +99,7 @@ class _TestEnvironment(environment.Base):
     else:
       self._episode_steps += 1
 
-    return [timestep] * self._num_players
+    return [timestep] * self._num_agents
 
   def action_spec(self):
     """See base class."""
@@ -241,12 +241,12 @@ class SC2TestEnv(_TestEnvironment):
         action_space=action_space)
 
     if not players:
-      num_players = 1
+      num_agents = 1
     else:
-      num_players = sum(1 for p in players if isinstance(p, sc2_env.Agent))
+      num_agents = sum(1 for p in players if isinstance(p, sc2_env.Agent))
 
     super(SC2TestEnv, self).__init__(
-        num_players=num_players,
+        num_agents=num_agents,
         action_spec=features_.action_spec(),
         observation_spec=features_.observation_spec())
     self.episode_length = 10

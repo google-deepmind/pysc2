@@ -218,29 +218,36 @@ class SC2Env(environment.Base):
           "Explicit agent and bot races are deprecated. Pass an array of "
           "sc2_env.Bot and sc2_env.Agent instances instead.")
 
+    self._map = maps.get(map_name)
+
     if not players:
-      players = [Agent(Race.random), Bot(Race.random, Difficulty.very_easy)]
+      players = list()
+      players.append(Agent(Race.random))
+
+      if not self._map.players or self._map.players >= 2:
+        players.append(Bot(Race.random, Difficulty.very_easy))
 
     for p in players:
       if not isinstance(p, (Agent, Bot)):
         raise ValueError(
             "Expected players to be of type Agent or Bot. Got: %s." % p)
 
-    self._num_players = sum(1 for p in players if isinstance(p, Agent))
+    num_players = len(players)
+    self._num_agents = sum(1 for p in players if isinstance(p, Agent))
     self._players = players
 
-    if not 1 <= len(players) <= 2 or not 1 <= self._num_players <= 2:
-      raise ValueError("Only 1 or 2 players is supported at the moment.")
+    if not 1 <= num_players <= 2 or not self._num_agents:
+      raise ValueError(
+          "Only 1 or 2 players with at least one agent is "
+          "supported at the moment.")
 
     if save_replay_episodes and not replay_dir:
       raise ValueError("Missing replay_dir")
 
-    self._map = maps.get(map_name)
-
-    if self._map.players and self._num_players > self._map.players:
+    if self._map.players and num_players > self._map.players:
       raise ValueError(
           "Map only supports %s players, but trying to join with %s" % (
-              self._map.players, self._num_players))
+              self._map.players, num_players))
 
     self._discount = discount
     self._step_mul = step_mul or self._map.step_mul
@@ -272,7 +279,7 @@ class SC2Env(environment.Base):
         rgb_minimap_width, rgb_minimap_height, action_space,
         camera_width_world_units, use_feature_units, visualize)
 
-    if self._num_players == 1:
+    if self._num_agents == 1:
       self._launch_sp(interface)
     else:
       self._launch_mp(interface)
@@ -381,11 +388,11 @@ class SC2Env(environment.Base):
 
   def _launch_mp(self, interface):
     # Reserve a whole bunch of ports for the weird multiplayer implementation.
-    self._ports = _pick_unused_ports(self._num_players * 2)
+    self._ports = _pick_unused_ports(self._num_agents * 2)
 
     # Actually launch the game processes.
     self._sc2_procs = [self._run_config.start(extra_ports=self._ports)
-                       for _ in range(self._num_players)]
+                       for _ in range(self._num_agents)]
     self._controllers = [p.controller for p in self._sc2_procs]
 
     # Save the maps so they can access it.
@@ -411,7 +418,7 @@ class SC2Env(environment.Base):
     join.shared_port = 0  # unused
     join.server_ports.game_port = self._ports.pop(0)
     join.server_ports.base_port = self._ports.pop(0)
-    for _ in range(self._num_players - 1):
+    for _ in range(self._num_agents - 1):
       join.client_ports.add(game_port=self._ports.pop(0),
                             base_port=self._ports.pop(0))
 
@@ -434,11 +441,11 @@ class SC2Env(environment.Base):
 
   def observation_spec(self):
     """Look at Features for full specs."""
-    return (self._features.observation_spec(),) * self._num_players
+    return (self._features.observation_spec(),) * self._num_agents
 
   def action_spec(self):
     """Look at Features for full specs."""
-    return (self._features.action_spec(),) * self._num_players
+    return (self._features.action_spec(),) * self._num_agents
 
   def _restart(self):
     if len(self._controllers) == 1:
@@ -461,7 +468,7 @@ class SC2Env(environment.Base):
     logging.info("Starting episode: %s", self._episode_count)
     self._metrics.increment_episode()
 
-    self._last_score = [0] * self._num_players
+    self._last_score = [0] * self._num_agents
     self._state = environment.StepType.FIRST
     return self._step()
 
@@ -488,7 +495,7 @@ class SC2Env(environment.Base):
 
     # TODO(tewalds): How should we handle more than 2 agents and the case where
     # the episode can end early for some agents?
-    outcome = [0] * self._num_players
+    outcome = [0] * self._num_agents
     discount = self._discount
     if any(o.player_result for o in self._obs):  # Episode over.
       self._state = environment.StepType.LAST
@@ -502,7 +509,7 @@ class SC2Env(environment.Base):
     if self._score_index >= 0:  # Game score, not win/loss reward.
       cur_score = [o["score_cumulative"][self._score_index] for o in agent_obs]
       if self._episode_steps == 0:  # First reward is always 0.
-        reward = [0] * self._num_players
+        reward = [0] * self._num_agents
       else:
         reward = [cur - last for cur, last in zip(cur_score, self._last_score)]
       self._last_score = cur_score

@@ -132,7 +132,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
 
     self._map = maps.get(map_name)
 
-    self._num_players = 1
+    self._num_agents = 1
     self._discount = discount
     self._step_mul = step_mul or self._map.step_mul
     self._save_replay_episodes = 1 if replay_dir else 0
@@ -165,7 +165,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
     logging.info("Connected")
 
     # Create the join request.
-    ports = [lan_port + p for p in range(4)]  # 2 * num_players
+    ports = [lan_port + p for p in range(4)]  # 2 * num players *in the game*.
     join = sc_pb.RequestJoinGame(options=interface)
     join.race = race
     join.shared_port = 0  # unused

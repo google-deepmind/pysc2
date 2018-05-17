@@ -95,7 +95,7 @@ class TestTestEnvironment(_TestMixin, absltest.TestCase):
 
   def setUp(self):
     self._env = mock_sc2_env._TestEnvironment(
-        num_players=1,
+        num_agents=1,
         observation_spec={'mock': [10, 1]},
         action_spec=mock.sentinel.action_spec)
 
