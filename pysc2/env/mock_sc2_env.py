@@ -17,12 +17,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import math
+
 import numpy as np
 from pysc2.env import environment
 from pysc2.env import sc2_env
 from pysc2.lib import features
 from pysc2.lib import point
 
+from s2clientprotocol import sc2api_pb2 as sc_pb
 
 DUMMY_MAP_SIZE = point.Point(256, 256)
 
@@ -222,7 +225,7 @@ class SC2TestEnv(_TestEnvironment):
     if _only_use_kwargs:
       raise ValueError('All arguments must be passed as keyword arguments.')
 
-    features_ = features.Features(
+    self._features = features.Features(
         feature_screen_size=feature_screen_size,
         feature_screen_width=feature_screen_width,
         feature_screen_height=feature_screen_height,
@@ -247,8 +250,8 @@ class SC2TestEnv(_TestEnvironment):
 
     super(SC2TestEnv, self).__init__(
         num_agents=num_agents,
-        action_spec=features_.action_spec(),
-        observation_spec=features_.observation_spec())
+        action_spec=self._features.action_spec(),
+        observation_spec=self._features.observation_spec())
     self.episode_length = 10
 
   def save_replay(self, *args, **kwargs):
@@ -256,17 +259,66 @@ class SC2TestEnv(_TestEnvironment):
 
   def _default_observation(self):
     """Returns a mock observation from an SC2Env."""
-    observation = super(SC2TestEnv, self)._default_observation()
+    response_observation = sc_pb.ResponseObservation()
+    obs = response_observation.observation
+
+    obs.game_loop = 1
+    obs.player_common.player_id = 1
+    obs.player_common.minerals = 20
+    obs.player_common.vespene = 50
+    obs.player_common.food_cap = 36
+    obs.player_common.food_used = 21
+    obs.player_common.food_army = 6
+    obs.player_common.food_workers = 15
+    obs.player_common.idle_worker_count = 2
+    obs.player_common.army_count = 6
+    obs.player_common.warp_gate_count = 0
+    obs.player_common.larva_count = 0
+
+    obs.abilities.add(ability_id=1, requires_point=True)  # Smart
+
+    obs.score.score = 300
+    score_details = obs.score.score_details
+    score_details.idle_production_time = 0
+    score_details.idle_worker_time = 0
+    score_details.total_value_units = 190
+    score_details.total_value_structures = 230
+    score_details.killed_value_units = 0
+    score_details.killed_value_structures = 0
+    score_details.collected_minerals = 2130
+    score_details.collected_vespene = 560
+    score_details.collection_rate_minerals = 50
+    score_details.collection_rate_vespene = 20
+    score_details.spent_minerals = 2000
+    score_details.spent_vespene = 500
+
+    def fill(image_data, size, bits):
+      image_data.bits_per_pixel = bits
+      image_data.size.y = size[0]
+      image_data.size.x = size[1]
+      image_data.data = b'\0' * int(math.ceil(size[0] * size[1] * bits / 8))
+
+    obs_spec = self.observation_spec()[0]
+    if 'feature_screen' in obs_spec:
+      for feature in features.SCREEN_FEATURES:
+        fill(getattr(obs.feature_layer_data.renders, feature.name),
+             obs_spec['feature_screen'][1:], 8)
+    if 'feature_minimap' in obs_spec:
+      for feature in features.MINIMAP_FEATURES:
+        fill(getattr(obs.feature_layer_data.minimap_renders, feature.name),
+             obs_spec['feature_minimap'][1:], 8)
+    if 'rgb_screen' in obs_spec:
+      fill(obs.render_data.map, obs_spec['rgb_screen'][:2], 24)
+    if 'rgb_screen' in obs_spec:
+      fill(obs.render_data.minimap, obs_spec['rgb_minimap'][:2], 24)
+
+    observation = self._features.transform_obs(response_observation)
 
     # Add bounding box for the minimap camera in top left of feature screen.
     if 'feature_minimap' in observation:
-      minimap_camera = observation['feature_minimap'][
-          features.MINIMAP_FEATURES.camera.index]
+      minimap_camera = observation.feature_minimap.camera
       minimap_camera.fill(0)
       height, width = [dim // 2 for dim in minimap_camera.shape]
       minimap_camera[:height, :width].fill(1)
-
-    # Set only the first 10 actions available.
-    observation['available_actions'] = np.array(range(10), dtype=np.int32)
 
     return observation
