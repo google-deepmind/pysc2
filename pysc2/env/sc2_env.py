@@ -218,13 +218,14 @@ class SC2Env(environment.Base):
           "Explicit agent and bot races are deprecated. Pass an array of "
           "sc2_env.Bot and sc2_env.Agent instances instead.")
 
-    self._map = maps.get(map_name)
+    map_inst = maps.get(map_name)
+    self._map_name = map_name
 
     if not players:
       players = list()
       players.append(Agent(Race.random))
 
-      if not self._map.players or self._map.players >= 2:
+      if not map_inst.players or map_inst.players >= 2:
         players.append(Bot(Race.random, Difficulty.very_easy))
 
     for p in players:
@@ -244,30 +245,30 @@ class SC2Env(environment.Base):
     if save_replay_episodes and not replay_dir:
       raise ValueError("Missing replay_dir")
 
-    if self._map.players and num_players > self._map.players:
+    if map_inst.players and num_players > map_inst.players:
       raise ValueError(
           "Map only supports %s players, but trying to join with %s" % (
-              self._map.players, num_players))
+              map_inst.players, num_players))
 
     self._discount = discount
-    self._step_mul = step_mul or self._map.step_mul
+    self._step_mul = step_mul or map_inst.step_mul
     self._save_replay_episodes = save_replay_episodes
     self._replay_dir = replay_dir
     self._random_seed = random_seed
     self._disable_fog = disable_fog
 
     if score_index is None:
-      self._score_index = self._map.score_index
+      self._score_index = map_inst.score_index
     else:
       self._score_index = score_index
     if score_multiplier is None:
-      self._score_multiplier = self._map.score_multiplier
+      self._score_multiplier = map_inst.score_multiplier
     else:
       self._score_multiplier = score_multiplier
 
     self._episode_length = game_steps_per_episode
     if self._episode_length is None:
-      self._episode_length = self._map.game_steps_per_episode
+      self._episode_length = map_inst.game_steps_per_episode
 
     self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
@@ -280,17 +281,17 @@ class SC2Env(environment.Base):
         camera_width_world_units, use_feature_units, visualize)
 
     if self._num_agents == 1:
-      self._launch_sp(interface)
+      self._launch_sp(map_inst, interface)
     else:
-      self._launch_mp(interface)
+      self._launch_mp(map_inst, interface)
 
-    self._finalize(interface, action_space, use_feature_units, visualize,
-                   map_name)
+    self._finalize(interface, action_space, use_feature_units, visualize)
 
-  def _finalize(self, interface, action_space, use_feature_units, visualize,
-                map_name):
+  def _finalize(self, interface, action_space, use_feature_units, visualize):
     game_info = self._controllers[0].game_info()
     static_data = self._controllers[0].data()
+    if not self._map_name:
+      self._map_name = game_info.map_name
 
     if game_info.options.render != interface.render:
       logging.warning(
@@ -306,7 +307,7 @@ class SC2Env(environment.Base):
     else:
       self._renderer_human = None
 
-    self._metrics = metrics.Metrics(map_name)
+    self._metrics = metrics.Metrics(self._map_name)
     self._metrics.increment_instance()
 
     self._last_score = None
@@ -315,7 +316,7 @@ class SC2Env(environment.Base):
     self._episode_count = 0
     self._obs = None
     self._state = environment.StepType.LAST  # Want to jump to `reset`.
-    logging.info("Environment is ready on map: %s", map_name)
+    logging.info("Environment is ready on map: %s", self._map_name)
 
   @staticmethod
   def _get_interface(
@@ -362,14 +363,14 @@ class SC2Env(environment.Base):
 
     return interface
 
-  def _launch_sp(self, interface):
+  def _launch_sp(self, map_inst, interface):
     self._sc2_procs = [self._run_config.start()]
     self._controllers = [p.controller for p in self._sc2_procs]
 
     # Create the game.
     create = sc_pb.RequestCreateGame(
         local_map=sc_pb.LocalMap(
-            map_path=self._map.path, map_data=self._map.data(self._run_config)),
+            map_path=map_inst.path, map_data=map_inst.data(self._run_config)),
         disable_fog=self._disable_fog)
     agent_race = Race.random
     for p in self._players:
@@ -386,7 +387,7 @@ class SC2Env(environment.Base):
     join = sc_pb.RequestJoinGame(race=agent_race, options=interface)
     self._controllers[0].join_game(join)
 
-  def _launch_mp(self, interface):
+  def _launch_mp(self, map_inst, interface):
     # Reserve a whole bunch of ports for the weird multiplayer implementation.
     self._ports = _pick_unused_ports(self._num_agents * 2)
 
@@ -397,12 +398,12 @@ class SC2Env(environment.Base):
 
     # Save the maps so they can access it.
     self._parallel.run(
-        (c.save_map, self._map.path, self._map.data(self._run_config))
+        (c.save_map, map_inst.path, map_inst.data(self._run_config))
         for c in self._controllers)
 
     # Create the game. Set the first instance as the host.
     create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
-        map_path=self._map.path))
+        map_path=map_inst.path))
     if self._random_seed is not None:
       create.random_seed = self._random_seed
     for p in self._players:
@@ -554,7 +555,7 @@ class SC2Env(environment.Base):
 
   def save_replay(self, replay_dir, prefix=None):
     if prefix is None:
-      prefix = self._map.name
+      prefix = self._map_name
     replay_path = self._run_config.save_replay(
         self._controllers[0].save_replay(), replay_dir, prefix)
     logging.info("Wrote replay to: %s", replay_path)

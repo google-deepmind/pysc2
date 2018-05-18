@@ -130,11 +130,12 @@ class RemoteSC2Env(sc2_env.SC2Env):
     if not race:
       race = sc2_env.Race.random
 
-    self._map = maps.get(map_name)
+    map_inst = map_name and maps.get(map_name)
+    self._map_name = map_name
 
     self._num_agents = 1
     self._discount = discount
-    self._step_mul = step_mul or self._map.step_mul
+    self._step_mul = step_mul or (map_inst.step_mul if map_inst else 8)
     self._save_replay_episodes = 1 if replay_dir else 0
     self._replay_dir = replay_dir
 
@@ -152,12 +153,12 @@ class RemoteSC2Env(sc2_env.SC2Env):
         rgb_minimap_width, rgb_minimap_height, action_space,
         camera_width_world_units, use_feature_units, visualize)
 
-    self._launch_remote(host, host_port, lan_port, race, interface)
+    self._connect_remote(host, host_port, lan_port, race, map_inst, interface)
 
-    self._finalize(interface, action_space, use_feature_units, visualize,
-                   map_name)
+    self._finalize(interface, action_space, use_feature_units, visualize)
 
-  def _launch_remote(self, host, host_port, lan_port, race, interface):
+  def _connect_remote(self, host, host_port, lan_port, race, map_inst,
+                      interface):
     """Make sure this stays synced with bin/play_vs_agent.py."""
     # Connect!
     logging.info("Connecting...")
@@ -173,8 +174,9 @@ class RemoteSC2Env(sc2_env.SC2Env):
     join.server_ports.base_port = ports.pop(0)
     join.client_ports.add(game_port=ports.pop(0), base_port=ports.pop(0))
 
-    run_config = run_configs.get()
-    self._controllers[0].save_map(self._map.path, self._map.data(run_config))
+    if map_inst:
+      run_config = run_configs.get()
+      self._controllers[0].save_map(map_inst.path, map_inst.data(run_config))
     self._controllers[0].join_game(join)
 
   def _restart(self):
