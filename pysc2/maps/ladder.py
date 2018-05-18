@@ -63,6 +63,7 @@ ladder_maps = [
     ("Honorgrounds",         Ladder2017Season1, "HonorgroundsLE", 4),
     ("Interloper",           Ladder2017Season3, "InterloperLE", 2),
     ("MechDepot",            Ladder2017Season3, "MechDepotLE", 2),
+    ("NeonVioletSquare",     Ladder2018Season1, "NeonVioletSquareLE", 2),
     ("NewkirkPrecinct",      Ladder2017Season1, "NewkirkPrecinctTE", 2),
     ("Odyssey",              Ladder2017Season4, "OdysseyLE", 2),
     ("PaladinoTerminal",     Ladder2017Season1, "PaladinoTerminalLE", 2),
