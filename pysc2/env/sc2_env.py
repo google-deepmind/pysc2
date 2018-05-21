@@ -403,7 +403,7 @@ class SC2Env(environment.Base):
 
     # Create the game. Set the first instance as the host.
     create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
-        map_path=map_inst.path))
+        map_path=map_inst.path), disable_fog=self._disable_fog)
     if self._random_seed is not None:
       create.random_seed = self._random_seed
     for p in self._players:
