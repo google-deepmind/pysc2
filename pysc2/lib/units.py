@@ -23,6 +23,8 @@ import enum
 # pylint: disable=invalid-name
 class Neutral(enum.IntEnum):
   """Neutral units."""
+  BattleStationMineralField = 886
+  BattleStationMineralField750 = 887
   CollapsibleRockTowerDebris = 490
   CollapsibleRockTowerDiagonal = 588
   CollapsibleRockTowerPushUnit = 561
@@ -46,9 +48,16 @@ class Neutral(enum.IntEnum):
   MineralField = 341
   MineralField750 = 483
   ProtossVespeneGeyser = 608
+  PurifierMineralField = 884
+  PurifierMineralField750 = 885
+  PurifierRichMineralField = 796
+  PurifierRichMineralField750 = 797
+  PurifierVespeneGeyser = 880
   RichMineralField = 146
   RichMineralField750 = 147
+  RichVespeneGeyser = 344
   Scantipede = 335
+  ShakurasVespeneGeyser = 881
   SpacePlatformGeyser = 343
   UnbuildableBricksDestructible = 473
   UnbuildablePlatesDestructible = 474
