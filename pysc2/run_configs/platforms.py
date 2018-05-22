@@ -126,7 +126,7 @@ class LocalBase(lib.RunConfig):
       raise sc_process.SC2LaunchError("No SC2 binary found at: %s" % exec_path)
 
     return sc_process.StarcraftProcess(
-        self, exec_path=exec_path, data_version=version.data_version, **kwargs)
+        self, exec_path=exec_path, version=version, **kwargs)
 
 
 class Windows(LocalBase):

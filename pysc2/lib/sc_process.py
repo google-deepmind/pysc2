@@ -44,28 +44,41 @@ class SC2LaunchError(Exception):
 class StarcraftProcess(object):
   """Launch a starcraft server, initialize a controller, and later, clean up.
 
-  This is best used from run_configs.py. It is important to call `close`,
-  otherwise you'll likely leak temp files and SC2 processes (chewing CPU).
+  This is best used from run_configs, which decides which version to run, and
+  where to find it.
 
-  Usage:
-    p = StarcraftProcess(run_config)
-    p.controller.ping()
-    p.close()
-  or:
-    with StarcraftProcess(run_config) as controller:
-      controller.ping()
+  It is important to call `close` or use it as a context manager, otherwise
+  you'll likely leak temp files and SC2 processes.
   """
 
-  def __init__(self, run_config, exec_path, data_version=None,
-               full_screen=False, extra_args=None, verbose=False,
-               host=None, connect=True, timeout_seconds=None,
-               window_size=(640, 480), window_loc=(50, 50), **kwargs):
+  def __init__(self, run_config, exec_path, version, full_screen=False,
+               extra_args=None, verbose=False, host=None, connect=True,
+               timeout_seconds=None, window_size=(640, 480),
+               window_loc=(50, 50), **kwargs):
+    """Launch the SC2 process.
+
+    Args:
+      run_config: A `run_configs.lib.RunConfig` object.
+      exec_path: The path to the binary to run.
+      version: A `run_configs.lib.Version` object.
+      full_screen: Whether to launch the game window full_screen on win/mac.
+      extra_args: A list of additional args for the SC2 process.
+      verbose: Whether to have the SC2 process do verbose logging.
+      host: Which ip for the game to listen on for its websocket. This is
+          usually "127.0.0.1", or "::1", but could be others as well.
+      connect: Whether to create a RemoteController to connect.
+      timeout_seconds: The timeout for the remote controller.
+      window_size: If not full screen, how big should the window be?
+      window_loc: If not full screen, where should the window be?
+      **kwargs: Anything extra for _launch, which is useful for subclasses.
+    """
     self._proc = None
     self._controller = None
     self._check_exists(exec_path)
     self._tmp_dir = tempfile.mkdtemp(prefix="sc-", dir=run_config.tmp_dir)
     self._host = host or "127.0.0.1"
     self._port = portpicker.pick_unused_port()
+    self._version = version
 
     args = [
         exec_path,
@@ -89,8 +102,8 @@ class StarcraftProcess(object):
 
     if verbose or FLAGS.sc2_verbose:
       args += ["-verbose"]
-    if data_version:
-      args += ["-dataVersion", data_version.upper()]
+    if self._version and self._version.data_version:
+      args += ["-dataVersion", self._version.data_version.upper()]
     if extra_args:
       args += extra_args
     logging.info("Launching SC2: %s", " ".join(args))
@@ -129,6 +142,10 @@ class StarcraftProcess(object):
   @property
   def port(self):
     return self._port
+
+  @property
+  def version(self):
+    return self._version
 
   def __enter__(self):
     return self.controller
