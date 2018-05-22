@@ -147,7 +147,7 @@ class RemoteController(object):
     """Create a new game. This can only be done by the host."""
     return self._client.send(create_game=req_create_game)
 
-  @valid_status(Status.launched)
+  @valid_status(Status.launched, Status.init_game)
   @decorate_check_error(sc_pb.ResponseSaveMap.Error)
   @sw.decorate
   def save_map(self, map_path, map_data):

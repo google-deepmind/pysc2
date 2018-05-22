@@ -150,9 +150,9 @@ def host():
 
   join = sc_pb.RequestJoinGame()
   join.shared_port = 0  # unused
-  join.server_ports.game_port = ports.pop()
-  join.server_ports.base_port = ports.pop()
-  join.client_ports.add(game_port=ports.pop(), base_port=ports.pop())
+  join.server_ports.game_port = ports.pop(0)
+  join.server_ports.base_port = ports.pop(0)
+  join.client_ports.add(game_port=ports.pop(0), base_port=ports.pop(0))
 
   join.race = sc2_env.Race[FLAGS.user_race]
   if FLAGS.render:
