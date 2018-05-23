@@ -1,6 +1,46 @@
+## Environment table of contents
+
+### Starcraft II
+- [What is StarCraft II](#WhatisStarCraftII)
+- [Versions](#Versions)
+- [Game and Action Speed](#GameandActionSpeed)
+  * [Game speed](#GameSpeed)
+  * [APM Calculation](#APMCalculation)
+  * [APM and fairness](#APMandFairness)
+- [Determinism and Randomness](#DeterminismandRandomness)
+### Actions and Observations
+- [Observation](#Observation)
+  * [Spatial/Visual](#SpatialVisual)
+    + [RGB Pixels](#RGBPixels)
+    + [Feature layers](#FeatureLayers)
+  	* [Minimap](#Minimap)
+	* [Screen](#Screen)
+  * [Structured](#Structured)
+    + [General player information](#GeneralPlayerInformation)
+    + [Control groups](#ControlGroups)
+    + [Single Select](#SingleSelect)
+    + [Multi Select](#MultiSelect)
+    + [Cargo](#Cargo)
+    + [BuildQueue](#BuildQueue)
+    + [AvailableActions](#AvailableActions)
+    + [LastActions](#LastActions)
+    + [ActionsResult](#ActionsResult)
+    + [Alerts](#Alerts)
+- [Actions](#Actions)
+    + [List of actions](#ListofActions)
+    + [Action categories](#ActionCategories)
+    + [General vs Specific actions](#GeneralvsSpecific)
+    + [Example usage](#ExampleUsage)
+### RL Environment
+- [Environment wrappers](#EnvironmentWrappers)
+### Agents
+
+
+
+
 ## StarCraft II
 
-### What is StarCraft II
+### What is StarCraft II <a name="WhatisStarCraftII"></a>
 
 [StarCraft II](https://en.wikipedia.org/wiki/StarCraft_II:_Legacy_of_the_Void)
 is a [Real Time Strategy
@@ -25,24 +65,24 @@ fairly weak and predictable, and the stronger ones cheat.
 
 There are many resources online for learning about Starcraft, including
 [Battle.net](http://battle.net/sc2/en/),
-[Liquipedia](http://liquipedia.net/starcraft2/StarCraft) and
-[Wikia](http://starcraft.wikia.com/).
+[Liquipedia](http://liquipedia.net/starcraft2/StarCraft) ,
+[Wikia](http://starcraft.wikia.com/) and [SC2Mapster](https://sc2mapster.gamepedia.com/SC2Mapster_Wiki).
 
-### Versions
+### Versions <a name="Versions"></a>
 
 Blizzard regularly updates StarCraft II. These updates are roughly monthly, can
 introduce new features, and often have minor gameplay and balance changes to
 make the races more even. Replays are tied to the specific version they were
 generated with.
 
-### Game and Action Speed
+### Game and Action Speed <a name="GameandActionSpeed"></a>
 
 Being a real-time strategy game means the game runs in real-time. In reality
 though, the simulation updates 16-22 times per second, depending on your [game
 speed](http://wiki.teamliquid.net/starcraft2/Game_Speed), and all the
 intermediate rendered frames are just interpolated.
 
-#### Game speed
+#### Game speed <a name="GameSpeed"></a>
 
 Acting through an API allows you to control the clock. Instead of running at
 16-22 steps per second, you can step as fast or as slow as you want, when you
@@ -52,7 +92,7 @@ also means there is never any lag. The max speed depends on the step_mul/render
 frequency, and the scene complexity/unit count. 10x real-time is not uncommon
 and can be much higher for simple maps.
 
-#### APM Calculation
+#### APM Calculation <a name="APMCalculation"></a>
 
 The game calculates and reports APM in a non-obvious way. It isn't obvious how
 to count the action of moving the camera with edge scrolling, or how many
@@ -77,7 +117,7 @@ The in game replay UI exposes this with two different time intervals: average
 (average over the entire game so far), and current (average over the last 5
 seconds). The API only exposes the average APM.
 
-#### APM and fairness
+#### APM and fairness <a name="APMandFairness"></a>
 
 Humans can't do one action per frame. They range from 30-500 actions per minute
 (APM), with 30 being a beginner, 60-100 being average, and professionals
@@ -102,7 +142,7 @@ forcing it to mainly make no-ops which wouldn't count as actions.
 It's probably better to consider all actions as equivalent, including camera
 movement, since allowing very fast camera movement could allow agents to cheat.
 
-### Determinism and Randomness
+### Determinism and Randomness <a name="DeterminismandRandomness"></a>
 
 Starcraft II is mostly deterministic, but it does have some randomness mainly
 for cosmetic reasons. The two main random elements are weapon speed and update
@@ -133,7 +173,7 @@ These sources of randomness can be removed/mitigated by setting a random seed.
 Replays work by saving the game setup including the random seed, as well as the
 list of actions by all players, and then playing forward the simulation.
 
-## Actions and Observations
+## Actions and Observations <a name="ActionsandObservations"></a>
 
 Starcraft II has a very rich action and observation space. The game outputs
 both spatial/visual and structured elements. The structured elements are given
@@ -160,11 +200,11 @@ passing a screen coordinate to an action:
     action = actions.FunctionCall.Move_screen("now", target)
 ```
 
-### Observation
+### Observation <a name="Observation"></a>
 
-#### Spatial/Visual
+#### Spatial/Visual <a name="SpatialVisual"></a>
 
-##### RGB Pixels
+##### RGB Pixels <a name="RGBPixels"></a>
 
 RGB pixels are available for both the main screen area as well as for the
 minimap at a resolution of your choice. This uses the same perspective camera as
@@ -172,7 +212,7 @@ a human would see, but doesn't include all the extra chrome around the screen
 like the command card, selection box, build queue, etc. They are exposed as
 `rgb_screen` and `rgb_minimap`.
 
-##### Feature layers
+##### Feature layers <a name="FeatureLayers"></a>
 
 The game also exposes feature layers. They represent roughly the same
 information as RGB pixels except that the information is decomposed and
@@ -181,7 +221,7 @@ minimap and exposed as `feature_screen` and `feature_minimap`.
 
 The full list is defined in `pysc2.lib.features`.
 
-###### Minimap
+###### Minimap <a name="Minimap"></a>
 
 The minimap is a low resolution view of the entire map. It gives an overview of
 everything going on, but with less detail than the screen.
@@ -204,7 +244,7 @@ These are the minimap feature layers:
     respectively.
 *   **selected**: Which units are selected.
 
-###### Screen
+###### Screen <a name="Screen"></a>
 
 The screen is a higher resolution view of part of the map.
 
@@ -251,13 +291,13 @@ These are the screen feature layers:
     of the 4 pixels it covers. If multiple units cover a pixel their proportion
     of the pixel covered will be summed, up to a max of 256.
 
-#### Structured
+#### Structured <a name="Structured"></a>
 
 The game offers a fair amount of structured data which agents aren't expected
 to read from pixels. Instead these are given as tensors with direct semantic
 meaning.
 
-##### General player information
+##### General player information <a name="GeneralPlayerInformation"></a>
 
 A `(11)` tensor showing general information.
 
@@ -273,7 +313,7 @@ A `(11)` tensor showing general information.
 *   warp gate count (for protoss)
 *   larva count (for zerg)
 
-##### Control groups
+##### Control groups <a name="ControlGroups"></a>
 
 A `(10, 2)` tensor showing the (unit leader type and count) for each of the 10
 control groups. The indices in this tensor are referenced by the `control-group`
@@ -282,7 +322,7 @@ action.
 [Control groups](http://learningsc2.com/tag/control-groups/) are a way to
 remember a selection set so that you can recall them easily later.
 
-##### Single Select
+##### Single Select <a name="SingleSelect"></a>
 
 A `(7)` tensor showing information about a selected unit.
 
@@ -294,45 +334,45 @@ A `(7)` tensor showing information about a selected unit.
 *   transport slot taken if it's in a transport
 *   build progress as a percentage if it's still being built
 
-##### Multi Select
+##### Multi Select <a name="MultiSelect"></a>
 
 A `(n, 7)` tensor with the same as [single select](#single-select) but for all
 `n` selected units. The indices in this tensor are referenced by the
 `select_unit` action.
 
-##### Cargo
+##### Cargo <a name="Cargo"></a>
 
 A `(n, 7)` tensor similar to [single select](#single-select), but for all the
 units in a transport. The indices in this tensor are referenced by the `unload`
 action.
 
-##### Build Queue
+##### Build Queue <a name="BuildQueue"></a>
 
 A `(n, 7)` tensor similar to [single select](#single-select), but for all the
 units being built by a production building. The indices in this tensor are
 referenced by the `build_queue` action.
 
-##### Available Actions
+##### Available Actions <a name="AvailableActions"></a>
 
 A `(n)` tensor listing all the action ids that are available at the time of this
 observation.
 
-##### Last Actions
+##### Last Actions <a name="LastActions"></a>
 
 A `(n)` tensor listing all the action ids that were made successfully since the
 last observation. An action that was attempted but failed is not included here.
 
-##### Action Result
+##### Action Result <a name="ActionsResult"></a>
 
 A `(n)` tensor (usually size 1) giving the result of the action. The values are
 listed in
 [error.proto](https://github.com/Blizzard/s2client-proto/blob/master/s2clientprotocol/error.proto)
 
-##### Alerts
+##### Alerts <a name="Alerts"></a>
 
 A `(n)` tensor (usually empty, occasionally size 1, max 2) for when you're being attacked in a major way.
 
-### Actions
+### Actions <a name="Actions"></a>
 
 The SC2 action space is very big. There are hundreds of possible actions, many
 of which take a point in either screen or minimap space, and many of which take
@@ -359,7 +399,7 @@ The semantic meaning of these actions can mainly be found by searching:
 [liquipedia.net/starcraft2](http://liquipedia.net/starcraft2/) or
 [starcraft.wikia](http://starcraft.wikia.com/).
 
-#### List of actions
+#### List of actions <a name="ListofActions"></a>
 
 To see which actions exist run:
 
@@ -428,7 +468,7 @@ type ids are the index into the list of `functions` and `types`.
 The `types` are a predefined list of argument types that can be used in a
 function call. The exact definitions are in `pysc2.lib.actions.TYPES`
 
-#### Action categories
+#### Action categories <a name="ActionCategories"></a>
 
 A `Morph` action transform a unit to a different unit, at least according to the
 unit_type in the observation. For example `Morph_Lair_quick` morphs a hatchery
@@ -436,7 +476,7 @@ to a lair; `Morph_SiegeMode_quick` and `Morph_Unsiege_quick` morphs a siege tank
 between tank and siege mode. An `Effect` is a single effect, rarely cancelable.
 A `Behavior` can be turned on and off but doesn't change the unit type.
 
-#### General vs Specific actions
+#### General vs Specific actions <a name="GeneralvsSpecific"></a>
 
 StarCraft II speaks in terms of abilities. Sometimes a single concept that can
 be done by many units is implemented as a single ability (eg Move, Halt,
@@ -464,7 +504,7 @@ the general actions should be returned in the available actions observation.
 In `pysc2.lib.actions.FUNCTIONS` specific functions have an additional parameter
 that references the general parameter.
 
-#### Example usage
+#### Example usage <a name="ExampleUsage"></a>
 
 Take a look at the [random agent](../pysc2/agents/random_agent.py) for an
 example of how to consume `ValidActions` and fill `FunctionCall`s.
@@ -479,7 +519,7 @@ actions:
         print(actions.FUNCTIONS[action])
 ```
 
-## RL Environment
+## RL Environment <a name="RLEnvironment"></a>
 
 The main SC2 environment is at `pysc2.env.sc2_env`, with the action and
 observation space defined in `pysc2.lib.features`.
@@ -515,15 +555,15 @@ where to save them.
 
 Use the `run_loop.py` to have your agent interact with the environment.
 
-### Environment wrappers
+### Environment wrappers <a name="EnvironmentWrappers"></a>
 
 There is one pre-made environment wrapper:
 
 *   `available_actions_printer`: Prints each available action as it is seen.
 
-## Agents
+## Agents <a name="Agents"></a>
 
 There are a couple basic agents.
 
 *   `random_agent`: Just plays randomly, shows how to make valid moves.
-*   `scripted_agent`: These are scripted for a single easy map.
+*   `scripted_agent`: These are scripted for a single mini game.
