@@ -79,15 +79,15 @@ def run_thread(agent_classes, players, map_name, visualize):
   with sc2_env.SC2Env(
       map_name=map_name,
       players=players,
+      agent_interface_format=sc2_env.parse_agent_interface_format(
+          feature_screen=FLAGS.feature_screen_size,
+          feature_minimap=FLAGS.feature_minimap_size,
+          rgb_screen=FLAGS.rgb_screen_size,
+          rgb_minimap=FLAGS.rgb_minimap_size,
+          action_space=FLAGS.action_space,
+          use_feature_units=FLAGS.use_feature_units),
       step_mul=FLAGS.step_mul,
       game_steps_per_episode=FLAGS.game_steps_per_episode,
-      feature_screen_size=FLAGS.feature_screen_size,
-      feature_minimap_size=FLAGS.feature_minimap_size,
-      rgb_screen_size=FLAGS.rgb_screen_size,
-      rgb_minimap_size=FLAGS.rgb_minimap_size,
-      action_space=(FLAGS.action_space and
-                    sc2_env.ActionSpace[FLAGS.action_space]),
-      use_feature_units=FLAGS.use_feature_units,
       visualize=visualize) as env:
     env = available_actions_printer.AvailableActionsPrinter(env)
     agents = [agent_cls() for agent_cls in agent_classes]

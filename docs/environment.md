@@ -493,11 +493,11 @@ one or two players are supported. Give it a list of `sc2_env.Agent` or
 will start up two instances of SC2 which communicate between themselves, and
 consume double the memory and cpu as playing single player.
 
-`feature_screen_size`, `feature_minimap_size`, `rgb_screen_size`,
-`rgb_minimap_size`, and the `_width` and `_height` variants let you specify the
-resolution of the spatial observations. Higher resolution obviously gives higher
-location precision, at the cost of larger observations as well as a larger
-action space, and slower rendering time.
+`agent_interface_format` lets you specify the observation and action interface
+to be used by each agent. `feature_dimensions` and `rgb_dimensions` let you
+specify the resolution of the spatial observations. Higher resolution obviously
+gives higher location precision, at the cost of larger observations as well as a
+larger action space, and slower rendering time.
 
 If you ask for both feature and rgb observations you'll need to specify the
 action space that you want to use. This lets you act in one while learning from

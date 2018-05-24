@@ -214,7 +214,7 @@ class ReplayObsTest(utils.TestCase):
 
   def _get_replay_data(self, controller, config):
     """Runs a replay to get the replay data."""
-    f = features.Features(game_info=controller.game_info())
+    f = features.features_from_game_info(game_info=controller.game_info())
 
     observations = {}
     last_actions = []
@@ -269,7 +269,7 @@ class ReplayObsTest(utils.TestCase):
     return replay_data, observations
 
   def _process_replay(self, controller, observations, config):
-    f = features.Features(game_info=controller.game_info())
+    f = features.features_from_game_info(game_info=controller.game_info())
 
     while True:
       o = controller.observe()

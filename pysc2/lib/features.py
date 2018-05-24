@@ -293,18 +293,305 @@ MINIMAP_FEATURES = MinimapFeatures(
 )
 
 
-def point_from_size_width_height(size, width, height):
-  """Get a point from size, width and height."""
-  if not size and not width and not height:
-    return None
-  if size:
-    if width or height:
-      raise ValueError("Either specify size or width and height, not both.")
-    return point.Point(size, size)
-  if width and height:
-    return point.Point(width, height)
+def _to_point(dims):
+  """Convert (width, height) or size -> point.Point."""
+  assert dims
+
+  if isinstance(dims, (tuple, list)):
+    if len(dims) != 2:
+      raise ValueError(
+          "A two element tuple or list is expected here, got {}.".format(dims))
+    else:
+      width = int(dims[0])
+      height = int(dims[1])
+      if width <= 0 or height <= 0:
+        raise ValueError("Must specify +ve dims, got {}.".format(dims))
+      else:
+        return point.Point(width, height)
   else:
-    raise ValueError("Specify both width and height.")
+    size = int(dims)
+    if size <= 0:
+      raise ValueError(
+          "Must specify a +ve value for size, got {}.".format(dims))
+    else:
+      return point.Point(size, size)
+
+
+class Dimensions(object):
+  """Screen and minimap dimensions configuration.
+
+  Both screen and minimap must be specified. Sizes must be positive.
+  Screen size must be greater than or equal to minimap size in both dimensions.
+
+  Args:
+    screen: A (width, height) int tuple or a single int to be used for both.
+    minimap: A (width, height) int tuple or a single int to be used for both.
+  """
+
+  def __init__(self, screen=None, minimap=None):
+    if not screen or not minimap:
+      raise ValueError(
+          "screen and minimap must both be set, screen={}, minimap={}".format(
+              screen, minimap))
+
+    self._screen = _to_point(screen)
+    self._minimap = _to_point(minimap)
+
+    if self._screen.x < self._minimap.x or self._screen.y < self._minimap.y:
+      raise ValueError(
+          "Screen (%s) can't be smaller than the minimap (%s)." % (
+              self._screen, self._minimap))
+
+  @property
+  def screen(self):
+    return self._screen
+
+  @property
+  def minimap(self):
+    return self._minimap
+
+  def __repr__(self):
+    return "Dimensions(screen={}, minimap={})".format(self.screen, self.minimap)
+
+
+class AgentInterfaceFormat(object):
+  """Observation and action interface format specific to a particular agent."""
+
+  def __init__(
+      self,
+      feature_dimensions=None,
+      rgb_dimensions=None,
+      action_space=None,
+      camera_width_world_units=None,
+      use_feature_units=False,
+      hide_specific_actions=True):
+    """Initializer.
+
+    Args:
+      feature_dimensions: Feature layer `Dimension`s. Either this or
+          rgb_dimensions (or both) must be set.
+      rgb_dimensions: RGB `Dimension`. Either this or feature_dimensions
+          (or both) must be set.
+      action_space: If you pass both feature and rgb sizes, then you must also
+          specify which you want to use for your actions as an ActionSpace enum.
+      camera_width_world_units: The width of your screen in world units. If your
+          feature_dimensions.screen=(64, 48) and camera_width is 24, then each
+          px represents 24 / 64 = 0.375 world units in each of x and y.
+          It'll then represent a camera of size (24, 0.375 * 48) = (24, 18)
+          world units.
+      use_feature_units: Whether to include feature unit data in observations.
+      hide_specific_actions: [bool] Some actions (eg cancel) have many
+          specific versions (cancel this building, cancel that spell) and can
+          be represented in a more general form. If a specific action is
+          available, the general will also be available. If you set
+          `hide_specific_actions` to False, the specific versions will also be
+          available, but if it's True, the specific ones will be hidden.
+          Similarly, when transforming back, a specific action will be returned
+          as the general action. This simplifies the action space, though can
+          lead to some actions in replays not being exactly representable using
+          only the general actions.
+
+    Raises:
+      ValueError: if the parameters are inconsistent.
+    """
+
+    if not feature_dimensions and not rgb_dimensions:
+      raise ValueError("Must set either the feature layer or rgb dimensions.")
+
+    if action_space:
+      if not isinstance(action_space, actions.ActionSpace):
+        raise ValueError("action_space must be of type ActionSpace.")
+
+      if ((action_space == actions.ActionSpace.FEATURES and
+           not feature_dimensions) or
+          (action_space == actions.ActionSpace.RGB and
+           not rgb_dimensions)):
+        raise ValueError(
+            "Action space must match the observations, action space={}, "
+            "feature_dimensions={}, rgb_dimensions={}".format(
+                action_space, feature_dimensions, rgb_dimensions))
+    else:
+      if feature_dimensions and rgb_dimensions:
+        raise ValueError(
+            "You must specify the action space if you have both screen and "
+            "rgb observations.")
+      elif feature_dimensions:
+        action_space = actions.ActionSpace.FEATURES
+      else:
+        action_space = actions.ActionSpace.RGB
+
+    self._feature_dimensions = feature_dimensions
+    self._rgb_dimensions = rgb_dimensions
+    self._action_space = action_space
+    self._camera_width_world_units = camera_width_world_units or 24
+    self._use_feature_units = use_feature_units
+    self._hide_specific_actions = hide_specific_actions
+
+    if action_space == actions.ActionSpace.FEATURES:
+      self._action_dimensions = feature_dimensions
+    else:
+      self._action_dimensions = rgb_dimensions
+
+  @property
+  def feature_dimensions(self):
+    return self._feature_dimensions
+
+  @property
+  def rgb_dimensions(self):
+    return self._rgb_dimensions
+
+  @property
+  def action_space(self):
+    return self._action_space
+
+  @property
+  def camera_width_world_units(self):
+    return self._camera_width_world_units
+
+  @property
+  def use_feature_units(self):
+    return self._use_feature_units
+
+  @property
+  def hide_specific_actions(self):
+    return self._hide_specific_actions
+
+  @property
+  def action_dimensions(self):
+    return self._action_dimensions
+
+
+def parse_agent_interface_format(
+    feature_screen=None,
+    feature_minimap=None,
+    rgb_screen=None,
+    rgb_minimap=None,
+    action_space=None,
+    camera_width_world_units=None,
+    use_feature_units=False):
+  """Creates an AgentInterfaceFormat object from keyword args.
+
+  Convenient when using dictionaries or command-line arguments for config.
+
+  Note that the feature_* and rgb_* properties define the respective spatial
+  observation dimensions and accept:
+      * None or 0 to disable that spatial observation.
+      * A single int for a square observation with that side length.
+      * A (int, int) tuple for a rectangular (width, height) observation.
+
+  Args:
+    feature_screen: If specified, so must feature_minimap be.
+    feature_minimap: If specified, so must feature_screen be.
+    rgb_screen: If specified, so must rgb_minimap be.
+    rgb_minimap: If specified, so must rgb_screen be.
+    action_space: ["FEATURES", "RGB"].
+    camera_width_world_units: An int.
+    use_feature_units: A boolean, defaults to False.
+
+  Returns:
+    An `AgentInterfaceFormat` object.
+
+  Raises:
+    ValueError: If an invalid parameter is specified.
+  """
+  if feature_screen or feature_minimap:
+    feature_dimensions = Dimensions(
+        screen=feature_screen,
+        minimap=feature_minimap)
+  else:
+    feature_dimensions = None
+
+  if rgb_screen or rgb_minimap:
+    rgb_dimensions = Dimensions(
+        screen=rgb_screen,
+        minimap=rgb_minimap)
+  else:
+    rgb_dimensions = None
+
+  return AgentInterfaceFormat(
+      feature_dimensions=feature_dimensions,
+      rgb_dimensions=rgb_dimensions,
+      action_space=(action_space and actions.ActionSpace[action_space.upper()]),
+      camera_width_world_units=camera_width_world_units,
+      use_feature_units=use_feature_units
+  )
+
+
+def features_from_game_info(
+    game_info,
+    use_feature_units=False,
+    action_space=None,
+    hide_specific_actions=True):
+  """Construct a Features object using data extracted from game info.
+
+  Args:
+    game_info: A `sc_pb.ResponseGameInfo` from the game.
+    use_feature_units: Whether to include the feature unit observation.
+    action_space: If you pass both feature and rgb sizes, then you must also
+        specify which you want to use for your actions as an ActionSpace enum.
+    hide_specific_actions: [bool] Some actions (eg cancel) have many
+        specific versions (cancel this building, cancel that spell) and can
+        be represented in a more general form. If a specific action is
+        available, the general will also be available. If you set
+        `hide_specific_actions` to False, the specific versions will also be
+        available, but if it's True, the specific ones will be hidden.
+        Similarly, when transforming back, a specific action will be returned
+        as the general action. This simplifies the action space, though can
+        lead to some actions in replays not being exactly representable using
+        only the general actions.
+
+  Returns:
+    A features object matching the specified parameterisation.
+
+  """
+
+  if game_info.options.HasField("feature_layer"):
+    fl_opts = game_info.options.feature_layer
+    feature_dimensions = Dimensions(
+        screen=(fl_opts.resolution.x, fl_opts.resolution.y),
+        minimap=(fl_opts.minimap_resolution.x, fl_opts.minimap_resolution.y))
+  else:
+    feature_dimensions = None
+
+  if game_info.options.HasField("render"):
+    rgb_opts = game_info.options.render
+    rgb_dimensions = Dimensions(
+        screen=(rgb_opts.resolution.x, rgb_opts.resolution.y),
+        minimap=(rgb_opts.minimap_resolution.x, rgb_opts.minimap_resolution.y))
+  else:
+    rgb_dimensions = None
+
+  map_size = game_info.start_raw.map_size
+  camera_width_world_units = game_info.options.feature_layer.width
+
+  return Features(
+      agent_interface_format=AgentInterfaceFormat(
+          feature_dimensions=feature_dimensions,
+          rgb_dimensions=rgb_dimensions,
+          use_feature_units=use_feature_units,
+          camera_width_world_units=camera_width_world_units,
+          action_space=action_space,
+          hide_specific_actions=hide_specific_actions),
+      map_size=map_size)
+
+
+def _init_valid_functions(action_dimensions):
+  """Initialize ValidFunctions and set up the callbacks."""
+  sizes = {
+      "screen": tuple(int(i) for i in action_dimensions.screen),
+      "screen2": tuple(int(i) for i in action_dimensions.screen),
+      "minimap": tuple(int(i) for i in action_dimensions.minimap),
+  }
+
+  types = actions.Arguments(*[
+      actions.ArgumentType.spec(t.id, t.name, sizes.get(t.name, t.sizes))
+      for t in actions.TYPES])
+
+  functions = actions.Functions([
+      actions.Function.spec(f.id, f.name, tuple(types[t.id] for t in f.args))
+      for f in actions.FUNCTIONS])
+
+  return actions.ValidActions(types, functions)
 
 
 class Features(object):
@@ -319,149 +606,33 @@ class Features(object):
   contexts, eg a supervised dataset pipeline.
   """
 
-  def __init__(self,
-               _only_use_kwargs=None,
-               game_info=None,
-               feature_screen_size=None,
-               feature_screen_width=None,
-               feature_screen_height=None,
-               feature_minimap_size=None,
-               feature_minimap_width=None,
-               feature_minimap_height=None,
-               rgb_screen_size=None,
-               rgb_screen_width=None,
-               rgb_screen_height=None,
-               rgb_minimap_size=None,
-               rgb_minimap_width=None,
-               rgb_minimap_height=None,
-               use_feature_units=False,
-               map_size=None,
-               camera_width_world_units=None,
-               action_space=None,
-               hide_specific_actions=True):
-    """Initialize a Features instance.
-
-    You must specify the resolutions. This can come from a game_info object from
-    the game, or you can specify them directly. If you specify size then both
-    width and height will take that value.
+  def __init__(self, agent_interface_format=None, map_size=None):
+    """Initialize a Features instance matching the specified interface format.
 
     Args:
-      _only_use_kwargs: Don't pass args, only kwargs.
-      game_info: A `sc_pb.ResponseGameInfo` from the game. Can be None if you
-          instead set the sizes explicitly.
-      feature_screen_size: Sets feature_screen_width and feature_screen_width.
-      feature_screen_width: The width of the feature layer screen observation.
-      feature_screen_height: The height of the feature layer screen observation.
-      feature_minimap_size: Sets feature_minimap_width and
-          feature_minimap_height.
-      feature_minimap_width: The width of the feature layer minimap observation.
-      feature_minimap_height: The height of the feature layer minimap
-          observation.
-      rgb_screen_size: Sets rgb_screen_width and rgb_screen_height.
-      rgb_screen_width: The width of the rgb screen observation.
-      rgb_screen_height: The height of the rgb screen observation.
-      rgb_minimap_size: Sets rgb_minimap_width and rgb_minimap_height.
-      rgb_minimap_width: The width of the rgb minimap observation.
-      rgb_minimap_height: The height of the rgb minimap observation.
-      use_feature_units: Whether to include the feature unit observation.
+      agent_interface_format: See the documentation for `AgentInterfaceFormat`.
       map_size: The size of the map in world units, needed for feature_units.
-      camera_width_world_units: The width of the feature layer camera in world
-          units. This is needed for feature_units.
-      action_space: If you pass both feature and rgb sizes, then you must also
-          specify which you want to use for your actions as an ActionSpace enum.
-      hide_specific_actions: [bool] Some actions (eg cancel) have many
-          specific versions (cancel this building, cancel that spell) and can
-          be represented in a more general form. If a specific action is
-          available, the general will also be available. If you set
-          `hide_specific_actions` to False, the specific versions will also be
-          available, but if it's True, the specific ones will be hidden.
-          Similarly, when transforming back, a specific action will be returned
-          as the general action. This simplifies the action space, though can
-          lead to some actions in replays not being exactly representable using
-          only the general actions.
 
     Raises:
-      ValueError: if game_info is None and the resolutions aren't well
-          specified.
-      ValueError: if the action_space is poorly specified or doesn't match the
-          observations.
+      ValueError: if agent_interface_format isn't specified.
+      ValueError: if map_size isn't specified when use_feature_units is.
     """
-    if _only_use_kwargs:
-      raise ValueError("All arguments must be passed as keyword arguments.")
+    if not agent_interface_format:
+      raise ValueError("Please specify agent_interface_format")
 
-    if game_info:
-      if any(
-          (feature_screen_size, feature_screen_width, feature_screen_height,
-           feature_minimap_size, feature_minimap_width, feature_minimap_height,
-           rgb_screen_size, rgb_screen_width, rgb_screen_height,
-           rgb_minimap_size, rgb_minimap_width, rgb_minimap_height)):
-        raise ValueError(
-            "Either pass the game_info or explicit sizes, not both.")
+    self._agent_interface_format = agent_interface_format
 
-      if game_info.options.HasField("feature_layer"):
-        fl_opts = game_info.options.feature_layer
-        self._feature_screen_px = point.Point.build(fl_opts.resolution)
-        self._feature_minimap_px = point.Point.build(fl_opts.minimap_resolution)
-      else:
-        self._feature_screen_px = self._feature_minimap_px = None
-      if game_info.options.HasField("render"):
-        render_opts = game_info.options.render
-        self._rgb_screen_px = point.Point.build(render_opts.resolution)
-        self._rgb_minimap_px = point.Point.build(render_opts.minimap_resolution)
-      else:
-        self._rgb_screen_px = self._rgb_minimap_px = None
-      if use_feature_units:
-        self._init_camera(game_info.start_raw.map_size,
-                          game_info.options.feature_layer.width)
-    else:
-      self._feature_screen_px = point_from_size_width_height(
-          feature_screen_size, feature_screen_width, feature_screen_height)
-      self._feature_minimap_px = point_from_size_width_height(
-          feature_minimap_size, feature_minimap_width, feature_minimap_height)
-      self._rgb_screen_px = point_from_size_width_height(
-          rgb_screen_size, rgb_screen_width, rgb_screen_height)
-      self._rgb_minimap_px = point_from_size_width_height(
-          rgb_minimap_size, rgb_minimap_width, rgb_minimap_height)
-      if use_feature_units:
-        self._init_camera(map_size, camera_width_world_units)
+    if agent_interface_format.use_feature_units:
+      self._init_camera(
+          agent_interface_format.feature_dimensions,
+          map_size,
+          agent_interface_format.camera_width_world_units)
 
-    if bool(self._feature_screen_px) != bool(self._feature_minimap_px):
-      raise ValueError("Must set all the feature layer sizes.")
-    if bool(self._rgb_screen_px) != bool(self._rgb_minimap_px):
-      raise ValueError("Must set all the rgb sizes.")
-    if not self._feature_screen_px and not self._rgb_screen_px:
-      raise ValueError("Must set either the feature layer or rgb sizes.")
+    self._valid_functions = _init_valid_functions(
+        agent_interface_format.action_dimensions)
 
-    if action_space:
-      if not isinstance(action_space, actions.ActionSpace):
-        raise ValueError("action_space must be of type ActionSpace.")
-      if ((action_space == actions.ActionSpace.FEATURES and
-           not self._feature_screen_px) or
-          (action_space == actions.ActionSpace.RGB and
-           not self._rgb_screen_px)):
-        raise ValueError("Action space must match the observations.")
-      self._action_space = action_space
-    else:
-      if self._feature_screen_px and self._rgb_screen_px:
-        raise ValueError(
-            "You must specify the action space if you have both observations.")
-      if self._feature_screen_px:
-        self._action_space = actions.ActionSpace.FEATURES
-      else:
-        self._action_space = actions.ActionSpace.RGB
-
-    if self._action_space == actions.ActionSpace.FEATURES:
-      self._action_screen_px = self._feature_screen_px
-      self._action_minimap_px = self._feature_minimap_px
-    else:
-      self._action_screen_px = self._rgb_screen_px
-      self._action_minimap_px = self._rgb_minimap_px
-
-    self._feature_units = use_feature_units
-    self._hide_specific_actions = hide_specific_actions
-    self._valid_functions = self._init_valid_functions()
-
-  def _init_camera(self, map_size, camera_width_world_units):
+  def _init_camera(
+      self, feature_dimensions, map_size, camera_width_world_units):
     """Initialize the feature_units camera."""
     if not map_size or not camera_width_world_units:
       raise ValueError(
@@ -472,8 +643,8 @@ class Features(object):
                                                point.Point(0, map_size.y))
     self._world_tl_to_world_camera_rel = transform.Linear(offset=-map_size / 4)
     world_camera_rel_to_feature_screen = transform.Linear(
-        self._feature_screen_px / camera_width_world_units,
-        self._feature_screen_px / 2)
+        feature_dimensions.screen / camera_width_world_units,
+        feature_dimensions.screen / 2)
     self._world_to_feature_screen_px = transform.Chain(
         self._world_to_world_tl,
         self._world_tl_to_world_camera_rel,
@@ -513,23 +684,25 @@ class Features(object):
         "score_cumulative": (len(ScoreCumulative),),  # pytype: disable=wrong-arg-types
         "single_select": (0, len(UnitLayer)),  # Only (n, 7) for n in (0, 1).  # pytype: disable=wrong-arg-types
     })
-    if self._feature_screen_px:
+
+    aif = self._agent_interface_format
+
+    if aif.feature_dimensions:
       obs_spec["feature_screen"] = (len(SCREEN_FEATURES),
-                                    self._feature_screen_px.y,
-                                    self._feature_screen_px.x)
-    if self._feature_minimap_px:
+                                    aif.feature_dimensions.screen.y,
+                                    aif.feature_dimensions.screen.x)
+
       obs_spec["feature_minimap"] = (len(MINIMAP_FEATURES),
-                                     self._feature_minimap_px.y,
-                                     self._feature_minimap_px.x)
-    if self._rgb_screen_px:
-      obs_spec["rgb_screen"] = (self._rgb_screen_px.y,
-                                self._rgb_screen_px.x,
+                                     aif.feature_dimensions.minimap.y,
+                                     aif.feature_dimensions.minimap.x)
+    if aif.rgb_dimensions:
+      obs_spec["rgb_screen"] = (aif.rgb_dimensions.screen.y,
+                                aif.rgb_dimensions.screen.x,
                                 3)
-    if self._rgb_minimap_px:
-      obs_spec["rgb_minimap"] = (self._rgb_minimap_px.y,
-                                 self._rgb_minimap_px.x,
+      obs_spec["rgb_minimap"] = (aif.rgb_dimensions.minimap.y,
+                                 aif.rgb_dimensions.minimap.x,
                                  3)
-    if self._feature_units:
+    if aif.use_feature_units:
       obs_spec["feature_units"] = (0, len(FeatureUnit))  # pytype: disable=wrong-arg-types
     return obs_spec
 
@@ -555,20 +728,23 @@ class Features(object):
       else:
         return np.zeros((size.y, size.x), dtype=np.int32)
 
-    if self._feature_screen_px:
+    aif = self._agent_interface_format
+
+    if aif.feature_dimensions:
       out["feature_screen"] = named_array.NamedNumpyArray(
-          np.stack(or_zeros(f.unpack(obs.observation), self._feature_screen_px)
+          np.stack(or_zeros(f.unpack(obs.observation),
+                            aif.feature_dimensions.screen)
                    for f in SCREEN_FEATURES),
           names=[ScreenFeatures, None, None])
-    if self._feature_minimap_px:
       out["feature_minimap"] = named_array.NamedNumpyArray(
-          np.stack(or_zeros(f.unpack(obs.observation), self._feature_minimap_px)
+          np.stack(or_zeros(f.unpack(obs.observation),
+                            aif.feature_dimensions.minimap)
                    for f in MINIMAP_FEATURES),
           names=[MinimapFeatures, None, None])
-    if self._rgb_screen_px:
+
+    if aif.rgb_dimensions:
       out["rgb_screen"] = Feature.unpack_rgb_image(
           obs.observation.render_data.map).astype(np.int32)
-    if self._rgb_minimap_px:
       out["rgb_minimap"] = Feature.unpack_rgb_image(
           obs.observation.render_data.minimap).astype(np.int32)
 
@@ -697,7 +873,7 @@ class Features(object):
 
     raw = obs.observation.raw_data
 
-    if self._feature_units:
+    if aif.use_feature_units:
       with sw("feature_units"):
         # Update the camera location so we can calculate world to screen pos
         self._update_camera(point.Point.build(raw.player.camera))
@@ -717,6 +893,7 @@ class Features(object):
   def available_actions(self, obs):
     """Return the list of available action ids."""
     available_actions = set()
+    hide_specific_actions = self._agent_interface_format.hide_specific_actions
     for i, func in six.iteritems(actions.FUNCTIONS_AVAILABLE):
       if func.avail_fn(obs):
         available_actions.add(i)
@@ -726,7 +903,7 @@ class Features(object):
         continue
       for func in actions.ABILITY_IDS[a.ability_id]:
         if func.function_type in actions.POINT_REQUIRED_FUNCS[a.requires_point]:
-          if func.general_id == 0 or not self._hide_specific_actions:
+          if func.general_id == 0 or not hide_specific_actions:
             available_actions.add(func.id)
           if func.general_id != 0:  # Always offer generic actions.
             for general_func in actions.ABILITY_IDS[func.general_id]:
@@ -772,11 +949,12 @@ class Features(object):
               func, func_call.arguments))
 
     # Args are valid?
+    aif = self._agent_interface_format
     for t, arg in zip(func.args, func_call.arguments):
       if t.name in ("screen", "screen2"):
-        sizes = self._action_screen_px
+        sizes = aif.action_dimensions.screen
       elif t.name == "minimap":
-        sizes = self._action_minimap_px
+        sizes = aif.action_dimensions.minimap
       else:
         sizes = t.sizes
 
@@ -797,7 +975,7 @@ class Features(object):
     # Call the right callback to get an SC2 action proto.
     sc2_action = sc_pb.Action()
     kwargs["action"] = sc2_action
-    kwargs["action_space"] = self._action_space
+    kwargs["action_space"] = aif.action_space
     if func.ability_id:
       kwargs["ability_id"] = func.ability_id
     actions.FUNCTIONS[func_id].function_type(**kwargs)
@@ -820,6 +998,8 @@ class Features(object):
     """
     FUNCTIONS = actions.FUNCTIONS  # pylint: disable=invalid-name
 
+    aif = self._agent_interface_format
+
     def func_call_ability(ability_id, cmd_type, *args):
       """Get the function id for a specific ability id and action type."""
       if ability_id not in actions.ABILITY_IDS:
@@ -828,7 +1008,7 @@ class Features(object):
                         "Treating it as a no-op.", ability_id)
         return FUNCTIONS.no_op()
 
-      if self._hide_specific_actions:
+      if aif.hide_specific_actions:
         general_id = next(iter(actions.ABILITY_IDS[ability_id])).general_id
         if general_id:
           ability_id = general_id
@@ -867,7 +1047,7 @@ class Features(object):
 
     if (action.HasField("action_feature_layer") or
         action.HasField("action_render")):
-      act_sp = actions.spatial(action, self._action_space)
+      act_sp = actions.spatial(action, aif.action_space)
       if act_sp.HasField("camera_move"):
         coord = point.Point.build(act_sp.camera_move.center_minimap)
         return FUNCTIONS.move_camera(coord)
@@ -901,21 +1081,3 @@ class Features(object):
       raise ValueError("Unknown action:\n%s" % action)
 
     return FUNCTIONS.no_op()
-
-  def _init_valid_functions(self):
-    """Initialize ValidFunctions and set up the callbacks."""
-    sizes = {
-        "screen": tuple(int(i) for i in self._action_screen_px),
-        "screen2": tuple(int(i) for i in self._action_screen_px),
-        "minimap": tuple(int(i) for i in self._action_minimap_px),
-    }
-
-    types = actions.Arguments(*[
-        actions.ArgumentType.spec(t.id, t.name, sizes.get(t.name, t.sizes))
-        for t in actions.TYPES])
-
-    functions = actions.Functions([
-        actions.Function.spec(f.id, f.name, tuple(types[t.id] for t in f.args))
-        for f in actions.FUNCTIONS])
-
-    return actions.ValidActions(types, functions)

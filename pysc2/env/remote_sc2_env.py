@@ -48,25 +48,11 @@ class RemoteSC2Env(sc2_env.SC2Env):
                host_port=None,
                lan_port=None,
                race=None,
-               feature_screen_size=None,
-               feature_screen_width=None,
-               feature_screen_height=None,
-               feature_minimap_size=None,
-               feature_minimap_width=None,
-               feature_minimap_height=None,
-               rgb_screen_size=None,
-               rgb_screen_width=None,
-               rgb_screen_height=None,
-               rgb_minimap_size=None,
-               rgb_minimap_width=None,
-               rgb_minimap_height=None,
-               action_space=None,
-               camera_width_world_units=None,
+               agent_interface_format=None,
                discount=1.,
                visualize=False,
                step_mul=None,
-               replay_dir=None,
-               use_feature_units=False):
+               replay_dir=None):
     """Create a SC2 Env that connects to a remote instance of the game.
 
     This assumes that the game is already up and running, and it only needs to
@@ -91,33 +77,14 @@ class RemoteSC2Env(sc2_env.SC2Env):
       host_port: The port for the host.
       lan_port: Where to connect to the other SC2 instance.
       race: Race for this agent.
-      feature_screen_size: Sets feature_screen_width and feature_screen_width.
-      feature_screen_width: The width of the feature layer screen observation.
-      feature_screen_height: The height of the feature layer screen observation.
-      feature_minimap_size: Sets feature_minimap_width and
-          feature_minimap_height.
-      feature_minimap_width: The width of the feature layer minimap observation.
-      feature_minimap_height: The height of the feature layer minimap
-          observation.
-      rgb_screen_size: Sets rgb_screen_width and rgb_screen_height.
-      rgb_screen_width: The width of the rgb screen observation.
-      rgb_screen_height: The height of the rgb screen observation.
-      rgb_minimap_size: Sets rgb_minimap_width and rgb_minimap_height.
-      rgb_minimap_width: The width of the rgb minimap observation.
-      rgb_minimap_height: The height of the rgb minimap observation.
-      action_space: If you pass both feature and rgb sizes, then you must also
-          specify which you want to use for your actions as an ActionSpace enum.
-      camera_width_world_units: The width of your screen in world units. If your
-          feature_screen=(64, 48) and camera_width is 24, then each px
-          represents 24 / 64 = 0.375 world units in each of x and y. It'll then
-          represent a camera of size (24, 0.375 * 48) = (24, 18) world units.
+      agent_interface_format: AgentInterfaceFormat object describing the
+          format of communication between the agent and the environment.
       discount: Returned as part of the observation.
       visualize: Whether to pop up a window showing the camera and feature
           layers. This won't work without access to a window manager.
       step_mul: How many game steps per agent step (action/observation). None
           means use the map default.
       replay_dir: Directory to save a replay.
-      use_feature_units: Whether to include feature unit data in observations.
 
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
@@ -126,6 +93,9 @@ class RemoteSC2Env(sc2_env.SC2Env):
     """
     if _only_use_kwargs:
       raise ValueError("All arguments must be passed as keyword arguments.")
+
+    if agent_interface_format is None:
+      raise ValueError("Please specify agent_interface_format.")
 
     if not race:
       race = sc2_env.Race.random
@@ -147,15 +117,11 @@ class RemoteSC2Env(sc2_env.SC2Env):
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
 
     interface = self._get_interface(
-        feature_screen_size, feature_screen_width, feature_screen_height,
-        feature_minimap_size, feature_minimap_width, feature_minimap_height,
-        rgb_screen_size, rgb_screen_width, rgb_screen_height, rgb_minimap_size,
-        rgb_minimap_width, rgb_minimap_height, action_space,
-        camera_width_world_units, use_feature_units, visualize)
+        agent_interface_format=agent_interface_format, require_raw=visualize)
 
     self._connect_remote(host, host_port, lan_port, race, map_inst, interface)
 
-    self._finalize(interface, action_space, use_feature_units, visualize)
+    self._finalize([agent_interface_format], [interface], visualize)
 
   def _connect_remote(self, host, host_port, lan_port, race, map_inst,
                       interface):

@@ -22,6 +22,7 @@ import copy
 import pickle
 
 from absl.testing import absltest
+from absl.testing import parameterized
 from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy
 import six
@@ -52,6 +53,10 @@ game_loop: 20
 """
 
 
+RECTANGULAR_DIMENSIONS = features.Dimensions(screen=(84, 80), minimap=(64, 67))
+SQUARE_DIMENSIONS = features.Dimensions(screen=84, minimap=64)
+
+
 class AvailableActionsTest(absltest.TestCase):
 
   always_expected = {
@@ -62,9 +67,12 @@ class AvailableActionsTest(absltest.TestCase):
   def setUp(self):
     super(AvailableActionsTest, self).setUp()
     self.obs = text_format.Parse(observation_text_proto, sc_pb.Observation())
-    self.features = features.Features(
-        feature_screen_width=84, feature_screen_height=80,
-        feature_minimap_width=64, feature_minimap_height=67)
+    self.hideSpecificActions(True)
+
+  def hideSpecificActions(self, hide_specific_actions):  # pylint: disable=invalid-name
+    self.features = features.Features(features.AgentInterfaceFormat(
+        feature_dimensions=RECTANGULAR_DIMENSIONS,
+        hide_specific_actions=hide_specific_actions))
 
   def assertAvail(self, expected):
     actual = self.features.available_actions(self.obs)
@@ -113,13 +121,13 @@ class AvailableActionsTest(absltest.TestCase):
   def testScreenQuick(self):
     a = self.obs.abilities.add(ability_id=421)
 
-    self.features._hide_specific_actions = True
+    self.hideSpecificActions(True)
     a.requires_point = False
     self.assertAvail(["Build_TechLab_quick"])
     a.requires_point = True
     self.assertAvail(["Build_TechLab_screen"])
 
-    self.features._hide_specific_actions = False
+    self.hideSpecificActions(False)
     a.requires_point = False
     self.assertAvail(["Build_TechLab_Barracks_quick", "Build_TechLab_quick"])
     a.requires_point = True
@@ -127,23 +135,23 @@ class AvailableActionsTest(absltest.TestCase):
 
   def testGeneral(self):
     self.obs.abilities.add(ability_id=1374)
-    self.features._hide_specific_actions = False
+    self.hideSpecificActions(False)
     self.assertAvail(["BurrowDown_quick", "BurrowDown_Baneling_quick"])
-    self.features._hide_specific_actions = True
+    self.hideSpecificActions(True)
     self.assertAvail(["BurrowDown_quick"])
 
   def testGeneralType(self):
     a = self.obs.abilities.add(ability_id=1376)
-    self.features._hide_specific_actions = False
+    self.hideSpecificActions(False)
     self.assertAvail(["BurrowUp_quick", "BurrowUp_Baneling_quick",
                       "BurrowUp_autocast", "BurrowUp_Baneling_autocast"])
-    self.features._hide_specific_actions = True
+    self.hideSpecificActions(True)
     self.assertAvail(["BurrowUp_quick", "BurrowUp_autocast"])
 
     a.ability_id = 2110
-    self.features._hide_specific_actions = False
+    self.hideSpecificActions(False)
     self.assertAvail(["BurrowUp_quick", "BurrowUp_Lurker_quick"])
-    self.features._hide_specific_actions = True
+    self.hideSpecificActions(True)
     self.assertAvail(["BurrowUp_quick"])
 
   def testMany(self):
@@ -160,7 +168,7 @@ class AvailableActionsTest(absltest.TestCase):
     ]
     for a, r in add:
       self.obs.abilities.add(ability_id=a, requires_point=r)
-    self.features._hide_specific_actions = False
+    self.hideSpecificActions(False)
     self.assertAvail([
         "Attack_Attack_minimap",
         "Attack_Attack_screen",
@@ -182,7 +190,7 @@ class AvailableActionsTest(absltest.TestCase):
         "Stop_quick",
         "Stop_Stop_quick"
     ])
-    self.features._hide_specific_actions = True
+    self.hideSpecificActions(True)
     self.assertAvail([
         "Attack_minimap",
         "Attack_screen",
@@ -200,6 +208,179 @@ class AvailableActionsTest(absltest.TestCase):
     ])
 
 
+class ToPointTest(absltest.TestCase):
+
+  def testIntAsString(self):
+    value = features._to_point("32")
+    self.assertEqual(value, point.Point(32, 32))
+
+  def testIntStringTwoTuple(self):
+    value = features._to_point(("32", 64))
+    self.assertEqual(value, point.Point(32, 64))
+
+  def testNoneInputReturnsNoneOutput(self):
+    with self.assertRaises(AssertionError):
+      features._to_point(None)
+
+  def testNoneAsFirstElementOfTupleRaises(self):
+    with self.assertRaises(TypeError):
+      features._to_point((None, 32))
+
+  def testNoneAsSecondElementOfTupleRaises(self):
+    with self.assertRaises(TypeError):
+      features._to_point((32, None))
+
+  def testSingletonTupleRaises(self):
+    with self.assertRaises(ValueError):
+      features._to_point((32,))
+
+  def testThreeTupleRaises(self):
+    with self.assertRaises(ValueError):
+      features._to_point((32, 32, 32))
+
+
+class DimensionsTest(absltest.TestCase):
+
+  def testScreenSizeWithoutMinimapRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(screen=84)
+
+  def testScreenWidthWithoutHeightRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(screen=(84, 0), minimap=64)
+
+  def testScreenWidthHeightWithoutMinimapRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(screen=(84, 80))
+
+  def testMinimapWidthAndHeightWithoutScreenRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(minimap=(64, 67))
+
+  def testScreenSmallerThanMinimapRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(screen=84, minimap=100)
+
+  def testNoneNoneRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(screen=None, minimap=None)
+
+  def testSingularZeroesRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(screen=0, minimap=0)
+
+  def testTwoZeroesRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(screen=(0, 0), minimap=(0, 0))
+
+  def testThreeTupleScreenRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(screen=(1, 2, 3), minimap=32)
+
+  def testThreeTupleMinimapRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(screen=64, minimap=(1, 2, 3))
+
+  def testNegativeScreenRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(screen=-64, minimap=32)
+
+  def testNegativeMinimapRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(screen=64, minimap=-32)
+
+  def testNegativeScreenTupleRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(screen=(-64, -64), minimap=32)
+
+  def testNegativeMinimapTupleRaises(self):
+    with self.assertRaises(ValueError):
+      features.Dimensions(screen=64, minimap=(-32, -32))
+
+
+class TestParseAgentInterfaceFormat(parameterized.TestCase):
+
+  def test_no_arguments_raises(self):
+    with self.assertRaises(ValueError):
+      features.parse_agent_interface_format()
+
+  @parameterized.parameters((32, None), (None, 32))
+  def test_invalid_feature_combinations_raise(self, screen, minimap):
+    with self.assertRaises(ValueError):
+      features.parse_agent_interface_format(
+          feature_screen=screen,
+          feature_minimap=minimap)
+
+  def test_valid_feature_specification_is_parsed(self):
+    agent_interface_format = features.parse_agent_interface_format(
+        feature_screen=32,
+        feature_minimap=(24, 24))
+
+    self.assertEqual(
+        agent_interface_format.feature_dimensions.screen,
+        point.Point(32, 32))
+
+    self.assertEqual(
+        agent_interface_format.feature_dimensions.minimap,
+        point.Point(24, 24))
+
+  @parameterized.parameters((32, None), (None, 32))
+  def test_invalid_minimap_combinations_raise(self, screen, minimap):
+    with self.assertRaises(ValueError):
+      features.parse_agent_interface_format(
+          rgb_screen=screen,
+          rgb_minimap=minimap)
+
+  def test_valid_minimap_specification_is_parsed(self):
+    agent_interface_format = features.parse_agent_interface_format(
+        rgb_screen=32,
+        rgb_minimap=(24, 24))
+
+    self.assertEqual(
+        agent_interface_format.rgb_dimensions.screen,
+        point.Point(32, 32))
+
+    self.assertEqual(
+        agent_interface_format.rgb_dimensions.minimap,
+        point.Point(24, 24))
+
+  def test_invalid_action_space_raises(self):
+    with self.assertRaises(KeyError):
+      features.parse_agent_interface_format(
+          feature_screen=64,
+          feature_minimap=64,
+          action_space="UNKNOWN_ACTION_SPACE")
+
+  @parameterized.parameters(actions.ActionSpace.__members__.keys())
+  def test_valid_action_space_is_parsed(self, action_space):
+    agent_interface_format = features.parse_agent_interface_format(
+        feature_screen=32,
+        feature_minimap=(24, 24),
+        rgb_screen=64,
+        rgb_minimap=(48, 48),
+        action_space=action_space)
+
+    self.assertEqual(
+        agent_interface_format.action_space,
+        actions.ActionSpace[action_space])
+
+  def test_camera_width_world_units_are_parsed(self):
+    agent_interface_format = features.parse_agent_interface_format(
+        feature_screen=32,
+        feature_minimap=(24, 24),
+        camera_width_world_units=77)
+
+    self.assertEqual(agent_interface_format.camera_width_world_units, 77)
+
+  def test_use_feature_units_is_parsed(self):
+    agent_interface_format = features.parse_agent_interface_format(
+        feature_screen=32,
+        feature_minimap=(24, 24),
+        use_feature_units=True)
+
+    self.assertEqual(agent_interface_format.use_feature_units, True)
+
+
 class FeaturesTest(absltest.TestCase):
 
   def testFunctionsIdsAreConsistent(self):
@@ -212,9 +393,8 @@ class FeaturesTest(absltest.TestCase):
                        "Multiple generals for %s" % ability_id)
 
   def testValidFunctionsAreConsistent(self):
-    feats = features.Features(
-        feature_screen_width=84, feature_screen_height=80,
-        feature_minimap_width=64, feature_minimap_height=67)
+    feats = features.Features(features.AgentInterfaceFormat(
+        feature_dimensions=RECTANGULAR_DIMENSIONS))
 
     valid_funcs = feats.action_spec()
     for func_def in valid_funcs.functions:
@@ -229,9 +409,8 @@ class FeaturesTest(absltest.TestCase):
     return actions.FunctionCall(func_id, args)
 
   def testIdsMatchIndex(self):
-    feats = features.Features(
-        feature_screen_width=84, feature_screen_height=80,
-        feature_minimap_width=64, feature_minimap_height=67)
+    feats = features.Features(features.AgentInterfaceFormat(
+        feature_dimensions=RECTANGULAR_DIMENSIONS))
     action_spec = feats.action_spec()
     for func_index, func_def in enumerate(action_spec.functions):
       self.assertEqual(func_index, func_def.id)
@@ -239,10 +418,9 @@ class FeaturesTest(absltest.TestCase):
       self.assertEqual(type_index, type_def.id)
 
   def testReversingUnknownAction(self):
-    feats = features.Features(
-        feature_screen_width=84, feature_screen_height=80,
-        feature_minimap_width=64, feature_minimap_height=67,
-        hide_specific_actions=False)
+    feats = features.Features(features.AgentInterfaceFormat(
+        feature_dimensions=RECTANGULAR_DIMENSIONS,
+        hide_specific_actions=False))
     sc2_action = sc_pb.Action()
     sc2_action.action_feature_layer.unit_command.ability_id = 6  # Cheer
     func_call = feats.reverse_action(sc2_action)
@@ -250,10 +428,9 @@ class FeaturesTest(absltest.TestCase):
 
   def testSpecificActionsAreReversible(self):
     """Test that the `transform_action` and `reverse_action` are inverses."""
-    feats = features.Features(
-        feature_screen_width=84, feature_screen_height=80,
-        feature_minimap_width=64, feature_minimap_height=67,
-        hide_specific_actions=False)
+    feats = features.Features(features.AgentInterfaceFormat(
+        feature_dimensions=RECTANGULAR_DIMENSIONS,
+        hide_specific_actions=False))
     action_spec = feats.action_spec()
 
     for func_def in action_spec.functions:
@@ -282,8 +459,8 @@ class FeaturesTest(absltest.TestCase):
         self.assertEqual(sc2_action, sc2_action2)
 
   def testCanPickleSpecs(self):
-    feats = features.Features(feature_screen_size=84, feature_minimap_size=64)
-
+    feats = features.Features(features.AgentInterfaceFormat(
+        feature_dimensions=SQUARE_DIMENSIONS))
     action_spec = feats.action_spec()
     observation_spec = feats.observation_spec()
 
@@ -303,94 +480,69 @@ class FeaturesTest(absltest.TestCase):
     self.assertEqual(dtypes, copy.deepcopy(dtypes))
 
   def testSizeConstructors(self):
-    feats = features.Features(feature_screen_size=84, feature_minimap_size=64)
+    feats = features.Features(features.AgentInterfaceFormat(
+        feature_dimensions=SQUARE_DIMENSIONS))
     spec = feats.action_spec()
     self.assertEqual(spec.types.screen.sizes, (84, 84))
     self.assertEqual(spec.types.screen2.sizes, (84, 84))
     self.assertEqual(spec.types.minimap.sizes, (64, 64))
 
-    feats = features.Features(
-        feature_screen_width=84, feature_screen_height=80,
-        feature_minimap_width=64, feature_minimap_height=67)
+    feats = features.Features(features.AgentInterfaceFormat(
+        feature_dimensions=RECTANGULAR_DIMENSIONS))
     spec = feats.action_spec()
     self.assertEqual(spec.types.screen.sizes, (84, 80))
     self.assertEqual(spec.types.screen2.sizes, (84, 80))
     self.assertEqual(spec.types.minimap.sizes, (64, 67))
 
-    feats = features.Features(
-        rgb_screen_width=84, rgb_screen_height=80,
-        rgb_minimap_width=64, rgb_minimap_height=67)
+    feats = features.Features(features.AgentInterfaceFormat(
+        feature_dimensions=RECTANGULAR_DIMENSIONS))
     spec = feats.action_spec()
     self.assertEqual(spec.types.screen.sizes, (84, 80))
     self.assertEqual(spec.types.screen2.sizes, (84, 80))
     self.assertEqual(spec.types.minimap.sizes, (64, 67))
 
-    # Missing resolutions
+    # Missing one or the other of game_info and dimensions.
     with self.assertRaises(ValueError):
       features.Features()
-    with self.assertRaises(ValueError):
-      features.Features(feature_screen_size=84)
-    with self.assertRaises(ValueError):
-      features.Features(feature_screen_width=84)
-    with self.assertRaises(ValueError):
-      features.Features(feature_screen_size=84, feature_screen_height=80)
-    with self.assertRaises(ValueError):
-      features.Features(feature_screen_width=84, feature_screen_height=80)
-    with self.assertRaises(ValueError):
-      features.Features(feature_minimap_width=64, feature_minimap_height=67)
-    with self.assertRaises(ValueError):
-      features.Features(rgb_screen_width=84, rgb_screen_height=80)
-    with self.assertRaises(ValueError):
-      features.Features(rgb_minimap_width=64, rgb_minimap_height=67)
-    with self.assertRaises(ValueError):
-      features.Features(feature_screen_width=84, feature_screen_height=80,
-                        rgb_minimap_width=64, rgb_minimap_height=67)
 
     # Resolution/action space mismatch.
     with self.assertRaises(ValueError):
-      features.Features(feature_screen_width=84, feature_screen_height=80,
-                        feature_minimap_width=64, feature_minimap_height=67,
-                        action_space=actions.ActionSpace.RGB)
+      features.Features(features.AgentInterfaceFormat(
+          feature_dimensions=RECTANGULAR_DIMENSIONS,
+          action_space=actions.ActionSpace.RGB))
     with self.assertRaises(ValueError):
-      features.Features(rgb_screen_width=84, rgb_screen_height=80,
-                        rgb_minimap_width=64, rgb_minimap_height=67,
-                        action_space=actions.ActionSpace.FEATURES)
+      features.Features(features.AgentInterfaceFormat(
+          rgb_dimensions=RECTANGULAR_DIMENSIONS,
+          action_space=actions.ActionSpace.FEATURES))
     with self.assertRaises(ValueError):
-      features.Features(feature_screen_width=84, feature_screen_height=80,
-                        feature_minimap_width=64, feature_minimap_height=67,
-                        rgb_screen_width=84, rgb_screen_height=80,
-                        rgb_minimap_width=64, rgb_minimap_height=67)
+      features.Features(features.AgentInterfaceFormat(
+          feature_dimensions=RECTANGULAR_DIMENSIONS,
+          rgb_dimensions=RECTANGULAR_DIMENSIONS))
 
   def testFlRgbActionSpec(self):
-    feats = features.Features(
-        feature_screen_width=84, feature_screen_height=80,
-        feature_minimap_width=64, feature_minimap_height=67,
-        rgb_screen_width=128, rgb_screen_height=132,
-        rgb_minimap_width=74, rgb_minimap_height=77,
-        action_space=actions.ActionSpace.FEATURES)
+    feats = features.Features(features.AgentInterfaceFormat(
+        feature_dimensions=RECTANGULAR_DIMENSIONS,
+        rgb_dimensions=features.Dimensions(screen=(128, 132), minimap=(74, 77)),
+        action_space=actions.ActionSpace.FEATURES))
     spec = feats.action_spec()
     self.assertEqual(spec.types.screen.sizes, (84, 80))
     self.assertEqual(spec.types.screen2.sizes, (84, 80))
     self.assertEqual(spec.types.minimap.sizes, (64, 67))
 
-    feats = features.Features(
-        feature_screen_width=84, feature_screen_height=80,
-        feature_minimap_width=64, feature_minimap_height=67,
-        rgb_screen_width=128, rgb_screen_height=132,
-        rgb_minimap_width=74, rgb_minimap_height=77,
-        action_space=actions.ActionSpace.RGB)
+    feats = features.Features(features.AgentInterfaceFormat(
+        feature_dimensions=RECTANGULAR_DIMENSIONS,
+        rgb_dimensions=features.Dimensions(screen=(128, 132), minimap=(74, 77)),
+        action_space=actions.ActionSpace.RGB))
     spec = feats.action_spec()
     self.assertEqual(spec.types.screen.sizes, (128, 132))
     self.assertEqual(spec.types.screen2.sizes, (128, 132))
     self.assertEqual(spec.types.minimap.sizes, (74, 77))
 
   def testFlRgbObservationSpec(self):
-    feats = features.Features(
-        feature_screen_width=84, feature_screen_height=80,
-        feature_minimap_width=64, feature_minimap_height=67,
-        rgb_screen_width=128, rgb_screen_height=132,
-        rgb_minimap_width=74, rgb_minimap_height=77,
-        action_space=actions.ActionSpace.FEATURES)
+    feats = features.Features(features.AgentInterfaceFormat(
+        feature_dimensions=RECTANGULAR_DIMENSIONS,
+        rgb_dimensions=features.Dimensions(screen=(128, 132), minimap=(74, 77)),
+        action_space=actions.ActionSpace.FEATURES))
     obs_spec = feats.observation_spec()
     self.assertEqual(obs_spec["feature_screen"], (17, 80, 84))
     self.assertEqual(obs_spec["feature_minimap"], (7, 67, 64))

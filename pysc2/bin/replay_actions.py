@@ -246,7 +246,7 @@ class ReplayProcessor(multiprocessing.Process):
         options=interface,
         observed_player_id=player_id))
 
-    feat = features.Features(controller.game_info())
+    feat = features.features_from_game_info(controller.game_info())
 
     self.stats.replay_stats.replays += 1
     self._update_stage("step")

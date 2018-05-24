@@ -96,13 +96,13 @@ def agent():
       lan_port=FLAGS.lan_port,
       race=sc2_env.Race[FLAGS.agent_race],
       step_mul=FLAGS.step_mul,
-      feature_screen_size=FLAGS.feature_screen_size,
-      feature_minimap_size=FLAGS.feature_minimap_size,
-      rgb_screen_size=FLAGS.rgb_screen_size,
-      rgb_minimap_size=FLAGS.rgb_minimap_size,
-      action_space=(FLAGS.action_space and
-                    sc2_env.ActionSpace[FLAGS.action_space]),
-      use_feature_units=FLAGS.use_feature_units,
+      agent_interface_format=sc2_env.parse_agent_interface_format(
+          feature_screen=FLAGS.feature_screen_size,
+          feature_minimap=FLAGS.feature_minimap_size,
+          rgb_screen=FLAGS.rgb_screen_size,
+          rgb_minimap=FLAGS.rgb_minimap_size,
+          action_space=FLAGS.action_space,
+          use_feature_units=FLAGS.use_feature_units),
       visualize=FLAGS.render) as env:
     agents = [agent_cls()]
     logging.info("Connected, starting run_loop.")

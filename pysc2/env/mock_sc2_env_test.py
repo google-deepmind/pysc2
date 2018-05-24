@@ -27,13 +27,6 @@ from pysc2.env import mock_sc2_env
 from pysc2.lib import features
 
 
-def _make_observation(env, value):
-  observation = {}
-  for key, shape in env.observation_spec():
-    observation[key] = np.full(shape, value, dtype=np.int32)
-  return observation
-
-
 class _TestMixin(object):
 
   def assert_spec(self, array, shape, dtype):
@@ -44,39 +37,41 @@ class _TestMixin(object):
     np.testing.assert_equal(actual, expected)
 
   def assert_reset(self, env):
-    expected = env.next_timestep._replace(
+    expected = env.next_timestep[0]._replace(
         step_type=environment.StepType.FIRST, reward=0, discount=1)
     timestep = env.reset()
     self.assert_equal(timestep, [expected])
 
   def assert_first_step(self, env):
-    expected = env.next_timestep._replace(
+    expected = env.next_timestep[0]._replace(
         step_type=environment.StepType.FIRST, reward=0, discount=1)
     timestep = env.step([mock.sentinel.action])
     self.assert_equal(timestep, [expected])
 
   def assert_mid_step(self, env):
-    expected = env.next_timestep._replace(step_type=environment.StepType.MID)
+    expected = env.next_timestep[0]._replace(
+        step_type=environment.StepType.MID)
     timestep = env.step([mock.sentinel.action])
     self.assert_equal(timestep, [expected])
 
   def assert_last_step(self, env):
-    expected = env.next_timestep._replace(step_type=environment.StepType.LAST)
+    expected = env.next_timestep[0]._replace(
+        step_type=environment.StepType.LAST)
     timestep = env.step([mock.sentinel.action])
     self.assert_equal(timestep, [expected])
 
   def _test_episode(self, env):
-    env.next_timestep = env.next_timestep._replace(
-        step_type=environment.StepType.MID)
+    env.next_timestep = [env.next_timestep[0]._replace(
+        step_type=environment.StepType.MID)]
     self.assert_first_step(env)
 
     for step in range(1, 10):
-      env.next_timestep = env.next_timestep._replace(
-          reward=step, discount=step / 10)
+      env.next_timestep = [env.next_timestep[0]._replace(
+          reward=step, discount=step / 10)]
       self.assert_mid_step(env)
 
-    env.next_timestep = env.next_timestep._replace(
-        step_type=environment.StepType.LAST, reward=10, discount=0.1)
+    env.next_timestep = [env.next_timestep[0]._replace(
+        step_type=environment.StepType.LAST, reward=10, discount=0.1)]
     self.assert_last_step(env)
 
   def _test_episode_length(self, env, length):
@@ -96,8 +91,8 @@ class TestTestEnvironment(_TestMixin, absltest.TestCase):
   def setUp(self):
     self._env = mock_sc2_env._TestEnvironment(
         num_agents=1,
-        observation_spec={'mock': [10, 1]},
-        action_spec=mock.sentinel.action_spec)
+        observation_spec=({'mock': [10, 1]},),
+        action_spec=(mock.sentinel.action_spec,))
 
   def test_observation_spec(self):
     self.assertEqual(self._env.observation_spec(), ({'mock': [10, 1]},))
@@ -106,7 +101,8 @@ class TestTestEnvironment(_TestMixin, absltest.TestCase):
     self.assertEqual(self._env.action_spec(), (mock.sentinel.action_spec,))
 
   def test_default_observation(self):
-    observation = self._env._default_observation()
+    observation = self._env._default_observation(
+        self._env.observation_spec()[0], 0)
     self.assert_equal(observation, {'mock': np.zeros([10, 1], dtype=np.int32)})
 
   def test_episode(self):
@@ -128,26 +124,26 @@ class TestSC2TestEnv(_TestMixin, absltest.TestCase):
   def test_episode(self):
     env = mock_sc2_env.SC2TestEnv(
         map_name='nonexistant map',
-        feature_screen_size=64,
-        feature_minimap_size=32)
+        agent_interface_format=features.AgentInterfaceFormat(
+            feature_dimensions=features.Dimensions(screen=64, minimap=32)))
     env.episode_length = float('inf')
     self._test_episode(env)
 
   def test_episode_length(self):
     env = mock_sc2_env.SC2TestEnv(
         map_name='nonexistant map',
-        feature_screen_size=64,
-        feature_minimap_size=32)
+        agent_interface_format=features.AgentInterfaceFormat(
+            feature_dimensions=features.Dimensions(screen=64, minimap=32)))
     self.assertEqual(env.episode_length, 10)
     self._test_episode_length(env, length=10)
 
   def test_screen_minimap_size(self):
     env = mock_sc2_env.SC2TestEnv(
         map_name='nonexistant map',
-        feature_screen_width=84,
-        feature_screen_height=87,
-        feature_minimap_width=64,
-        feature_minimap_height=67)
+        agent_interface_format=features.AgentInterfaceFormat(
+            feature_dimensions=features.Dimensions(
+                screen=(84, 87),
+                minimap=(64, 67))))
     timestep = env.reset()
     self.assertLen(timestep, 1)
     self.assert_spec(timestep[0].observation['feature_screen'],
@@ -158,9 +154,9 @@ class TestSC2TestEnv(_TestMixin, absltest.TestCase):
   def test_feature_units_are_supported(self):
     env = mock_sc2_env.SC2TestEnv(
         map_name='nonexistant map',
-        feature_screen_size=64,
-        feature_minimap_size=32,
-        use_feature_units=True)
+        agent_interface_format=features.AgentInterfaceFormat(
+            feature_dimensions=features.Dimensions(screen=64, minimap=32),
+            use_feature_units=True))
 
     self.assertIn('feature_units', env.observation_spec()[0])
 
