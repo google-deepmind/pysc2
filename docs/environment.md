@@ -1,6 +1,6 @@
 ## Environment table of contents
 
-### Starcraft II
+### [Starcraft II](#StarcraftII) 
 - [What is StarCraft II](#WhatisStarCraftII)
 - [Versions](#Versions)
 - [Game and Action Speed](#GameandActionSpeed)
@@ -38,7 +38,7 @@
 
 
 
-## StarCraft II
+## StarCraft II <a name="StarCraftII"></a>
 
 ### What is StarCraft II <a name="WhatisStarCraftII"></a>
 
