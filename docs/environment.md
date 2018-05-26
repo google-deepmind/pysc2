@@ -1,9 +1,9 @@
 ## Environment table of contents
 
-### [Starcraft II](#StarCraftII) 
-- [What is StarCraft II](#WhatisStarCraftII)
-- [Versions](#Versions)
-- [Game and Action Speed](#GameandActionSpeed)
+### [Starcraft II](#starcraft-ii) 
+- [What is StarCraft II](#what-is-starcraft-ii)
+- [Versions](#versions)
+- [Game and Action Speed](#game-and-action-speed)
   * [Game speed](#GameSpeed)
   * [APM Calculation](#APMCalculation)
   * [APM and fairness](#APMandFairness)
@@ -35,12 +35,12 @@
 - [Environment wrappers](#EnvironmentWrappers)
 ### [Agents](#Agents)
 
+<!-- /TOC -->
 
 
+## StarCraft II 
 
-## StarCraft II <a name="StarCraftII"></a>
-
-### What is StarCraft II <a name="WhatisStarCraftII"></a>
+### What is StarCraft II 
 
 [StarCraft II](https://en.wikipedia.org/wiki/StarCraft_II:_Legacy_of_the_Void)
 is a [Real Time Strategy
@@ -68,14 +68,14 @@ There are many resources online for learning about Starcraft, including
 [Liquipedia](http://liquipedia.net/starcraft2/StarCraft) ,
 [Wikia](http://starcraft.wikia.com/) and [SC2Mapster](https://sc2mapster.gamepedia.com/SC2Mapster_Wiki).
 
-### Versions <a name="Versions"></a>
+### Versions 
 
 Blizzard regularly updates StarCraft II. These updates are roughly monthly, can
 introduce new features, and often have minor gameplay and balance changes to
 make the races more even. Replays are tied to the specific version they were
 generated with.
 
-### Game and Action Speed <a name="GameandActionSpeed"></a>
+### Game and Action Speed 
 
 Being a real-time strategy game means the game runs in real-time. In reality
 though, the simulation updates 16-22 times per second, depending on your [game
