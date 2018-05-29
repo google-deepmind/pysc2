@@ -101,7 +101,7 @@ def main(unused_argv):
   stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
   stopwatch.sw.trace = FLAGS.trace
 
-  maps.get(FLAGS.map)  # Assert the map exists.
+  map_inst = maps.get(FLAGS.map)
 
   agent_classes = []
   players = []
@@ -111,14 +111,15 @@ def main(unused_argv):
   agent_classes.append(agent_cls)
   players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent_race]))
 
-  if FLAGS.agent2 == "Bot":
-    players.append(sc2_env.Bot(sc2_env.Race[FLAGS.agent2_race],
-                               sc2_env.Difficulty[FLAGS.difficulty]))
-  else:
-    agent_module, agent_name = FLAGS.agent2.rsplit(".", 1)
-    agent_cls = getattr(importlib.import_module(agent_module), agent_name)
-    agent_classes.append(agent_cls)
-    players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent2_race]))
+  if map_inst.players >= 2:
+    if FLAGS.agent2 == "Bot":
+      players.append(sc2_env.Bot(sc2_env.Race[FLAGS.agent2_race],
+                                 sc2_env.Difficulty[FLAGS.difficulty]))
+    else:
+      agent_module, agent_name = FLAGS.agent2.rsplit(".", 1)
+      agent_cls = getattr(importlib.import_module(agent_module), agent_name)
+      agent_classes.append(agent_cls)
+      players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent2_race]))
 
   threads = []
   for _ in range(FLAGS.parallel - 1):
