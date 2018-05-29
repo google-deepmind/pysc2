@@ -360,10 +360,11 @@ class SC2Env(environment.Base):
                        for _ in range(self._num_agents)]
     self._controllers = [p.controller for p in self._sc2_procs]
 
-    # Save the maps so they can access it.
-    self._parallel.run(
-        (c.save_map, map_inst.path, map_inst.data(self._run_config))
-        for c in self._controllers)
+    # Save the maps so they can access it. Don't do it in parallel since SC2
+    # doesn't respect tmpdir on windows, which leads to a race condition:
+    # https://github.com/Blizzard/s2client-proto/issues/102
+    for c in self._controllers:
+      c.save_map(map_inst.path, map_inst.data(self._run_config))
 
     # Create the game. Set the first instance as the host.
     create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
