@@ -33,7 +33,7 @@
     + [General vs Specific actions](#general-vs-specific-actions)
     + [Example usage](#example-usage)
     
-### [RL Environment](#rl-environment)
+[RL Environment](#rl-environment)
 - [Environment wrappers](#environment-wrappers)
 
 ### [Agents](#agents)
