@@ -1,3 +1,46 @@
+## Environment table of contents
+
+[Starcraft II](#starcraft-ii) 
+- [What is StarCraft II](#what-is-starcraft-ii)
+- [Versions](#versions)
+- [Game and Action Speed](#game-and-action-speed)
+  * [Game speed](#game-speed)
+  * [APM Calculation](#apm-calculation)
+  * [APM and fairness](#apm-and-fairness)
+- [Determinism and Randomness](#determinism-and-randomness)
+
+[Actions and Observations](#actions-and-observations)
+- [Observation](#observation)
+  * [Spatial/Visual](#spatialvisual)
+    + [RGB Pixels](#rgb-pixels)
+    + [Feature layers](#feature-layers)
+  	* [Minimap](#minimap)
+	* [Screen](#screen)
+  * [Structured](#structured)
+    + [General player information](#general-player-information)
+    + [Control groups](#control-groups)
+    + [Single Select](#single-select)
+    + [Multi Select](#multi-select)
+    + [Cargo](#cargo)
+    + [BuildQueue](#build-queue)
+    + [AvailableActions](#available-actions)
+    + [LastActions](#last-actions)
+    + [ActionsResult](#action-result)
+    + [Alerts](#alerts)
+- [Actions](#actions)
+    + [List of actions](#list-of-actions)
+    + [Action categories](#action-categories)
+    + [General vs Specific actions](#general-vs-specific-actions)
+    + [Example usage](#example-usage)
+    
+[RL Environment](#rl-environment)
+- [Environment wrappers](#environment-wrappers)
+
+[Agents](#agents)
+
+<!-- /TOC -->
+
+
 ## StarCraft II
 
 ### What is StarCraft II
@@ -25,8 +68,9 @@ fairly weak and predictable, and the stronger ones cheat.
 
 There are many resources online for learning about Starcraft, including
 [Battle.net](http://battle.net/sc2/en/),
-[Liquipedia](http://liquipedia.net/starcraft2/StarCraft) and
-[Wikia](http://starcraft.wikia.com/).
+[Liquipedia](http://liquipedia.net/starcraft2/StarCraft),
+[Wikia](http://starcraft.wikia.com/)
+and [SC2Mapster](https://sc2mapster.gamepedia.com/SC2Mapster_Wiki).
 
 ### Versions
 
@@ -526,4 +570,4 @@ There is one pre-made environment wrapper:
 There are a couple basic agents.
 
 *   `random_agent`: Just plays randomly, shows how to make valid moves.
-*   `scripted_agent`: These are scripted for a single easy map.
+*   `scripted_agent`: These are scripted for a single mini game.
