@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""A Starcraft II environment."""
+"""A Starcraft II environment for playing using remote SC2 instances."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -87,8 +87,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
       replay_dir: Directory to save a replay.
 
     Raises:
-      ValueError: if the agent_race, bot_race or difficulty are invalid.
-      ValueError: if too many players are requested for a map.
+      ValueError: if the race is invalid.
       ValueError: if the resolutions aren't specified correctly.
     """
     if _only_use_kwargs:
@@ -125,7 +124,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
 
   def _connect_remote(self, host, host_port, lan_port, race, map_inst,
                       interface):
-    """Make sure this stays synced with bin/play_vs_agent.py."""
+    """Make sure this stays synced with bin/agent_remote.py."""
     # Connect!
     logging.info("Connecting...")
     self._controllers = [remote_controller.RemoteController(host, host_port)]
