@@ -101,6 +101,13 @@ PySC2 should work on MacOS and Windows systems running Python 2.7+ or 3.4+,
 but has only been thoroughly tested on Linux. We welcome suggestions and patches
 for better compatibility with other systems.
 
+Installation
+https://www.anaconda.com/download/
+
+```shell
+$ pip install pysc2
+```
+
 ## Get the maps
 
 PySC2 has many maps pre-configured, but they need to be downloaded into the SC2
