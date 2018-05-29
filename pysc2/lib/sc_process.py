@@ -58,20 +58,20 @@ class StarcraftProcess(object):
     """Launch the SC2 process.
 
     Args:
-      run_config: A `run_configs.lib.RunConfig` object.
-      exec_path: The path to the binary to run.
-      version: A `run_configs.lib.Version` object.
+      run_config: `run_configs.lib.RunConfig` object.
+      exec_path: Path to the binary to run.
+      version: `run_configs.lib.Version` object.
       full_screen: Whether to launch the game window full_screen on win/mac.
-      extra_args: A list of additional args for the SC2 process.
+      extra_args: List of additional args for the SC2 process.
       verbose: Whether to have the SC2 process do verbose logging.
-      host: Which ip for the game to listen on for its websocket. This is
+      host: IP for the game to listen on for its websocket. This is
           usually "127.0.0.1", or "::1", but could be others as well.
       port: Port SC2 should listen on for the websocket.
       connect: Whether to create a RemoteController to connect.
-      timeout_seconds: The timeout for the remote controller.
-      window_size: If not full screen, how big should the window be?
-      window_loc: If not full screen, where should the window be?
-      **kwargs: Anything extra for _launch, which is useful for subclasses.
+      timeout_seconds: Timeout for the remote controller.
+      window_size: Screen size if not full screen.
+      window_loc: Screen location if not full screen.
+      **kwargs: Extra arguments for _launch (useful for subclasses).
     """
     self._proc = None
     self._controller = None
