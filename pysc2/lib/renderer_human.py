@@ -148,19 +148,20 @@ class _Surface(object):
     with sw("draw"):
       pygame.transform.scale(raw_surface, self.surf.get_size(), self.surf)
 
-  def write_screen(self, font, color, screen_pos, text):
+  def write_screen(self, font, color, screen_pos, text, align="left",
+                   valign="top"):
     """Write to the screen in font.size relative coordinates."""
     pos = point.Point(*screen_pos) * point.Point(0.75, 1) * font.get_linesize()
-    text_surf = font.render(text, True, color)
+    text_surf = font.render(str(text), True, color)
     rect = text_surf.get_rect()
     if pos.x >= 0:
-      rect.left = pos.x
+      setattr(rect, align, pos.x)
     else:
-      rect.right = self.surf.get_width() + pos.x
+      setattr(rect, align, self.surf.get_width() + pos.x)
     if pos.y >= 0:
-      rect.top = pos.y
+      setattr(rect, valign, pos.y)
     else:
-      rect.bottom = self.surf.get_height() + pos.y
+      setattr(rect, valign, self.surf.get_height() + pos.y)
     self.surf.blit(text_surf, rect)
 
 
@@ -937,12 +938,14 @@ class RendererHuman(object):
         self._font_large, colors.green, (-0.2, 0.2),
         "Score: %s, Step: %s, %.1f/s, Time: %d:%02d" % (
             obs.score.score, obs.game_loop, sum(steps) / (sum(times) or 1),
-            sec // 60, sec % 60))
+            sec // 60, sec % 60),
+        align="right")
     surf.write_screen(
         self._font_large, colors.green * 0.8, (-0.2, 1.2),
         "FPS: O:%.1f, R:%.1f" % (
             len(times) / (sum(times) or 1),
-            len(self._render_times) / (sum(self._render_times) or 1)))
+            len(self._render_times) / (sum(self._render_times) or 1)),
+        align="right")
     line = 3
     for alert, ts in sorted(self._alerts.items(), key=lambda item: item[1]):
       if time.time() < ts + 3:  # Show for 3 seconds.
@@ -985,6 +988,56 @@ class RendererHuman(object):
       hotkey = cmd.hotkey[0:3]  # truncate "escape" -> "esc"
       surf.write_screen(self._font_large, color, (0.2, y), hotkey)
       surf.write_screen(self._font_large, color, (3, y), name(cmd))
+
+  @sw.decorate
+  def draw_panel(self, surf):
+    """Draw the unit selection or build queue."""
+
+    def write(loc, text):
+      surf.write_screen(self._font_large, colors.yellow, loc, text)
+
+    def write_single(unit, y):
+      write((-10, y + 0), self._static_data.units.get(unit.unit_type,
+                                                      "unknown"))
+      write((-10, y + 1), "Health: %s" % unit.health)
+      write((-10, y + 2), "Shields: %s" % unit.shields)
+      write((-10, y + 3), "Energy: %s" % unit.energy)
+      if unit.build_progress > 0:
+        write((-10, y + 4), "Progress: %s" % unit.build_progress)
+      if unit.transport_slots_taken > 0:
+        write((-10, y + 4), "Slots: %s" % unit.transport_slots_taken)
+
+    def write_multi(units, y):
+      counts = collections.defaultdict(int)
+      for unit in units:
+        name = self._static_data.units.get(unit.unit_type, "<unknown>")
+        counts[name] += 1
+      for i, (name, count) in enumerate(sorted(counts.items())):
+        write((-10, y + i), count)
+        write((-8, y + i), name)
+
+    ui = self._obs.observation.ui_data
+    if ui.HasField("single"):
+      write((-10, 3), "Selection:")
+      write_single(ui.single.unit, 4)
+    elif ui.HasField("multi"):
+      write((-10, 3), "Selection:")
+      write_multi(ui.multi.units, 4)
+    elif ui.HasField("cargo"):
+      write((-10, 3), "Selection:")
+      write_single(ui.cargo.unit, 4)
+      write((-10, 10), "Cargo:")
+      write((-10, 11), "Empty slots: %s" % ui.cargo.slots_available)
+      write_multi(ui.cargo.passengers, 12)
+    elif ui.HasField("production"):
+      write((-10, 3), "Selection:")
+      write_single(ui.production.unit, 4)
+      write((-10, 9), "Build Queue:")
+      for i, unit in enumerate(ui.production.build_queue):
+        parts = [self._static_data.units.get(unit.unit_type, "<unknown>")]
+        if unit.build_progress > 0:
+          parts += [": ", str(int(unit.build_progress * 100)), "%"]
+        write((-10, i + 10), "".join(parts))
 
   @sw.decorate
   def draw_actions(self):
@@ -1155,6 +1208,7 @@ class RendererHuman(object):
     self.draw_build_target(surf)
     self.draw_overlay(surf)
     self.draw_commands(surf)
+    self.draw_panel(surf)
 
   @sw.decorate
   def draw_feature_layer(self, surf, feature):
