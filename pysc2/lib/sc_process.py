@@ -52,8 +52,8 @@ class StarcraftProcess(object):
   """
 
   def __init__(self, run_config, exec_path, version, full_screen=False,
-               extra_args=None, verbose=False, host=None, connect=True,
-               timeout_seconds=None, window_size=(640, 480),
+               extra_args=None, verbose=False, host=None, port=None,
+               connect=True, timeout_seconds=None, window_size=(640, 480),
                window_loc=(50, 50), **kwargs):
     """Launch the SC2 process.
 
@@ -66,6 +66,7 @@ class StarcraftProcess(object):
       verbose: Whether to have the SC2 process do verbose logging.
       host: Which ip for the game to listen on for its websocket. This is
           usually "127.0.0.1", or "::1", but could be others as well.
+      port: Port SC2 should listen on for the websocket.
       connect: Whether to create a RemoteController to connect.
       timeout_seconds: The timeout for the remote controller.
       window_size: If not full screen, how big should the window be?
@@ -77,7 +78,7 @@ class StarcraftProcess(object):
     self._check_exists(exec_path)
     self._tmp_dir = tempfile.mkdtemp(prefix="sc-", dir=run_config.tmp_dir)
     self._host = host or "127.0.0.1"
-    self._port = portpicker.pick_unused_port()
+    self._port = port or portpicker.pick_unused_port()
     self._version = version
 
     args = [
