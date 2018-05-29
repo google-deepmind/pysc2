@@ -187,6 +187,11 @@ class MousePos(collections.namedtuple("MousePos", ["world_pos", "surf"])):
       assert self.surf.surf_type & (SurfType.RGB | SurfType.FEATURE)
 
 
+class PastAction(collections.namedtuple("PastAction", [
+    "ability", "color", "pos", "time", "deadline"])):
+  """Holds a past action for drawing over time."""
+
+
 def _get_desktop_size():
   """Get the desktop size."""
   if os.name == "posix":
@@ -333,6 +338,7 @@ class RendererHuman(object):
     self._queued_hotkey = ""
     self._select_start = None
     self._alerts = {}
+    self._past_actions = []
     self._help = False
 
   @with_lock(render_lock)
@@ -977,12 +983,15 @@ class RendererHuman(object):
     def name(cmd):
       return cmd.friendly_name or cmd.button_name or cmd.link_name
 
+    past_abilities = {act.ability for act in self._past_actions if act.ability}
     for y, cmd in enumerate(sorted(self._abilities(
         lambda c: c.button_name != "Smart"), key=name), start=2):
       if self._queued_action and cmd == self._queued_action:
         color = colors.green
       elif self._queued_hotkey and cmd.hotkey.startswith(self._queued_hotkey):
         color = colors.green * 0.75
+      elif cmd.ability_id in past_abilities:
+        color = colors.red
       else:
         color = colors.yellow
       hotkey = cmd.hotkey[0:3]  # truncate "escape" -> "esc"
@@ -1042,29 +1051,57 @@ class RendererHuman(object):
   @sw.decorate
   def draw_actions(self):
     """Draw the actions so that they can be inspected for accuracy."""
-    for act in self._obs.actions:
+    now = time.time()
+    for act in self._past_actions:
+      if act.pos and now < act.deadline:
+        remain = (act.deadline - now) / (act.deadline - act.time)
+        if isinstance(act.pos, point.Point):
+          size = remain / 3
+          self.all_surfs(_Surface.draw_circle, act.color, act.pos, size, 1)
+        else:
+          # Fade with alpha would be nice, but doesn't seem to work.
+          self.all_surfs(_Surface.draw_rect, act.color, act.pos, 1)
+
+  @sw.decorate
+  def prepare_actions(self, obs):
+    """Keep a list of the past actions so they can be drawn."""
+    now = time.time()
+    while self._past_actions and self._past_actions[0].deadline < now:
+      self._past_actions.pop(0)
+
+    def add_act(ability_id, color, pos, timeout=1):
+      if ability_id:
+        ability = self._static_data.abilities[ability_id]
+        if ability.remaps_to_ability_id:  # Prefer general abilities.
+          ability_id = ability.remaps_to_ability_id
+      self._past_actions.append(
+          PastAction(ability_id, color, pos, now, now + timeout))
+
+    for act in obs.actions:
       if (act.HasField("action_raw") and
           act.action_raw.HasField("unit_command") and
           act.action_raw.unit_command.HasField("target_world_space_pos")):
         pos = point.Point.build(
             act.action_raw.unit_command.target_world_space_pos)
-        self.all_surfs(_Surface.draw_circle, colors.yellow, pos, 0.1)
+        add_act(act.action_raw.unit_command.ability_id, colors.yellow, pos)
       if act.HasField("action_feature_layer"):
         act_fl = act.action_feature_layer
         if act_fl.HasField("unit_command"):
           if act_fl.unit_command.HasField("target_screen_coord"):
             pos = self._world_to_feature_screen_px.back_pt(
                 point.Point.build(act_fl.unit_command.target_screen_coord))
-            self.all_surfs(_Surface.draw_circle, colors.cyan, pos, 0.1)
-          if act_fl.unit_command.HasField("target_minimap_coord"):
+            add_act(act_fl.unit_command.ability_id, colors.cyan, pos)
+          elif act_fl.unit_command.HasField("target_minimap_coord"):
             pos = self._world_to_feature_minimap_px.back_pt(
                 point.Point.build(act_fl.unit_command.target_minimap_coord))
-            self.all_surfs(_Surface.draw_circle, colors.cyan, pos, 0.1)
+            add_act(act_fl.unit_command.ability_id, colors.cyan, pos)
+          else:
+            add_act(act_fl.unit_command.ability_id, None, None)
         if (act_fl.HasField("unit_selection_point") and
             act_fl.unit_selection_point.HasField("selection_screen_coord")):
           pos = self._world_to_feature_screen_px.back_pt(point.Point.build(
               act_fl.unit_selection_point.selection_screen_coord))
-          self.all_surfs(_Surface.draw_circle, colors.cyan, pos, 0.1)
+          add_act(None, colors.cyan, pos)
         if act_fl.HasField("unit_selection_rect"):
           for r in act_fl.unit_selection_rect.selection_screen_coord:
             rect = point.Rect(
@@ -1072,23 +1109,25 @@ class RendererHuman(object):
                     point.Point.build(r.p0)),
                 self._world_to_feature_screen_px.back_pt(
                     point.Point.build(r.p1)))
-            self.all_surfs(_Surface.draw_rect, colors.cyan, rect, 1)
+            add_act(None, colors.cyan, rect, 0.3)
       if act.HasField("action_render"):
         act_rgb = act.action_render
         if act_rgb.HasField("unit_command"):
           if act_rgb.unit_command.HasField("target_screen_coord"):
             pos = self._world_to_rgb_screen_px.back_pt(
                 point.Point.build(act_rgb.unit_command.target_screen_coord))
-            self.all_surfs(_Surface.draw_circle, colors.red, pos, 0.1)
-          if act_rgb.unit_command.HasField("target_minimap_coord"):
+            add_act(act_rgb.unit_command.ability_id, colors.red, pos)
+          elif act_rgb.unit_command.HasField("target_minimap_coord"):
             pos = self._world_to_rgb_minimap_px.back_pt(
                 point.Point.build(act_rgb.unit_command.target_minimap_coord))
-            self.all_surfs(_Surface.draw_circle, colors.red, pos, 0.1)
+            add_act(act_rgb.unit_command.ability_id, colors.red, pos)
+          else:
+            add_act(act_rgb.unit_command.ability_id, None, None)
         if (act_rgb.HasField("unit_selection_point") and
             act_rgb.unit_selection_point.HasField("selection_screen_coord")):
           pos = self._world_to_rgb_screen_px.back_pt(point.Point.build(
               act_rgb.unit_selection_point.selection_screen_coord))
-          self.all_surfs(_Surface.draw_circle, colors.red, pos, 0.1)
+          add_act(None, colors.red, pos)
         if act_rgb.HasField("unit_selection_rect"):
           for r in act_rgb.unit_selection_rect.selection_screen_coord:
             rect = point.Rect(
@@ -1096,7 +1135,7 @@ class RendererHuman(object):
                     point.Point.build(r.p0)),
                 self._world_to_rgb_screen_px.back_pt(
                     point.Point.build(r.p1)))
-            self.all_surfs(_Surface.draw_rect, colors.red, rect, 1)
+            add_act(None, colors.red, rect, 0.3)
 
   @sw.decorate
   def draw_base_map(self, surf):
@@ -1250,6 +1289,7 @@ class RendererHuman(object):
         for err in obs.action_errors:
           if err.result != sc_err.Success:
             self._alerts[sc_err.ActionResult.Name(err.result)] = time.time()
+        self.prepare_actions(obs)
         if self._obs_queue.empty():
           # Only render the latest observation so we keep up with the game.
           self.render_obs(obs)
