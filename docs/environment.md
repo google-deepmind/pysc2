@@ -1,6 +1,6 @@
 ## Environment table of contents
 
-### [Starcraft II](#starcraft-ii) 
+[Starcraft II](#starcraft-ii) 
 - [What is StarCraft II](#what-is-starcraft-ii)
 - [Versions](#versions)
 - [Game and Action Speed](#game-and-action-speed)
@@ -9,7 +9,7 @@
   * [APM and fairness](#apm-and-fairness)
 - [Determinism and Randomness](#determinism-and-randomness)
 
-### [Actions and Observations](#actions-and-observations)
+[Actions and Observations](#actions-and-observations)
 - [Observation](#observation)
   * [Spatial/Visual](#spatialvisual)
     + [RGB Pixels](#rgb-pixels)
@@ -36,7 +36,7 @@
 [RL Environment](#rl-environment)
 - [Environment wrappers](#environment-wrappers)
 
-### [Agents](#agents)
+[Agents](#agents)
 
 <!-- /TOC -->
 
