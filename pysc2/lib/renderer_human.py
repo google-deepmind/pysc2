@@ -46,6 +46,7 @@ from s2clientprotocol import data_pb2 as sc_data
 from s2clientprotocol import error_pb2 as sc_err
 from s2clientprotocol import sc2api_pb2 as sc_pb
 from s2clientprotocol import spatial_pb2 as sc_spatial
+from s2clientprotocol import ui_pb2 as sc_ui
 
 # Disable attribute-error because of the multiple stages of initialization for
 # RendererHuman.
@@ -226,7 +227,23 @@ class RendererHuman(object):
       pygame.K_DOWN: point.Point(0, -3),
   }
 
+  cmd_group_keys = {
+      pygame.K_0: 0,
+      pygame.K_1: 1,
+      pygame.K_2: 2,
+      pygame.K_3: 3,
+      pygame.K_4: 4,
+      pygame.K_5: 5,
+      pygame.K_6: 6,
+      pygame.K_7: 7,
+      pygame.K_8: 8,
+      pygame.K_9: 9,
+  }
+
   shortcuts = [
+      ("F1", "Select idle worker"),
+      ("F2", "Select army"),
+      ("F3", "Select larva (zerg) or warp gates (protoss)"),
       ("F4", "Quit the game"),
       ("F5", "Restart the map"),
       ("F7", "Toggle RGB rendering"),
@@ -661,6 +678,7 @@ class RendererHuman(object):
     for event in pygame.event.get():
       ctrl = pygame.key.get_mods() & pygame.KMOD_CTRL
       shift = pygame.key.get_mods() & pygame.KMOD_SHIFT
+      alt = pygame.key.get_mods() & pygame.KMOD_ALT
       if event.type == pygame.QUIT:
         return ActionCmd.QUIT
       elif event.type == pygame.KEYDOWN:
@@ -708,6 +726,20 @@ class RendererHuman(object):
           else:
             self._fps *= 1.25 if event.key == pygame.K_PAGEUP else 1 / 1.25
             print("New max game speed: %.1f" % self._fps)
+        elif event.key == pygame.K_F1:
+          if self._obs.observation.player_common.idle_worker_count > 0:
+            controller.act(self.select_idle_worker(ctrl, shift))
+        elif event.key == pygame.K_F2:
+          if self._obs.observation.player_common.army_count > 0:
+            controller.act(self.select_army(shift))
+        elif event.key == pygame.K_F3:
+          if self._obs.observation.player_common.warp_gate_count > 0:
+            controller.act(self.select_warp_gates(shift))
+          if self._obs.observation.player_common.larva_count > 0:
+            controller.act(self.select_larva())
+        elif event.key in self.cmd_group_keys:
+          controller.act(self.control_group(self.cmd_group_keys[event.key],
+                                            ctrl, shift, alt))
         elif event.key in self.camera_actions:
           if self._obs:
             controller.act(self.camera_action_raw(
@@ -806,6 +838,56 @@ class RendererHuman(object):
     if units:
       self.clear_queued_action()
 
+    return action
+
+  def select_idle_worker(self, ctrl, shift):
+    """Select an idle worker."""
+    action = sc_pb.Action()
+    mod = sc_ui.ActionSelectIdleWorker
+    if ctrl:
+      select_worker = mod.AddAll if shift else mod.All
+    else:
+      select_worker = mod.Add if shift else mod.Set
+    action.action_ui.select_idle_worker.type = select_worker
+    return action
+
+  def select_army(self, shift):
+    """Select the entire army."""
+    action = sc_pb.Action()
+    action.action_ui.select_army.selection_add = shift
+    return action
+
+  def select_warp_gates(self, shift):
+    """Select all warp gates."""
+    action = sc_pb.Action()
+    action.action_ui.select_warp_gates.selection_add = shift
+    return action
+
+  def select_larva(self):
+    """Select all larva."""
+    action = sc_pb.Action()
+    action.action_ui.select_larva.SetInParent()  # Adds the empty proto field.
+    return action
+
+  def control_group(self, control_group_id, ctrl, shift, alt):
+    """Act on a control group, selecting, setting, etc."""
+    action = sc_pb.Action()
+    select = action.action_ui.control_group
+
+    mod = sc_ui.ActionControlGroup
+    if not ctrl and not shift and not alt:
+      select.action = mod.Recall
+    elif ctrl and not shift and not alt:
+      select.action = mod.Set
+    elif not ctrl and shift and not alt:
+      select.action = mod.Append
+    elif not ctrl and not shift and alt:
+      select.action = mod.SetAndSteal
+    elif not ctrl and shift and alt:
+      select.action = mod.AppendAndSteal
+    else:
+      return  # unknown
+    select.control_group_index = control_group_id
     return action
 
   def unit_action(self, cmd, pos, shift):
@@ -1002,51 +1084,70 @@ class RendererHuman(object):
   def draw_panel(self, surf):
     """Draw the unit selection or build queue."""
 
-    def write(loc, text):
-      surf.write_screen(self._font_large, colors.yellow, loc, text)
+    left = -12  # How far from the right border
 
-    def write_single(unit, y):
-      write((-10, y + 0), self._static_data.units.get(unit.unit_type,
-                                                      "unknown"))
-      write((-10, y + 1), "Health: %s" % unit.health)
-      write((-10, y + 2), "Shields: %s" % unit.shields)
-      write((-10, y + 3), "Energy: %s" % unit.energy)
+    def unit_name(unit_type):
+      return self._static_data.units.get(unit_type, "<unknown>")
+
+    def write(loc, text, color=colors.yellow):
+      surf.write_screen(self._font_large, color, loc, text)
+
+    def write_single(unit, line):
+      write((left + 1, next(line)), unit_name(unit.unit_type))
+      write((left + 1, next(line)), "Health: %s" % unit.health)
+      write((left + 1, next(line)), "Shields: %s" % unit.shields)
+      write((left + 1, next(line)), "Energy: %s" % unit.energy)
       if unit.build_progress > 0:
-        write((-10, y + 4), "Progress: %s" % unit.build_progress)
+        write((left + 1, next(line)),
+              "Progress: %d%%" % (unit.build_progress * 100))
       if unit.transport_slots_taken > 0:
-        write((-10, y + 4), "Slots: %s" % unit.transport_slots_taken)
+        write((left + 1, next(line)), "Slots: %s" % unit.transport_slots_taken)
 
-    def write_multi(units, y):
+    def write_multi(units, line):
       counts = collections.defaultdict(int)
       for unit in units:
-        name = self._static_data.units.get(unit.unit_type, "<unknown>")
-        counts[name] += 1
-      for i, (name, count) in enumerate(sorted(counts.items())):
-        write((-10, y + i), count)
-        write((-8, y + i), name)
+        counts[unit_name(unit.unit_type)] += 1
+      for name, count in sorted(counts.items()):
+        y = next(line)
+        write((left + 1, y), count)
+        write((left + 3, y), name)
 
     ui = self._obs.observation.ui_data
+    line = itertools.count(3)
+
+    if ui.groups:
+      write((left, next(line)), "Control Groups:", colors.green)
+      for group in ui.groups:
+        y = next(line)
+        write((left + 1, y), "%s:" % group.control_group_index, colors.green)
+        write((left + 3, y), "%s %s" % (group.count,
+                                        unit_name(group.leader_unit_type)))
+      next(line)
+
     if ui.HasField("single"):
-      write((-10, 3), "Selection:")
-      write_single(ui.single.unit, 4)
+      write((left, next(line)), "Selection:", colors.green)
+      write_single(ui.single.unit, line)
     elif ui.HasField("multi"):
-      write((-10, 3), "Selection:")
-      write_multi(ui.multi.units, 4)
+      write((left, next(line)), "Selection:", colors.green)
+      write_multi(ui.multi.units, line)
     elif ui.HasField("cargo"):
-      write((-10, 3), "Selection:")
-      write_single(ui.cargo.unit, 4)
-      write((-10, 10), "Cargo:")
-      write((-10, 11), "Empty slots: %s" % ui.cargo.slots_available)
-      write_multi(ui.cargo.passengers, 12)
+      write((left, next(line)), "Selection:", colors.green)
+      write_single(ui.cargo.unit, line)
+      next(line)
+      write((left, next(line)), "Cargo:", colors.green)
+      write((left + 1, next(line)),
+            "Empty slots: %s" % ui.cargo.slots_available)
+      write_multi(ui.cargo.passengers, line)
     elif ui.HasField("production"):
-      write((-10, 3), "Selection:")
-      write_single(ui.production.unit, 4)
-      write((-10, 9), "Build Queue:")
-      for i, unit in enumerate(ui.production.build_queue):
-        parts = [self._static_data.units.get(unit.unit_type, "<unknown>")]
+      write((left, next(line)), "Selection:", colors.green)
+      write_single(ui.production.unit, line)
+      next(line)
+      write((left, next(line)), "Build Queue:", colors.green)
+      for unit in ui.production.build_queue:
+        s = unit_name(unit.unit_type)
         if unit.build_progress > 0:
-          parts += [": ", str(int(unit.build_progress * 100)), "%"]
-        write((-10, i + 10), "".join(parts))
+          s += ": %d%%" % (unit.build_progress * 100)
+        write((left + 1, next(line)), s)
 
   @sw.decorate
   def draw_actions(self):
