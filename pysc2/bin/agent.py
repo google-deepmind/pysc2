@@ -47,6 +47,8 @@ flags.DEFINE_enum("action_space", None, sc2_env.ActionSpace._member_names_,  # p
                   "and rgb observations.")
 flags.DEFINE_bool("use_feature_units", False,
                   "Whether to include feature units.")
+flags.DEFINE_bool("disable_fog", False,
+                  "Whether to disable Fog of War.")
 
 flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
 flags.DEFINE_integer("game_steps_per_episode", None, "Game steps per episode.")
@@ -88,6 +90,7 @@ def run_thread(agent_classes, players, map_name, visualize):
           use_feature_units=FLAGS.use_feature_units),
       step_mul=FLAGS.step_mul,
       game_steps_per_episode=FLAGS.game_steps_per_episode,
+      disable_fog=FLAGS.disable_fog,
       visualize=visualize) as env:
     env = available_actions_printer.AvailableActionsPrinter(env)
     agents = [agent_cls() for agent_cls in agent_classes]
