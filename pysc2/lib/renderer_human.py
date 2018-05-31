@@ -944,7 +944,7 @@ class RendererHuman(object):
             len(times) / (sum(times) or 1),
             len(self._render_times) / (sum(self._render_times) or 1)))
     line = 3
-    for alert, ts in sorted(self._alerts.items(), key=lambda (_, t): t):
+    for alert, ts in sorted(self._alerts.items(), key=lambda t: t[1]):
       if time.time() < ts + 3:  # Show for 3 seconds.
         surf.write_screen(self._font_large, colors.red, (20, line), alert)
         line += 1
