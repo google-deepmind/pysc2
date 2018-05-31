@@ -1,3 +1,42 @@
+## Environment Table of Contents
+
+- [Starcraft II](#starcraft-ii)
+    - [What is StarCraft II](#what-is-starcraft-ii)
+    - [Versions](#versions)
+    - [Game and Action Speed](#game-and-action-speed)
+        - [Game speed](#game-speed)
+        - [APM Calculation](#apm-calculation)
+        - [APM and fairness](#apm-and-fairness)
+    - [Determinism and Randomness](#determinism-and-randomness)
+- [Actions and Observations](#actions-and-observations)
+    - [Observation](#observation)
+        - [Spatial/Visual](#spatialvisual)
+            - [RGB Pixels](#rgb-pixels)
+            - [Feature layers](#feature-layers)
+            - [Minimap](#minimap)
+            - [Screen](#screen)
+        - [Structured](#structured)
+            - [General player information](#general-player-information)
+            - [Control groups](#control-groups)
+            - [Single Select](#single-select)
+            - [Multi Select](#multi-select)
+            - [Cargo](#cargo)
+            - [BuildQueue](#build-queue)
+            - [AvailableActions](#available-actions)
+            - [LastActions](#last-actions)
+            - [ActionsResult](#action-result)
+            - [Alerts](#alerts)
+    - [Actions](#actions)
+        - [List of actions](#list-of-actions)
+        - [Action categories](#action-categories)
+        - [General vs Specific actions](#general-vs-specific-actions)
+        - [Example usage](#example-usage)
+- [RL Environment](#rl-environment)
+    - [Environment wrappers](#environment-wrappers)
+- [Agents](#agents)
+
+<!-- /TOC -->
+
 ## StarCraft II
 
 ### What is StarCraft II
@@ -26,7 +65,8 @@ fairly weak and predictable, and the stronger ones cheat.
 There are many resources online for learning about Starcraft, including
 [Battle.net](http://battle.net/sc2/en/),
 [Liquipedia](http://liquipedia.net/starcraft2/StarCraft) and
-[Wikia](http://starcraft.wikia.com/).
+[Wikia](http://starcraft.wikia.com/). For map making check out
+[SC2Mapster](https://sc2mapster.gamepedia.com/SC2Mapster_Wiki).
 
 ### Versions
 
@@ -493,11 +533,11 @@ one or two players are supported. Give it a list of `sc2_env.Agent` or
 will start up two instances of SC2 which communicate between themselves, and
 consume double the memory and cpu as playing single player.
 
-`feature_screen_size`, `feature_minimap_size`, `rgb_screen_size`,
-`rgb_minimap_size`, and the `_width` and `_height` variants let you specify the
-resolution of the spatial observations. Higher resolution obviously gives higher
-location precision, at the cost of larger observations as well as a larger
-action space, and slower rendering time.
+`agent_interface_format` lets you specify the observation and action interface
+to be used by each agent. `feature_dimensions` and `rgb_dimensions` let you
+specify the resolution of the spatial observations. Higher resolution obviously
+gives higher location precision, at the cost of larger observations as well as a
+larger action space, and slower rendering time.
 
 If you ask for both feature and rgb observations you'll need to specify the
 action space that you want to use. This lets you act in one while learning from
@@ -526,4 +566,4 @@ There is one pre-made environment wrapper:
 There are a couple basic agents.
 
 *   `random_agent`: Just plays randomly, shows how to make valid moves.
-*   `scripted_agent`: These are scripted for a single easy map.
+*   `scripted_agent`: These are scripted for a single mini game.

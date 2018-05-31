@@ -46,6 +46,7 @@ from s2clientprotocol import data_pb2 as sc_data
 from s2clientprotocol import error_pb2 as sc_err
 from s2clientprotocol import sc2api_pb2 as sc_pb
 from s2clientprotocol import spatial_pb2 as sc_spatial
+from s2clientprotocol import ui_pb2 as sc_ui
 
 # Disable attribute-error because of the multiple stages of initialization for
 # RendererHuman.
@@ -148,19 +149,20 @@ class _Surface(object):
     with sw("draw"):
       pygame.transform.scale(raw_surface, self.surf.get_size(), self.surf)
 
-  def write_screen(self, font, color, screen_pos, text):
+  def write_screen(self, font, color, screen_pos, text, align="left",
+                   valign="top"):
     """Write to the screen in font.size relative coordinates."""
     pos = point.Point(*screen_pos) * point.Point(0.75, 1) * font.get_linesize()
-    text_surf = font.render(text, True, color)
+    text_surf = font.render(str(text), True, color)
     rect = text_surf.get_rect()
     if pos.x >= 0:
-      rect.left = pos.x
+      setattr(rect, align, pos.x)
     else:
-      rect.right = self.surf.get_width() + pos.x
+      setattr(rect, align, self.surf.get_width() + pos.x)
     if pos.y >= 0:
-      rect.top = pos.y
+      setattr(rect, valign, pos.y)
     else:
-      rect.bottom = self.surf.get_height() + pos.y
+      setattr(rect, valign, self.surf.get_height() + pos.y)
     self.surf.blit(text_surf, rect)
 
 
@@ -184,6 +186,11 @@ class MousePos(collections.namedtuple("MousePos", ["world_pos", "surf"])):
       return action.action_render
     else:
       assert self.surf.surf_type & (SurfType.RGB | SurfType.FEATURE)
+
+
+class PastAction(collections.namedtuple("PastAction", [
+    "ability", "color", "pos", "time", "deadline"])):
+  """Holds a past action for drawing over time."""
 
 
 def _get_desktop_size():
@@ -220,7 +227,23 @@ class RendererHuman(object):
       pygame.K_DOWN: point.Point(0, -3),
   }
 
+  cmd_group_keys = {
+      pygame.K_0: 0,
+      pygame.K_1: 1,
+      pygame.K_2: 2,
+      pygame.K_3: 3,
+      pygame.K_4: 4,
+      pygame.K_5: 5,
+      pygame.K_6: 6,
+      pygame.K_7: 7,
+      pygame.K_8: 8,
+      pygame.K_9: 9,
+  }
+
   shortcuts = [
+      ("F1", "Select idle worker"),
+      ("F2", "Select army"),
+      ("F3", "Select larva (zerg) or warp gates (protoss)"),
       ("F4", "Quit the game"),
       ("F5", "Restart the map"),
       ("F7", "Toggle RGB rendering"),
@@ -332,6 +355,7 @@ class RendererHuman(object):
     self._queued_hotkey = ""
     self._select_start = None
     self._alerts = {}
+    self._past_actions = []
     self._help = False
 
   @with_lock(render_lock)
@@ -654,6 +678,7 @@ class RendererHuman(object):
     for event in pygame.event.get():
       ctrl = pygame.key.get_mods() & pygame.KMOD_CTRL
       shift = pygame.key.get_mods() & pygame.KMOD_SHIFT
+      alt = pygame.key.get_mods() & pygame.KMOD_ALT
       if event.type == pygame.QUIT:
         return ActionCmd.QUIT
       elif event.type == pygame.KEYDOWN:
@@ -701,6 +726,20 @@ class RendererHuman(object):
           else:
             self._fps *= 1.25 if event.key == pygame.K_PAGEUP else 1 / 1.25
             print("New max game speed: %.1f" % self._fps)
+        elif event.key == pygame.K_F1:
+          if self._obs.observation.player_common.idle_worker_count > 0:
+            controller.act(self.select_idle_worker(ctrl, shift))
+        elif event.key == pygame.K_F2:
+          if self._obs.observation.player_common.army_count > 0:
+            controller.act(self.select_army(shift))
+        elif event.key == pygame.K_F3:
+          if self._obs.observation.player_common.warp_gate_count > 0:
+            controller.act(self.select_warp_gates(shift))
+          if self._obs.observation.player_common.larva_count > 0:
+            controller.act(self.select_larva())
+        elif event.key in self.cmd_group_keys:
+          controller.act(self.control_group(self.cmd_group_keys[event.key],
+                                            ctrl, shift, alt))
         elif event.key in self.camera_actions:
           if self._obs:
             controller.act(self.camera_action_raw(
@@ -799,6 +838,56 @@ class RendererHuman(object):
     if units:
       self.clear_queued_action()
 
+    return action
+
+  def select_idle_worker(self, ctrl, shift):
+    """Select an idle worker."""
+    action = sc_pb.Action()
+    mod = sc_ui.ActionSelectIdleWorker
+    if ctrl:
+      select_worker = mod.AddAll if shift else mod.All
+    else:
+      select_worker = mod.Add if shift else mod.Set
+    action.action_ui.select_idle_worker.type = select_worker
+    return action
+
+  def select_army(self, shift):
+    """Select the entire army."""
+    action = sc_pb.Action()
+    action.action_ui.select_army.selection_add = shift
+    return action
+
+  def select_warp_gates(self, shift):
+    """Select all warp gates."""
+    action = sc_pb.Action()
+    action.action_ui.select_warp_gates.selection_add = shift
+    return action
+
+  def select_larva(self):
+    """Select all larva."""
+    action = sc_pb.Action()
+    action.action_ui.select_larva.SetInParent()  # Adds the empty proto field.
+    return action
+
+  def control_group(self, control_group_id, ctrl, shift, alt):
+    """Act on a control group, selecting, setting, etc."""
+    action = sc_pb.Action()
+    select = action.action_ui.control_group
+
+    mod = sc_ui.ActionControlGroup
+    if not ctrl and not shift and not alt:
+      select.action = mod.Recall
+    elif ctrl and not shift and not alt:
+      select.action = mod.Set
+    elif not ctrl and shift and not alt:
+      select.action = mod.Append
+    elif not ctrl and not shift and alt:
+      select.action = mod.SetAndSteal
+    elif not ctrl and shift and alt:
+      select.action = mod.AppendAndSteal
+    else:
+      return  # unknown
+    select.control_group_index = control_group_id
     return action
 
   def unit_action(self, cmd, pos, shift):
@@ -937,14 +1026,16 @@ class RendererHuman(object):
         self._font_large, colors.green, (-0.2, 0.2),
         "Score: %s, Step: %s, %.1f/s, Time: %d:%02d" % (
             obs.score.score, obs.game_loop, sum(steps) / (sum(times) or 1),
-            sec // 60, sec % 60))
+            sec // 60, sec % 60),
+        align="right")
     surf.write_screen(
         self._font_large, colors.green * 0.8, (-0.2, 1.2),
         "FPS: O:%.1f, R:%.1f" % (
             len(times) / (sum(times) or 1),
-            len(self._render_times) / (sum(self._render_times) or 1)))
+            len(self._render_times) / (sum(self._render_times) or 1)),
+        align="right")
     line = 3
-    for alert, ts in sorted(self._alerts.items(), key=lambda (_, t): t):
+    for alert, ts in sorted(self._alerts.items(), key=lambda item: item[1]):
       if time.time() < ts + 3:  # Show for 3 seconds.
         surf.write_screen(self._font_large, colors.red, (20, line), alert)
         line += 1
@@ -974,12 +1065,15 @@ class RendererHuman(object):
     def name(cmd):
       return cmd.friendly_name or cmd.button_name or cmd.link_name
 
+    past_abilities = {act.ability for act in self._past_actions if act.ability}
     for y, cmd in enumerate(sorted(self._abilities(
         lambda c: c.button_name != "Smart"), key=name), start=2):
       if self._queued_action and cmd == self._queued_action:
         color = colors.green
       elif self._queued_hotkey and cmd.hotkey.startswith(self._queued_hotkey):
         color = colors.green * 0.75
+      elif cmd.ability_id in past_abilities:
+        color = colors.red
       else:
         color = colors.yellow
       hotkey = cmd.hotkey[0:3]  # truncate "escape" -> "esc"
@@ -987,31 +1081,128 @@ class RendererHuman(object):
       surf.write_screen(self._font_large, color, (3, y), name(cmd))
 
   @sw.decorate
+  def draw_panel(self, surf):
+    """Draw the unit selection or build queue."""
+
+    left = -12  # How far from the right border
+
+    def unit_name(unit_type):
+      return self._static_data.units.get(unit_type, "<unknown>")
+
+    def write(loc, text, color=colors.yellow):
+      surf.write_screen(self._font_large, color, loc, text)
+
+    def write_single(unit, line):
+      write((left + 1, next(line)), unit_name(unit.unit_type))
+      write((left + 1, next(line)), "Health: %s" % unit.health)
+      write((left + 1, next(line)), "Shields: %s" % unit.shields)
+      write((left + 1, next(line)), "Energy: %s" % unit.energy)
+      if unit.build_progress > 0:
+        write((left + 1, next(line)),
+              "Progress: %d%%" % (unit.build_progress * 100))
+      if unit.transport_slots_taken > 0:
+        write((left + 1, next(line)), "Slots: %s" % unit.transport_slots_taken)
+
+    def write_multi(units, line):
+      counts = collections.defaultdict(int)
+      for unit in units:
+        counts[unit_name(unit.unit_type)] += 1
+      for name, count in sorted(counts.items()):
+        y = next(line)
+        write((left + 1, y), count)
+        write((left + 3, y), name)
+
+    ui = self._obs.observation.ui_data
+    line = itertools.count(3)
+
+    if ui.groups:
+      write((left, next(line)), "Control Groups:", colors.green)
+      for group in ui.groups:
+        y = next(line)
+        write((left + 1, y), "%s:" % group.control_group_index, colors.green)
+        write((left + 3, y), "%s %s" % (group.count,
+                                        unit_name(group.leader_unit_type)))
+      next(line)
+
+    if ui.HasField("single"):
+      write((left, next(line)), "Selection:", colors.green)
+      write_single(ui.single.unit, line)
+    elif ui.HasField("multi"):
+      write((left, next(line)), "Selection:", colors.green)
+      write_multi(ui.multi.units, line)
+    elif ui.HasField("cargo"):
+      write((left, next(line)), "Selection:", colors.green)
+      write_single(ui.cargo.unit, line)
+      next(line)
+      write((left, next(line)), "Cargo:", colors.green)
+      write((left + 1, next(line)),
+            "Empty slots: %s" % ui.cargo.slots_available)
+      write_multi(ui.cargo.passengers, line)
+    elif ui.HasField("production"):
+      write((left, next(line)), "Selection:", colors.green)
+      write_single(ui.production.unit, line)
+      next(line)
+      write((left, next(line)), "Build Queue:", colors.green)
+      for unit in ui.production.build_queue:
+        s = unit_name(unit.unit_type)
+        if unit.build_progress > 0:
+          s += ": %d%%" % (unit.build_progress * 100)
+        write((left + 1, next(line)), s)
+
+  @sw.decorate
   def draw_actions(self):
     """Draw the actions so that they can be inspected for accuracy."""
-    for act in self._obs.actions:
+    now = time.time()
+    for act in self._past_actions:
+      if act.pos and now < act.deadline:
+        remain = (act.deadline - now) / (act.deadline - act.time)
+        if isinstance(act.pos, point.Point):
+          size = remain / 3
+          self.all_surfs(_Surface.draw_circle, act.color, act.pos, size, 1)
+        else:
+          # Fade with alpha would be nice, but doesn't seem to work.
+          self.all_surfs(_Surface.draw_rect, act.color, act.pos, 1)
+
+  @sw.decorate
+  def prepare_actions(self, obs):
+    """Keep a list of the past actions so they can be drawn."""
+    now = time.time()
+    while self._past_actions and self._past_actions[0].deadline < now:
+      self._past_actions.pop(0)
+
+    def add_act(ability_id, color, pos, timeout=1):
+      if ability_id:
+        ability = self._static_data.abilities[ability_id]
+        if ability.remaps_to_ability_id:  # Prefer general abilities.
+          ability_id = ability.remaps_to_ability_id
+      self._past_actions.append(
+          PastAction(ability_id, color, pos, now, now + timeout))
+
+    for act in obs.actions:
       if (act.HasField("action_raw") and
           act.action_raw.HasField("unit_command") and
           act.action_raw.unit_command.HasField("target_world_space_pos")):
         pos = point.Point.build(
             act.action_raw.unit_command.target_world_space_pos)
-        self.all_surfs(_Surface.draw_circle, colors.yellow, pos, 0.1)
+        add_act(act.action_raw.unit_command.ability_id, colors.yellow, pos)
       if act.HasField("action_feature_layer"):
         act_fl = act.action_feature_layer
         if act_fl.HasField("unit_command"):
           if act_fl.unit_command.HasField("target_screen_coord"):
             pos = self._world_to_feature_screen_px.back_pt(
                 point.Point.build(act_fl.unit_command.target_screen_coord))
-            self.all_surfs(_Surface.draw_circle, colors.cyan, pos, 0.1)
-          if act_fl.unit_command.HasField("target_minimap_coord"):
+            add_act(act_fl.unit_command.ability_id, colors.cyan, pos)
+          elif act_fl.unit_command.HasField("target_minimap_coord"):
             pos = self._world_to_feature_minimap_px.back_pt(
                 point.Point.build(act_fl.unit_command.target_minimap_coord))
-            self.all_surfs(_Surface.draw_circle, colors.cyan, pos, 0.1)
+            add_act(act_fl.unit_command.ability_id, colors.cyan, pos)
+          else:
+            add_act(act_fl.unit_command.ability_id, None, None)
         if (act_fl.HasField("unit_selection_point") and
             act_fl.unit_selection_point.HasField("selection_screen_coord")):
           pos = self._world_to_feature_screen_px.back_pt(point.Point.build(
               act_fl.unit_selection_point.selection_screen_coord))
-          self.all_surfs(_Surface.draw_circle, colors.cyan, pos, 0.1)
+          add_act(None, colors.cyan, pos)
         if act_fl.HasField("unit_selection_rect"):
           for r in act_fl.unit_selection_rect.selection_screen_coord:
             rect = point.Rect(
@@ -1019,23 +1210,25 @@ class RendererHuman(object):
                     point.Point.build(r.p0)),
                 self._world_to_feature_screen_px.back_pt(
                     point.Point.build(r.p1)))
-            self.all_surfs(_Surface.draw_rect, colors.cyan, rect, 1)
+            add_act(None, colors.cyan, rect, 0.3)
       if act.HasField("action_render"):
         act_rgb = act.action_render
         if act_rgb.HasField("unit_command"):
           if act_rgb.unit_command.HasField("target_screen_coord"):
             pos = self._world_to_rgb_screen_px.back_pt(
                 point.Point.build(act_rgb.unit_command.target_screen_coord))
-            self.all_surfs(_Surface.draw_circle, colors.red, pos, 0.1)
-          if act_rgb.unit_command.HasField("target_minimap_coord"):
+            add_act(act_rgb.unit_command.ability_id, colors.red, pos)
+          elif act_rgb.unit_command.HasField("target_minimap_coord"):
             pos = self._world_to_rgb_minimap_px.back_pt(
                 point.Point.build(act_rgb.unit_command.target_minimap_coord))
-            self.all_surfs(_Surface.draw_circle, colors.red, pos, 0.1)
+            add_act(act_rgb.unit_command.ability_id, colors.red, pos)
+          else:
+            add_act(act_rgb.unit_command.ability_id, None, None)
         if (act_rgb.HasField("unit_selection_point") and
             act_rgb.unit_selection_point.HasField("selection_screen_coord")):
           pos = self._world_to_rgb_screen_px.back_pt(point.Point.build(
               act_rgb.unit_selection_point.selection_screen_coord))
-          self.all_surfs(_Surface.draw_circle, colors.red, pos, 0.1)
+          add_act(None, colors.red, pos)
         if act_rgb.HasField("unit_selection_rect"):
           for r in act_rgb.unit_selection_rect.selection_screen_coord:
             rect = point.Rect(
@@ -1043,7 +1236,7 @@ class RendererHuman(object):
                     point.Point.build(r.p0)),
                 self._world_to_rgb_screen_px.back_pt(
                     point.Point.build(r.p1)))
-            self.all_surfs(_Surface.draw_rect, colors.red, rect, 1)
+            add_act(None, colors.red, rect, 0.3)
 
   @sw.decorate
   def draw_base_map(self, surf):
@@ -1155,6 +1348,7 @@ class RendererHuman(object):
     self.draw_build_target(surf)
     self.draw_overlay(surf)
     self.draw_commands(surf)
+    self.draw_panel(surf)
 
   @sw.decorate
   def draw_feature_layer(self, surf, feature):
@@ -1196,6 +1390,7 @@ class RendererHuman(object):
         for err in obs.action_errors:
           if err.result != sc_err.Success:
             self._alerts[sc_err.ActionResult.Name(err.result)] = time.time()
+        self.prepare_actions(obs)
         if self._obs_queue.empty():
           # Only render the latest observation so we keep up with the game.
           self.render_obs(obs)

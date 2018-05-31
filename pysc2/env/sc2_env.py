@@ -68,8 +68,11 @@ class Difficulty(enum.IntEnum):
   cheat_money = sc_pb.CheatMoney
   cheat_insane = sc_pb.CheatInsane
 
-# Re-export this enum to make it easy to construct the environment.
+# Re-export these names to make it easy to construct the environment.
 ActionSpace = actions_lib.ActionSpace  # pylint: disable=invalid-name
+Dimensions = features.Dimensions  # pylint: disable=invalid-name
+AgentInterfaceFormat = features.AgentInterfaceFormat  # pylint: disable=invalid-name
+parse_agent_interface_format = features.parse_agent_interface_format
 
 
 Agent = collections.namedtuple("Agent", ["race"])
@@ -111,20 +114,7 @@ class SC2Env(environment.Base):
                difficulty=None,  # deprecated
                screen_size_px=None,  # deprecated
                minimap_size_px=None,  # deprecated
-               feature_screen_size=None,
-               feature_screen_width=None,
-               feature_screen_height=None,
-               feature_minimap_size=None,
-               feature_minimap_width=None,
-               feature_minimap_height=None,
-               rgb_screen_size=None,
-               rgb_screen_width=None,
-               rgb_screen_height=None,
-               rgb_minimap_size=None,
-               rgb_minimap_width=None,
-               rgb_minimap_height=None,
-               action_space=None,
-               camera_width_world_units=None,
+               agent_interface_format=None,
                discount=1.,
                visualize=False,
                step_mul=None,
@@ -133,7 +123,6 @@ class SC2Env(environment.Base):
                game_steps_per_episode=None,
                score_index=None,
                score_multiplier=None,
-               use_feature_units=False,
                random_seed=None,
                disable_fog=False):
     """Create a SC2 Env.
@@ -155,28 +144,11 @@ class SC2Env(environment.Base):
       agent_race: Deprecated. Use players instead.
       bot_race: Deprecated. Use players instead.
       difficulty: Deprecated. Use players instead.
-      screen_size_px: Deprecated. Use feature_screen_... instead.
-      minimap_size_px: Deprecated. Use feature_minimap_... instead.
-      feature_screen_size: Sets feature_screen_width and feature_screen_width.
-      feature_screen_width: The width of the feature layer screen observation.
-      feature_screen_height: The height of the feature layer screen observation.
-      feature_minimap_size: Sets feature_minimap_width and
-          feature_minimap_height.
-      feature_minimap_width: The width of the feature layer minimap observation.
-      feature_minimap_height: The height of the feature layer minimap
-          observation.
-      rgb_screen_size: Sets rgb_screen_width and rgb_screen_height.
-      rgb_screen_width: The width of the rgb screen observation.
-      rgb_screen_height: The height of the rgb screen observation.
-      rgb_minimap_size: Sets rgb_minimap_width and rgb_minimap_height.
-      rgb_minimap_width: The width of the rgb minimap observation.
-      rgb_minimap_height: The height of the rgb minimap observation.
-      action_space: If you pass both feature and rgb sizes, then you must also
-          specify which you want to use for your actions as an ActionSpace enum.
-      camera_width_world_units: The width of your screen in world units. If your
-          feature_screen=(64, 48) and camera_width is 24, then each px
-          represents 24 / 64 = 0.375 world units in each of x and y. It'll then
-          represent a camera of size (24, 0.375 * 48) = (24, 18) world units.
+      screen_size_px: Deprecated. Use agent_interface_formats instead.
+      minimap_size_px: Deprecated. Use agent_interface_formats instead.
+      agent_interface_format: A sequence containing one AgentInterfaceFormat
+        per agent, matching the order of agents specified in the players list.
+        Or a single AgentInterfaceFormat to be used for all agents.
       discount: Returned as part of the observation.
       visualize: Whether to pop up a window showing the camera and feature
           layers. This won't work without access to a window manager.
@@ -191,7 +163,6 @@ class SC2Env(environment.Base):
           score_cumulative with 0 being the curriculum score. None means use
           the map default.
       score_multiplier: How much to multiply the score by. Useful for negating.
-      use_feature_units: Whether to include feature unit data in observations.
       random_seed: Random number seed to use when initializing the game. This
           lets you run repeatable games/tests.
       disable_fog: Whether to disable fog of war.
@@ -218,88 +189,112 @@ class SC2Env(environment.Base):
           "Explicit agent and bot races are deprecated. Pass an array of "
           "sc2_env.Bot and sc2_env.Agent instances instead.")
 
+    map_inst = maps.get(map_name)
+    self._map_name = map_name
+
     if not players:
-      players = [Agent(Race.random), Bot(Race.random, Difficulty.very_easy)]
+      players = list()
+      players.append(Agent(Race.random))
+
+      if not map_inst.players or map_inst.players >= 2:
+        players.append(Bot(Race.random, Difficulty.very_easy))
 
     for p in players:
       if not isinstance(p, (Agent, Bot)):
         raise ValueError(
             "Expected players to be of type Agent or Bot. Got: %s." % p)
 
-    self._num_players = sum(1 for p in players if isinstance(p, Agent))
+    num_players = len(players)
+    self._num_agents = sum(1 for p in players if isinstance(p, Agent))
     self._players = players
 
-    if not 1 <= len(players) <= 2 or not 1 <= self._num_players <= 2:
-      raise ValueError("Only 1 or 2 players is supported at the moment.")
+    if not 1 <= num_players <= 2 or not self._num_agents:
+      raise ValueError(
+          "Only 1 or 2 players with at least one agent is "
+          "supported at the moment.")
 
     if save_replay_episodes and not replay_dir:
       raise ValueError("Missing replay_dir")
 
-    self._map = maps.get(map_name)
-
-    if self._map.players and self._num_players > self._map.players:
+    if map_inst.players and num_players > map_inst.players:
       raise ValueError(
           "Map only supports %s players, but trying to join with %s" % (
-              self._map.players, self._num_players))
+              map_inst.players, num_players))
 
     self._discount = discount
-    self._step_mul = step_mul or self._map.step_mul
+    self._step_mul = step_mul or map_inst.step_mul
     self._save_replay_episodes = save_replay_episodes
     self._replay_dir = replay_dir
     self._random_seed = random_seed
     self._disable_fog = disable_fog
 
     if score_index is None:
-      self._score_index = self._map.score_index
+      self._score_index = map_inst.score_index
     else:
       self._score_index = score_index
     if score_multiplier is None:
-      self._score_multiplier = self._map.score_multiplier
+      self._score_multiplier = map_inst.score_multiplier
     else:
       self._score_multiplier = score_multiplier
 
     self._episode_length = game_steps_per_episode
     if self._episode_length is None:
-      self._episode_length = self._map.game_steps_per_episode
+      self._episode_length = map_inst.game_steps_per_episode
 
     self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
 
-    interface = self._get_interface(
-        feature_screen_size, feature_screen_width, feature_screen_height,
-        feature_minimap_size, feature_minimap_width, feature_minimap_height,
-        rgb_screen_size, rgb_screen_width, rgb_screen_height, rgb_minimap_size,
-        rgb_minimap_width, rgb_minimap_height, action_space,
-        camera_width_world_units, use_feature_units, visualize)
+    if agent_interface_format is None:
+      raise ValueError("Please specify agent_interface_format.")
 
-    if self._num_players == 1:
-      self._launch_sp(interface)
+    if isinstance(agent_interface_format, AgentInterfaceFormat):
+      agent_interface_format = [agent_interface_format] * self._num_agents
+
+    if len(agent_interface_format) != self._num_agents:
+      raise ValueError(
+          "The number of entries in agent_interface_format should "
+          "correspond 1-1 with the number of agents.")
+
+    interfaces = []
+    for i, interface_format in enumerate(agent_interface_format):
+      require_raw = visualize and (i == 0)
+      interfaces.append(self._get_interface(interface_format, require_raw))
+
+    if self._num_agents == 1:
+      self._launch_sp(map_inst, interfaces[0])
     else:
-      self._launch_mp(interface)
+      self._launch_mp(map_inst, interfaces)
 
-    self._finalize(interface, action_space, use_feature_units, visualize,
-                   map_name)
+    self._finalize(agent_interface_format, interfaces, visualize)
 
-  def _finalize(self, interface, action_space, use_feature_units, visualize,
-                map_name):
-    game_info = self._controllers[0].game_info()
-    static_data = self._controllers[0].data()
+  def _finalize(self, agent_interface_formats, interfaces, visualize):
+    game_info = self._parallel.run(c.game_info for c in self._controllers)
+    if not self._map_name:
+      self._map_name = game_info[0].map_name
 
-    if game_info.options.render != interface.render:
-      logging.warning(
-          "Actual interface options don't match requested options:\n"
-          "Requested:\n%s\n\nActual:\n%s", interface, game_info.options)
+    for g, interface in zip(game_info, interfaces):
+      if g.options.render != interface.render:
+        logging.warning(
+            "Actual interface options don't match requested options:\n"
+            "Requested:\n%s\n\nActual:\n%s", interface, g.options)
 
-    self._features = features.Features(game_info=game_info,
-                                       action_space=action_space,
-                                       use_feature_units=use_feature_units)
+    self._features = [
+        features.features_from_game_info(
+            game_info=g,
+            use_feature_units=agent_interface_format.use_feature_units,
+            action_space=agent_interface_format.action_space,
+            hide_specific_actions=agent_interface_format.hide_specific_actions)
+        for g, agent_interface_format in zip(game_info, agent_interface_formats)
+    ]
+
     if visualize:
+      static_data = self._controllers[0].data()
       self._renderer_human = renderer_human.RendererHuman()
-      self._renderer_human.init(game_info, static_data)
+      self._renderer_human.init(game_info[0], static_data)
     else:
       self._renderer_human = None
 
-    self._metrics = metrics.Metrics(map_name)
+    self._metrics = metrics.Metrics(self._map_name)
     self._metrics.increment_instance()
 
     self._last_score = None
@@ -308,61 +303,38 @@ class SC2Env(environment.Base):
     self._episode_count = 0
     self._obs = None
     self._state = environment.StepType.LAST  # Want to jump to `reset`.
-    logging.info("Environment is ready on map: %s", map_name)
+    logging.info("Environment is ready on map: %s", self._map_name)
 
   @staticmethod
-  def _get_interface(
-      feature_screen_size, feature_screen_width, feature_screen_height,
-      feature_minimap_size, feature_minimap_width, feature_minimap_height,
-      rgb_screen_size, rgb_screen_width, rgb_screen_height, rgb_minimap_size,
-      rgb_minimap_width, rgb_minimap_height, action_space,
-      camera_width_world_units, use_feature_units, visualize):
-    feature_screen_px = features.point_from_size_width_height(
-        feature_screen_size, feature_screen_width, feature_screen_height)
-    feature_minimap_px = features.point_from_size_width_height(
-        feature_minimap_size, feature_minimap_width, feature_minimap_height)
-    rgb_screen_px = features.point_from_size_width_height(
-        rgb_screen_size, rgb_screen_width, rgb_screen_height)
-    rgb_minimap_px = features.point_from_size_width_height(
-        rgb_minimap_size, rgb_minimap_width, rgb_minimap_height)
-
-    if bool(feature_screen_px) != bool(feature_minimap_px):
-      raise ValueError("Must set all the feature layer sizes.")
-    if bool(rgb_screen_px) != bool(rgb_minimap_px):
-      raise ValueError("Must set all the rgb sizes.")
-    if not feature_screen_px and not rgb_screen_px:
-      raise ValueError("Must set either the feature layer or rgb sizes.")
-
-    if rgb_screen_px  and rgb_minimap_px and (
-        rgb_screen_px.x < rgb_minimap_px.x or
-        rgb_screen_px.y < rgb_minimap_px.y):
-      raise ValueError("Screen (%s) can't be smaller than the minimap (%s)." % (
-          rgb_screen_px, rgb_minimap_px))
-
-    if feature_screen_px and rgb_screen_px and not action_space:
-      raise ValueError(
-          "You must specify the action space if you have both observations.")
-
+  def _get_interface(agent_interface_format, require_raw):
     interface = sc_pb.InterfaceOptions(
-        raw=(use_feature_units or visualize), score=True)
-    if feature_screen_px and feature_minimap_px:
-      interface.feature_layer.width = camera_width_world_units or 24
-      feature_screen_px.assign_to(interface.feature_layer.resolution)
-      feature_minimap_px.assign_to(interface.feature_layer.minimap_resolution)
-    if rgb_screen_px and rgb_minimap_px:
-      rgb_screen_px.assign_to(interface.render.resolution)
-      rgb_minimap_px.assign_to(interface.render.minimap_resolution)
+        raw=(agent_interface_format.use_feature_units or require_raw),
+        score=True)
+
+    if agent_interface_format.feature_dimensions:
+      interface.feature_layer.width = (
+          agent_interface_format.camera_width_world_units)
+      agent_interface_format.feature_dimensions.screen.assign_to(
+          interface.feature_layer.resolution)
+      agent_interface_format.feature_dimensions.minimap.assign_to(
+          interface.feature_layer.minimap_resolution)
+
+    if agent_interface_format.rgb_dimensions:
+      agent_interface_format.rgb_dimensions.screen.assign_to(
+          interface.render.resolution)
+      agent_interface_format.rgb_dimensions.minimap.assign_to(
+          interface.render.minimap_resolution)
 
     return interface
 
-  def _launch_sp(self, interface):
+  def _launch_sp(self, map_inst, interface):
     self._sc2_procs = [self._run_config.start()]
     self._controllers = [p.controller for p in self._sc2_procs]
 
     # Create the game.
     create = sc_pb.RequestCreateGame(
         local_map=sc_pb.LocalMap(
-            map_path=self._map.path, map_data=self._map.data(self._run_config)),
+            map_path=map_inst.path, map_data=map_inst.data(self._run_config)),
         disable_fog=self._disable_fog)
     agent_race = Race.random
     for p in self._players:
@@ -379,23 +351,24 @@ class SC2Env(environment.Base):
     join = sc_pb.RequestJoinGame(race=agent_race, options=interface)
     self._controllers[0].join_game(join)
 
-  def _launch_mp(self, interface):
+  def _launch_mp(self, map_inst, interfaces):
     # Reserve a whole bunch of ports for the weird multiplayer implementation.
-    self._ports = _pick_unused_ports(self._num_players * 2)
+    self._ports = _pick_unused_ports(self._num_agents * 2)
 
     # Actually launch the game processes.
     self._sc2_procs = [self._run_config.start(extra_ports=self._ports)
-                       for _ in range(self._num_players)]
+                       for _ in range(self._num_agents)]
     self._controllers = [p.controller for p in self._sc2_procs]
 
-    # Save the maps so they can access it.
-    self._parallel.run(
-        (c.save_map, self._map.path, self._map.data(self._run_config))
-        for c in self._controllers)
+    # Save the maps so they can access it. Don't do it in parallel since SC2
+    # doesn't respect tmpdir on windows, which leads to a race condition:
+    # https://github.com/Blizzard/s2client-proto/issues/102
+    for c in self._controllers:
+      c.save_map(map_inst.path, map_inst.data(self._run_config))
 
     # Create the game. Set the first instance as the host.
     create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
-        map_path=self._map.path))
+        map_path=map_inst.path), disable_fog=self._disable_fog)
     if self._random_seed is not None:
       create.random_seed = self._random_seed
     for p in self._players:
@@ -406,22 +379,21 @@ class SC2Env(environment.Base):
                                 difficulty=p.difficulty)
     self._controllers[0].create_game(create)
 
-    # Create the join request.
-    join = sc_pb.RequestJoinGame(options=interface)
-    join.shared_port = 0  # unused
-    join.server_ports.game_port = self._ports.pop()
-    join.server_ports.base_port = self._ports.pop()
-    for _ in range(self._num_players - 1):
-      join.client_ports.add(game_port=self._ports.pop(),
-                            base_port=self._ports.pop())
-
+    # Create the join requests.
+    agent_players = (p for p in self._players if isinstance(p, Agent))
     join_reqs = []
-    for p in self._players:
-      if isinstance(p, Agent):
-        j = sc_pb.RequestJoinGame()
-        j.CopyFrom(join)
-        j.race = p.race
-        join_reqs.append(j)
+    for agent_index, p in enumerate(agent_players):
+      ports = self._ports[:]
+      join = sc_pb.RequestJoinGame(options=interfaces[agent_index])
+      join.shared_port = 0  # unused
+      join.server_ports.game_port = ports.pop(0)
+      join.server_ports.base_port = ports.pop(0)
+      for _ in range(self._num_agents - 1):
+        join.client_ports.add(game_port=ports.pop(0),
+                              base_port=ports.pop(0))
+
+      join.race = p.race
+      join_reqs.append(join)
 
     # Join the game. This must be run in parallel because Join is a blocking
     # call to the game that waits until all clients have joined.
@@ -434,11 +406,11 @@ class SC2Env(environment.Base):
 
   def observation_spec(self):
     """Look at Features for full specs."""
-    return (self._features.observation_spec(),) * self._num_players
+    return tuple(f.observation_spec() for f in self._features)
 
   def action_spec(self):
     """Look at Features for full specs."""
-    return (self._features.action_spec(),) * self._num_players
+    return tuple(f.action_spec() for f in self._features)
 
   def _restart(self):
     if len(self._controllers) == 1:
@@ -461,7 +433,7 @@ class SC2Env(environment.Base):
     logging.info("Starting episode: %s", self._episode_count)
     self._metrics.increment_episode()
 
-    self._last_score = [0] * self._num_players
+    self._last_score = [0] * self._num_agents
     self._state = environment.StepType.FIRST
     return self._step()
 
@@ -472,8 +444,9 @@ class SC2Env(environment.Base):
       return self.reset()
 
     self._parallel.run(
-        (c.act, self._features.transform_action(o.observation, a))
-        for c, o, a in zip(self._controllers, self._obs, actions))
+        (c.act, f.transform_action(o.observation, a))
+        for c, f, o, a in zip(
+            self._controllers, self._features, self._obs, actions))
 
     self._state = environment.StepType.MID
     return self._step()
@@ -484,11 +457,12 @@ class SC2Env(environment.Base):
 
     with self._metrics.measure_observation_time():
       self._obs = self._parallel.run(c.observe for c in self._controllers)
-      agent_obs = [self._features.transform_obs(o) for o in self._obs]
+      agent_obs = [f.transform_obs(o) for f, o in zip(
+          self._features, self._obs)]
 
     # TODO(tewalds): How should we handle more than 2 agents and the case where
     # the episode can end early for some agents?
-    outcome = [0] * self._num_players
+    outcome = [0] * self._num_agents
     discount = self._discount
     if any(o.player_result for o in self._obs):  # Episode over.
       self._state = environment.StepType.LAST
@@ -502,7 +476,7 @@ class SC2Env(environment.Base):
     if self._score_index >= 0:  # Game score, not win/loss reward.
       cur_score = [o["score_cumulative"][self._score_index] for o in agent_obs]
       if self._episode_steps == 0:  # First reward is always 0.
-        reward = [0] * self._num_players
+        reward = [0] * self._num_agents
       else:
         reward = [cur - last for cur, last in zip(cur_score, self._last_score)]
       self._last_score = cur_score
@@ -547,7 +521,7 @@ class SC2Env(environment.Base):
 
   def save_replay(self, replay_dir, prefix=None):
     if prefix is None:
-      prefix = self._map.name
+      prefix = self._map_name
     replay_path = self._run_config.save_replay(
         self._controllers[0].save_replay(), replay_dir, prefix)
     logging.info("Wrote replay to: %s", replay_path)

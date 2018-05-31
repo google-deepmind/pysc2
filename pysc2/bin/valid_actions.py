@@ -34,8 +34,10 @@ def main(unused_argv):
   """Print the valid actions."""
   feats = features.Features(
       # Actually irrelevant whether it's feature or rgb size.
-      feature_screen_size=FLAGS.screen_size,
-      feature_minimap_size=FLAGS.minimap_size)
+      features.AgentInterfaceFormat(
+          feature_dimensions=features.Dimensions(
+              screen=FLAGS.screen_size,
+              minimap=FLAGS.minimap_size)))
   action_spec = feats.action_spec()
   flattened = 0
   count = 0
