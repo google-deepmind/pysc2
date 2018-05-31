@@ -30,21 +30,27 @@ class TestCompareEnvironments(absltest.TestCase):
   def setUpClass(cls):
     players = [
         sc2_env.Agent(race=sc2_env.Race.terran),
-        sc2_env.Bot(
-            race=sc2_env.Race.protoss, difficulty=sc2_env.Difficulty.very_easy),
+        sc2_env.Agent(race=sc2_env.Race.protoss),
     ]
     kwargs = {
         'map_name': 'Flat64',
         'players': players,
-        'feature_screen_height': 64,
-        'feature_screen_width': 32,
-        'feature_minimap_height': 16,
-        'feature_minimap_width': 8,
-        'rgb_screen_height': 63,
-        'rgb_screen_width': 31,
-        'rgb_minimap_height': 15,
-        'rgb_minimap_width': 7,
-        'action_space': sc2_env.ActionSpace.FEATURES,
+        'agent_interface_format': [
+            sc2_env.AgentInterfaceFormat(
+                feature_dimensions=sc2_env.Dimensions(
+                    screen=(32, 64),
+                    minimap=(8, 16)
+                ),
+                rgb_dimensions=sc2_env.Dimensions(
+                    screen=(31, 63),
+                    minimap=(7, 15)
+                ),
+                action_space=sc2_env.ActionSpace.FEATURES
+            ),
+            sc2_env.AgentInterfaceFormat(
+                rgb_dimensions=sc2_env.Dimensions(screen=64, minimap=32)
+            )
+        ]
     }
     cls._env = sc2_env.SC2Env(**kwargs)
     cls._mock_env = mock_sc2_env.SC2TestEnv(**kwargs)

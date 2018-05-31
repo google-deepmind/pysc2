@@ -17,11 +17,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from absl import logging
+
 from absl.testing import absltest
 from pysc2.lib import stopwatch
 
 
 class TestCase(absltest.TestCase):
+  """A test base class that enables stopwatch profiling."""
 
   def setUp(self):
     super(TestCase, self).setUp()
@@ -31,5 +34,7 @@ class TestCase(absltest.TestCase):
 
   def tearDown(self):
     super(TestCase, self).tearDown()
-    print(stopwatch.sw)
+    s = str(stopwatch.sw)
+    if s:
+      logging.info("Stop watch profile:\n%s", s)
     stopwatch.sw.enabled = self._sw_enabled

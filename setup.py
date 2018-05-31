@@ -60,7 +60,7 @@ setup(
         'absl-py>=0.1.0',
         'enum34',
         'future',
-        'futures',
+        'futures; python_version == "2.7"',
         'mock',
         'mpyq',
         'numpy>=1.10',
@@ -72,6 +72,7 @@ setup(
         'six',
         'sk-video',
         'websocket-client',
+        'whichcraft',
     ],
     entry_points={
         'console_scripts': [

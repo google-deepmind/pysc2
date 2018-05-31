@@ -31,10 +31,18 @@ from pysc2.tests import utils
 class TestMultiplayerEnv(parameterized.TestCase, utils.TestCase):
 
   @parameterized.named_parameters(
-      ("features", {"feature_screen_size": 84, "feature_minimap_size": 64}),
-      ("rgb", {"rgb_screen_size": 84, "rgb_minimap_size": 64}),
+      ("features", sc2_env.AgentInterfaceFormat(
+          feature_dimensions=sc2_env.Dimensions(screen=84, minimap=64))),
+      ("rgb", sc2_env.AgentInterfaceFormat(
+          rgb_dimensions=sc2_env.Dimensions(screen=84, minimap=64))),
+      ("features_and_rgb", [
+          sc2_env.AgentInterfaceFormat(
+              feature_dimensions=sc2_env.Dimensions(screen=84, minimap=64)),
+          sc2_env.AgentInterfaceFormat(
+              rgb_dimensions=sc2_env.Dimensions(screen=128, minimap=32))
+      ]),
   )
-  def test_multi_player_env(self, params):
+  def test_multi_player_env(self, agent_interface_format):
     steps = 100
     step_mul = 16
     players = 2
@@ -44,7 +52,7 @@ class TestMultiplayerEnv(parameterized.TestCase, utils.TestCase):
                  sc2_env.Agent(sc2_env.Race.random)],
         step_mul=step_mul,
         game_steps_per_episode=steps * step_mul // 2,
-        **params) as env:
+        agent_interface_format=agent_interface_format) as env:
       agents = [random_agent.RandomAgent() for _ in range(players)]
       run_loop.run_loop(agents, env, steps)
 

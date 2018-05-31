@@ -47,6 +47,8 @@ flags.DEFINE_enum("action_space", None, sc2_env.ActionSpace._member_names_,  # p
                   "and rgb observations.")
 flags.DEFINE_bool("use_feature_units", False,
                   "Whether to include feature units.")
+flags.DEFINE_bool("disable_fog", False,
+                  "Whether to disable Fog of War.")
 
 flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
 flags.DEFINE_integer("game_steps_per_episode", None, "Game steps per episode.")
@@ -79,15 +81,16 @@ def run_thread(agent_classes, players, map_name, visualize):
   with sc2_env.SC2Env(
       map_name=map_name,
       players=players,
+      agent_interface_format=sc2_env.parse_agent_interface_format(
+          feature_screen=FLAGS.feature_screen_size,
+          feature_minimap=FLAGS.feature_minimap_size,
+          rgb_screen=FLAGS.rgb_screen_size,
+          rgb_minimap=FLAGS.rgb_minimap_size,
+          action_space=FLAGS.action_space,
+          use_feature_units=FLAGS.use_feature_units),
       step_mul=FLAGS.step_mul,
       game_steps_per_episode=FLAGS.game_steps_per_episode,
-      feature_screen_size=FLAGS.feature_screen_size,
-      feature_minimap_size=FLAGS.feature_minimap_size,
-      rgb_screen_size=FLAGS.rgb_screen_size,
-      rgb_minimap_size=FLAGS.rgb_minimap_size,
-      action_space=(FLAGS.action_space and
-                    sc2_env.ActionSpace[FLAGS.action_space]),
-      use_feature_units=FLAGS.use_feature_units,
+      disable_fog=FLAGS.disable_fog,
       visualize=visualize) as env:
     env = available_actions_printer.AvailableActionsPrinter(env)
     agents = [agent_cls() for agent_cls in agent_classes]
@@ -101,7 +104,7 @@ def main(unused_argv):
   stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
   stopwatch.sw.trace = FLAGS.trace
 
-  maps.get(FLAGS.map)  # Assert the map exists.
+  map_inst = maps.get(FLAGS.map)
 
   agent_classes = []
   players = []
@@ -111,14 +114,15 @@ def main(unused_argv):
   agent_classes.append(agent_cls)
   players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent_race]))
 
-  if FLAGS.agent2 == "Bot":
-    players.append(sc2_env.Bot(sc2_env.Race[FLAGS.agent2_race],
-                               sc2_env.Difficulty[FLAGS.difficulty]))
-  else:
-    agent_module, agent_name = FLAGS.agent2.rsplit(".", 1)
-    agent_cls = getattr(importlib.import_module(agent_module), agent_name)
-    agent_classes.append(agent_cls)
-    players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent2_race]))
+  if map_inst.players >= 2:
+    if FLAGS.agent2 == "Bot":
+      players.append(sc2_env.Bot(sc2_env.Race[FLAGS.agent2_race],
+                                 sc2_env.Difficulty[FLAGS.difficulty]))
+    else:
+      agent_module, agent_name = FLAGS.agent2.rsplit(".", 1)
+      agent_cls = getattr(importlib.import_module(agent_module), agent_name)
+      agent_classes.append(agent_cls)
+      players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent2_race]))
 
   threads = []
   for _ in range(FLAGS.parallel - 1):

@@ -33,8 +33,8 @@ class TestRandomAgent(utils.TestCase):
     step_mul = 8
     with sc2_env.SC2Env(
         map_name="Simple64",
-        feature_screen_size=84,
-        feature_minimap_size=64,
+        agent_interface_format=sc2_env.AgentInterfaceFormat(
+            feature_dimensions=sc2_env.Dimensions(screen=84, minimap=64)),
         step_mul=step_mul,
         game_steps_per_episode=steps * step_mul//3) as env:
       agent = random_agent.RandomAgent()
@@ -47,8 +47,8 @@ class TestRandomAgent(utils.TestCase):
     step_mul = 8
     with sc2_env.SC2Env(
         map_name="Simple64",
-        rgb_screen_size=128,
-        rgb_minimap_size=64,
+        agent_interface_format=sc2_env.AgentInterfaceFormat(
+            rgb_dimensions=sc2_env.Dimensions(screen=128, minimap=64)),
         step_mul=step_mul,
         game_steps_per_episode=steps * step_mul//3) as env:
       agent = random_agent.RandomAgent()
