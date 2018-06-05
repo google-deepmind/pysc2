@@ -37,6 +37,7 @@ FLAGS = flags.FLAGS
 
 
 def get_data():
+  """Retrieve static data from the game."""
   run_config = run_configs.get()
 
   with run_config.start() as controller:
