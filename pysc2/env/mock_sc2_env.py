@@ -17,15 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import math
-
 import numpy as np
 from pysc2.env import environment
 from pysc2.env import sc2_env
 from pysc2.lib import features
 from pysc2.lib import point
-
-from s2clientprotocol import sc2api_pb2 as sc_pb
+from pysc2.tests import dummy_observation
 
 DUMMY_MAP_SIZE = point.Point(256, 256)
 
@@ -240,58 +237,7 @@ class SC2TestEnv(_TestEnvironment):
   def _default_observation(self, obs_spec, agent_index):
     """Returns a mock observation from an SC2Env."""
 
-    response_observation = sc_pb.ResponseObservation()
-    obs = response_observation.observation
-
-    obs.game_loop = 1
-    obs.player_common.player_id = 1
-    obs.player_common.minerals = 20
-    obs.player_common.vespene = 50
-    obs.player_common.food_cap = 36
-    obs.player_common.food_used = 21
-    obs.player_common.food_army = 6
-    obs.player_common.food_workers = 15
-    obs.player_common.idle_worker_count = 2
-    obs.player_common.army_count = 6
-    obs.player_common.warp_gate_count = 0
-    obs.player_common.larva_count = 0
-
-    obs.abilities.add(ability_id=1, requires_point=True)  # Smart
-
-    obs.score.score = 300
-    score_details = obs.score.score_details
-    score_details.idle_production_time = 0
-    score_details.idle_worker_time = 0
-    score_details.total_value_units = 190
-    score_details.total_value_structures = 230
-    score_details.killed_value_units = 0
-    score_details.killed_value_structures = 0
-    score_details.collected_minerals = 2130
-    score_details.collected_vespene = 560
-    score_details.collection_rate_minerals = 50
-    score_details.collection_rate_vespene = 20
-    score_details.spent_minerals = 2000
-    score_details.spent_vespene = 500
-
-    def fill(image_data, size, bits):
-      image_data.bits_per_pixel = bits
-      image_data.size.y = size[0]
-      image_data.size.x = size[1]
-      image_data.data = b'\0' * int(math.ceil(size[0] * size[1] * bits / 8))
-
-    if 'feature_screen' in obs_spec:
-      for feature in features.SCREEN_FEATURES:
-        fill(getattr(obs.feature_layer_data.renders, feature.name),
-             obs_spec['feature_screen'][1:], 8)
-    if 'feature_minimap' in obs_spec:
-      for feature in features.MINIMAP_FEATURES:
-        fill(getattr(obs.feature_layer_data.minimap_renders, feature.name),
-             obs_spec['feature_minimap'][1:], 8)
-    if 'rgb_screen' in obs_spec:
-      fill(obs.render_data.map, obs_spec['rgb_screen'][:2], 24)
-    if 'rgb_screen' in obs_spec:
-      fill(obs.render_data.minimap, obs_spec['rgb_minimap'][:2], 24)
-
+    response_observation = dummy_observation.Builder(obs_spec).build()
     features_ = self._features[agent_index]
     observation = features_.transform_obs(response_observation)
 
