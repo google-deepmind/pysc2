@@ -19,6 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 from absl.testing import absltest
+from absl.testing import parameterized
 
 from pysc2.agents import random_agent
 from pysc2.env import run_loop
@@ -26,31 +27,22 @@ from pysc2.env import sc2_env
 from pysc2.tests import utils
 
 
-class TestRandomAgent(utils.TestCase):
+class TestRandomAgent(parameterized.TestCase, utils.TestCase):
 
-  def test_random_agent_feature_layer(self):
-    steps = 500
+  @parameterized.named_parameters(
+      ("features", sc2_env.AgentInterfaceFormat(
+          feature_dimensions=sc2_env.Dimensions(screen=84, minimap=64))),
+      ("rgb", sc2_env.AgentInterfaceFormat(
+          rgb_dimensions=sc2_env.Dimensions(screen=128, minimap=64))),
+  )
+  def test_random_agent(self, agent_interface_format):
+    steps = 250
     step_mul = 8
     with sc2_env.SC2Env(
         map_name="Simple64",
-        agent_interface_format=sc2_env.AgentInterfaceFormat(
-            feature_dimensions=sc2_env.Dimensions(screen=84, minimap=64)),
+        agent_interface_format=agent_interface_format,
         step_mul=step_mul,
-        game_steps_per_episode=steps * step_mul//3) as env:
-      agent = random_agent.RandomAgent()
-      run_loop.run_loop([agent], env, steps)
-
-    self.assertEqual(agent.steps, steps)
-
-  def test_random_agent_rgb(self):
-    steps = 50
-    step_mul = 8
-    with sc2_env.SC2Env(
-        map_name="Simple64",
-        agent_interface_format=sc2_env.AgentInterfaceFormat(
-            rgb_dimensions=sc2_env.Dimensions(screen=128, minimap=64)),
-        step_mul=step_mul,
-        game_steps_per_episode=steps * step_mul//3) as env:
+        game_steps_per_episode=steps * step_mul//2) as env:
       agent = random_agent.RandomAgent()
       run_loop.run_loop([agent], env, steps)
 
