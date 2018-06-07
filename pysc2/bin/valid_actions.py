@@ -23,10 +23,11 @@ from absl import flags
 
 from pysc2.lib import actions
 from pysc2.lib import features
+from pysc2.lib import point_flag
 
 FLAGS = flags.FLAGS
-flags.DEFINE_integer("screen_size", 84, "Resolution for screen actions.")
-flags.DEFINE_integer("minimap_size", 64, "Resolution for minimap actions.")
+point_flag.DEFINE_point("screen_size", "84", "Resolution for screen actions.")
+point_flag.DEFINE_point("minimap_size", "64", "Resolution for minimap actions.")
 flags.DEFINE_bool("hide_specific", False, "Hide the specific actions")
 
 
