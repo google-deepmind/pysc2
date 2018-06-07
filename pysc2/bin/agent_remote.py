@@ -59,6 +59,7 @@ from pysc2 import run_configs
 from pysc2.env import remote_sc2_env
 from pysc2.env import run_loop
 from pysc2.env import sc2_env
+from pysc2.lib import point_flag
 from pysc2.lib import renderer_human
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
@@ -76,14 +77,14 @@ flags.DEFINE_enum("agent_race", "random", sc2_env.Race._member_names_,  # pylint
 flags.DEFINE_float("fps", 22.4, "Frames per second to run the game.")
 flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
 
-flags.DEFINE_integer("feature_screen_size", 84,
-                     "Resolution for screen feature layers.")
-flags.DEFINE_integer("feature_minimap_size", 64,
-                     "Resolution for minimap feature layers.")
-flags.DEFINE_integer("rgb_screen_size", 256,
-                     "Resolution for rendered screen.")
-flags.DEFINE_integer("rgb_minimap_size", 128,
-                     "Resolution for rendered minimap.")
+point_flag.DEFINE_point("feature_screen_size", "84",
+                        "Resolution for screen feature layers.")
+point_flag.DEFINE_point("feature_minimap_size", "64",
+                        "Resolution for minimap feature layers.")
+point_flag.DEFINE_point("rgb_screen_size", "256",
+                        "Resolution for rendered screen.")
+point_flag.DEFINE_point("rgb_minimap_size", "128",
+                        "Resolution for rendered minimap.")
 flags.DEFINE_enum("action_space", "FEATURES",
                   sc2_env.ActionSpace._member_names_,  # pylint: disable=protected-access
                   "Which action space to use. Needed if you take both feature "
@@ -188,15 +189,11 @@ def human():
     if FLAGS.feature_screen_size and FLAGS.feature_minimap_size:
       fl = join.options.feature_layer
       fl.width = 24
-      fl.resolution.x = FLAGS.feature_screen_size
-      fl.resolution.y = FLAGS.feature_screen_size
-      fl.minimap_resolution.x = FLAGS.feature_minimap_size
-      fl.minimap_resolution.y = FLAGS.feature_minimap_size
+      FLAGS.feature_screen_size.assign_to(fl.resolution)
+      FLAGS.feature_minimap_size.assign_to(fl.minimap_resolution)
     if FLAGS.rgb_screen_size and FLAGS.rgb_minimap_size:
-      join.options.render.resolution.x = FLAGS.rgb_screen_size
-      join.options.render.resolution.y = FLAGS.rgb_screen_size
-      join.options.render.minimap_resolution.x = FLAGS.rgb_minimap_size
-      join.options.render.minimap_resolution.y = FLAGS.rgb_minimap_size
+      FLAGS.rgb_screen_size.assign_to(join.options.render.resolution)
+      FLAGS.rgb_minimap_size.assign_to(join.options.render.minimap_resolution)
   controller.join_game(join)
 
   if FLAGS.render:

@@ -30,6 +30,7 @@ import six
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.env import sc2_env
+from pysc2.lib import point_flag
 from pysc2.lib import renderer_human
 from pysc2.lib import stopwatch
 from pysc2.run_configs import lib as run_configs_lib
@@ -44,14 +45,14 @@ flags.DEFINE_bool("full_screen", False, "Whether to run full screen.")
 flags.DEFINE_float("fps", 22.4, "Frames per second to run the game.")
 flags.DEFINE_integer("step_mul", 1, "Game steps per observation.")
 flags.DEFINE_bool("render_sync", False, "Turn on sync rendering.")
-flags.DEFINE_integer("feature_screen_size", 84,
-                     "Resolution for screen feature layers.")
-flags.DEFINE_integer("feature_minimap_size", 64,
-                     "Resolution for minimap feature layers.")
-flags.DEFINE_integer("rgb_screen_size", 256,
-                     "Resolution for rendered screen.")
-flags.DEFINE_integer("rgb_minimap_size", 128,
-                     "Resolution for rendered minimap.")
+point_flag.DEFINE_point("feature_screen_size", "84",
+                        "Resolution for screen feature layers.")
+point_flag.DEFINE_point("feature_minimap_size", "64",
+                        "Resolution for minimap feature layers.")
+point_flag.DEFINE_point("rgb_screen_size", "256,192",
+                        "Resolution for rendered screen.")
+point_flag.DEFINE_point("rgb_minimap_size", "128",
+                        "Resolution for rendered minimap.")
 flags.DEFINE_string("video", None, "Path to render a video of observations.")
 
 flags.DEFINE_integer("max_game_steps", 0, "Total game steps to run.")
@@ -107,17 +108,11 @@ def main(unused_argv):
   interface.raw = FLAGS.render
   interface.score = True
   interface.feature_layer.width = 24
-  interface.feature_layer.resolution.x = FLAGS.feature_screen_size
-  interface.feature_layer.resolution.y = FLAGS.feature_screen_size
-  interface.feature_layer.minimap_resolution.x = FLAGS.feature_minimap_size
-  interface.feature_layer.minimap_resolution.y = FLAGS.feature_minimap_size
-  if FLAGS.rgb_screen_size and FLAGS.rgb_minimap_size:
-    if FLAGS.rgb_screen_size < FLAGS.rgb_minimap_size:
-      sys.exit("Screen size can't be smaller than minimap size.")
-    interface.render.resolution.x = FLAGS.rgb_screen_size
-    interface.render.resolution.y = FLAGS.rgb_screen_size
-    interface.render.minimap_resolution.x = FLAGS.rgb_minimap_size
-    interface.render.minimap_resolution.y = FLAGS.rgb_minimap_size
+  FLAGS.feature_screen_size.assign_to(interface.feature_layer.resolution)
+  FLAGS.feature_minimap_size.assign_to(
+      interface.feature_layer.minimap_resolution)
+  FLAGS.rgb_screen_size.assign_to(interface.render.resolution)
+  FLAGS.rgb_minimap_size.assign_to(interface.render.minimap_resolution)
 
   max_episode_steps = FLAGS.max_episode_steps
 

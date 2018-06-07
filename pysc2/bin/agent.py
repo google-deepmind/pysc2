@@ -29,19 +29,20 @@ from pysc2 import maps
 from pysc2.env import available_actions_printer
 from pysc2.env import run_loop
 from pysc2.env import sc2_env
+from pysc2.lib import point_flag
 from pysc2.lib import stopwatch
 
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("render", True, "Whether to render with pygame.")
-flags.DEFINE_integer("feature_screen_size", 84,
-                     "Resolution for screen feature layers.")
-flags.DEFINE_integer("feature_minimap_size", 64,
-                     "Resolution for minimap feature layers.")
-flags.DEFINE_integer("rgb_screen_size", None,
-                     "Resolution for rendered screen.")
-flags.DEFINE_integer("rgb_minimap_size", None,
-                     "Resolution for rendered minimap.")
+point_flag.DEFINE_point("feature_screen_size", "84",
+                        "Resolution for screen feature layers.")
+point_flag.DEFINE_point("feature_minimap_size", "64",
+                        "Resolution for minimap feature layers.")
+point_flag.DEFINE_point("rgb_screen_size", None,
+                        "Resolution for rendered screen.")
+point_flag.DEFINE_point("rgb_minimap_size", None,
+                        "Resolution for rendered minimap.")
 flags.DEFINE_enum("action_space", None, sc2_env.ActionSpace._member_names_,  # pylint: disable=protected-access
                   "Which action space to use. Needed if you take both feature "
                   "and rgb observations.")
