@@ -33,7 +33,7 @@ class PointParser(flags.ArgumentParser):
       args = [argument]
     elif isinstance(argument, (list, tuple)):
       args = argument
-    elif isinstance(argument, (str, unicode)):
+    elif isinstance(argument, str):
       args = argument.split(",")
     else:
       raise ValueError(
