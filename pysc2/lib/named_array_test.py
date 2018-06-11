@@ -19,6 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
+import pickle
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -192,6 +193,11 @@ class NamedArrayTest(parameterized.TestCase):
                                     [["a%s" % i for i in range(50)], None])
     self.assertIn("49", str(a))
     self.assertIn("49", repr(a))
+
+  def test_pickle(self):
+    arr = named_array.NamedNumpyArray([1, 3, 6], ["a", "b", "c"])
+    self.assertTrue(np.all(arr == pickle.loads(pickle.dumps(arr))))
+
 
 if __name__ == "__main__":
   absltest.main()
