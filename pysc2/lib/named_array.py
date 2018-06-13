@@ -190,6 +190,17 @@ class NamedNumpyArray(np.ndarray):
     return "%s(%s, %s%s)" % (
         matches[0], matches[1], names, matches[2])
 
+  def __reduce__(self):
+    # Support pickling: https://stackoverflow.com/a/26599346
+    state = super(NamedNumpyArray, self).__reduce__()  # pytype: disable=attribute-error
+    assert len(state) == 3  # Verify numpy hasn't changed their protocol.
+    return (state[0], state[1], state[2] + (self._index_names,))
+
+  def __setstate__(self, state):
+    # Support pickling: https://stackoverflow.com/a/26599346
+    self._index_names = state[-1]
+    super(NamedNumpyArray, self).__setstate__(state[0:-1])  # pytype: disable=attribute-error
+
 
 def _get_index(obj, index):
   """Turn a generalized index (int/slice/str) into a real index (int/slice)."""

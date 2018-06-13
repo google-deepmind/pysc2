@@ -196,8 +196,10 @@ class NamedArrayTest(parameterized.TestCase):
 
   def test_pickle(self):
     arr = named_array.NamedNumpyArray([1, 3, 6], ["a", "b", "c"])
-    self.assertTrue(np.all(arr == pickle.loads(pickle.dumps(arr))))
-
+    pickled = pickle.loads(pickle.dumps(arr))
+    self.assertTrue(np.all(arr == pickled))
+    self.assertEqual(repr(pickled),
+                     "NamedNumpyArray([1, 3, 6], ['a', 'b', 'c'])")
 
 if __name__ == "__main__":
   absltest.main()
