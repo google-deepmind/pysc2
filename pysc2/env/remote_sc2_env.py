@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import collections
 from absl import logging
 
 from pysc2 import maps
@@ -55,27 +56,31 @@ class RemoteSC2Env(sc2_env.SC2Env):
                replay_dir=None):
     """Create a SC2 Env that connects to a remote instance of the game.
 
-    This assumes that the game is already up and running, and it only needs to
-    join. You need some other script to launch the process and call
-    RequestCreateGame. It also assumes that it's a multiplayer game, and that
-    the ports are consecutive.
+    This assumes that the game is already up and running, and that it only
+    needs to join the game - and leave once the game has ended. You need some
+    other script to launch the SC2 process and call RequestCreateGame. Note
+    that you must call close to leave the game when finished. Not doing so
+    will lead to issues when attempting to create another game on the same
+    SC2 process.
 
-    You must pass a resolution that you want to play at. You can send either
-    feature layer resolution or rgb resolution or both. If you send both you
-    must also choose which to use as your action space. Regardless of which you
-    choose you must send both the screen and minimap resolutions.
+    This class assumes that the game is multiplayer. LAN ports may be
+    specified either as a base port (from which the others will be implied),
+    or as an explicit list.
 
-    For each of the 4 resolutions, either specify size or both width and
-    height. If you specify size then both width and height will take that value.
+    You must specify an agent_interface_format. See the `AgentInterfaceFormat`
+    documentation for further detail.
 
     Args:
       _only_use_kwargs: Don't pass args, only kwargs.
       map_name: Name of a SC2 map. Run bin/map_list to get the full list of
           known maps. Alternatively, pass a Map instance. Take a look at the
           docs in maps/README.md for more information on available maps.
-      host: Host where the server is running.
-      host_port: The port for the host.
-      lan_port: Where to connect to the other SC2 instance.
+      host: Host where the SC2 process we're connecting to is running.
+      host_port: The WebSocket port for the SC2 process we're connecting to.
+      lan_port: Either an explicit sequence of LAN ports corresponding to
+          [server game port, ...base port, client game port, ...base port],
+          or an int specifying base port - equivalent to specifying the
+          sequence [lan_port, lan_port+1, lan_port+2, lan_port+3].
       race: Race for this agent.
       agent_interface_format: AgentInterfaceFormat object describing the
           format of communication between the agent and the environment.
@@ -89,6 +94,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
     Raises:
       ValueError: if the race is invalid.
       ValueError: if the resolutions aren't specified correctly.
+      ValueError: if lan_port is a sequence but its length != 4.
     """
     if _only_use_kwargs:
       raise ValueError("All arguments must be passed as keyword arguments.")
@@ -114,15 +120,36 @@ class RemoteSC2Env(sc2_env.SC2Env):
 
     self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
+    self._in_game = False
 
     interface = self._get_interface(
         agent_interface_format=agent_interface_format, require_raw=visualize)
 
-    self._connect_remote(host, host_port, lan_port, race, map_inst, interface)
+    if isinstance(lan_port, collections.Sequence):
+      if len(lan_port) != 4:
+        raise ValueError("lan_port sequence must be of length 4")
+      ports = lan_port[:]
+    else:
+      ports = [lan_port + p for p in range(4)]  # 2 * num players *in the game*.
+
+    self._connect_remote(host, host_port, ports, race, map_inst, interface)
 
     self._finalize([agent_interface_format], [interface], visualize)
 
-  def _connect_remote(self, host, host_port, lan_port, race, map_inst,
+  def close(self):
+    # Leave the game so that another may be created in the same SC2 process.
+    if self._in_game:
+      logging.info("Leaving game.")
+      self._controllers[0].leave()
+      self._in_game = False
+      logging.info("Left game.")
+
+    # We don't own the SC2 process, we shouldn't call quit in the super class.
+    self._controllers = None
+
+    super(RemoteSC2Env, self).close()
+
+  def _connect_remote(self, host, host_port, lan_ports, race, map_inst,
                       interface):
     """Make sure this stays synced with bin/agent_remote.py."""
     # Connect!
@@ -130,22 +157,25 @@ class RemoteSC2Env(sc2_env.SC2Env):
     self._controllers = [remote_controller.RemoteController(host, host_port)]
     logging.info("Connected")
 
-    # Create the join request.
-    ports = [lan_port + p for p in range(4)]  # 2 * num players *in the game*.
-    join = sc_pb.RequestJoinGame(options=interface)
-    join.race = race
-    join.shared_port = 0  # unused
-    join.server_ports.game_port = ports.pop(0)
-    join.server_ports.base_port = ports.pop(0)
-    join.client_ports.add(game_port=ports.pop(0), base_port=ports.pop(0))
-
     if map_inst:
       run_config = run_configs.get()
       self._controllers[0].save_map(map_inst.path, map_inst.data(run_config))
+
+    # Create the join request.
+    join = sc_pb.RequestJoinGame(options=interface)
+    join.race = race
+    join.shared_port = 0  # unused
+    join.server_ports.game_port = lan_ports.pop(0)
+    join.server_ports.base_port = lan_ports.pop(0)
+    join.client_ports.add(
+        game_port=lan_ports.pop(0), base_port=lan_ports.pop(0))
+
+    logging.info("Joining game.")
     self._controllers[0].join_game(join)
+    self._in_game = True
+    logging.info("Game joined.")
 
   def _restart(self):
     # Can't restart since it's not clear how you'd coordinate that with the
     # other players.
-    self._controllers[0].leave()
     raise RestartException("Can't restart")
