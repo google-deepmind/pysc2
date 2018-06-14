@@ -623,7 +623,7 @@ _FUNCTIONS = [
     Function.ability(171, "Cancel_Queue5_quick", cmd_quick, 306, 3671),
     Function.ability(172, "Cancel_QueueAddOn_quick", cmd_quick, 312, 3671),
     Function.ability(173, "Cancel_QueueCancelToSelection_quick", cmd_quick, 308, 3671),
-    Function.ability(174, "Cancel_QueuePasive_quick", cmd_quick, 1831, 3671),
+    Function.ability(174, "Cancel_QueuePassive_quick", cmd_quick, 1831, 3671),
     Function.ability(175, "Cancel_QueuePassiveCancelToSelection_quick", cmd_quick, 1833, 3671),
     Function.ability(176, "Effect_Abduct_screen", cmd_screen, 2067),
     Function.ability(177, "Effect_AdeptPhaseShift_screen", cmd_screen, 2544),
