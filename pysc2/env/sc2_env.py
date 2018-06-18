@@ -509,10 +509,13 @@ class SC2Env(environment.Base):
                    self._episode_count, self._episode_steps, outcome, reward,
                    [o["score_cumulative"][0] for o in agent_obs])
 
-    return tuple(environment.TimeStep(step_type=self._state,
-                                      reward=r * self._score_multiplier,
-                                      discount=discount, observation=o)
-                 for r, o in zip(reward, agent_obs))
+    def zero_on_first_step(value):
+      return 0.0 if self._state == environment.StepType.FIRST else value
+    return tuple(environment.TimeStep(
+        step_type=self._state,
+        reward=zero_on_first_step(r * self._score_multiplier),
+        discount=zero_on_first_step(discount),
+        observation=o) for r, o in zip(reward, agent_obs))
 
   def send_chat_messages(self, messages):
     """Useful for logging messages into the replay."""

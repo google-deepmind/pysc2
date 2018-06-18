@@ -38,13 +38,13 @@ class _TestMixin(object):
 
   def assert_reset(self, env):
     expected = env.next_timestep[0]._replace(
-        step_type=environment.StepType.FIRST, reward=0, discount=1)
+        step_type=environment.StepType.FIRST, reward=0, discount=0)
     timestep = env.reset()
     self.assert_equal(timestep, [expected])
 
   def assert_first_step(self, env):
     expected = env.next_timestep[0]._replace(
-        step_type=environment.StepType.FIRST, reward=0, discount=1)
+        step_type=environment.StepType.FIRST, reward=0, discount=0)
     timestep = env.step([mock.sentinel.action])
     self.assert_equal(timestep, [expected])
 

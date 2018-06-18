@@ -38,9 +38,9 @@ class TimeStep(collections.namedtuple(
 
   Attributes:
     step_type: A `StepType` enum value.
-    reward: A scalar, or `None` if `step_type` is `StepType.FIRST`, i.e. at the
+    reward: A scalar, or 0 if `step_type` is `StepType.FIRST`, i.e. at the
       start of a sequence.
-    discount: A discount value in the range `[0, 1]`, or `None` if `step_type`
+    discount: A discount value in the range `[0, 1]`, or 0 if `step_type`
       is `StepType.FIRST`, i.e. at the start of a sequence.
     observation: A NumPy array, or a dict, list or tuple of arrays.
   """
@@ -77,8 +77,8 @@ class Base(object):  # pytype: disable=ignored-abstractmethod
     Returns:
       A `TimeStep` namedtuple containing:
         step_type: A `StepType` of `FIRST`.
-        reward: `None`, indicating the reward is undefined.
-        discount: `None`, indicating the discount is undefined.
+        reward: Zero.
+        discount: Zero.
         observation: A NumPy array, or a dict, list or tuple of arrays
           corresponding to `observation_spec()`.
     """

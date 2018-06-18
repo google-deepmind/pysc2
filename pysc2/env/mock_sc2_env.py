@@ -102,7 +102,7 @@ class _TestEnvironment(environment.Base):
         timesteps.append(timestep._replace(
             step_type=step_type,
             reward=0.,
-            discount=1.))
+            discount=0.))
       elif step_type is environment.StepType.LAST:
         timesteps.append(timestep._replace(
             step_type=step_type))
