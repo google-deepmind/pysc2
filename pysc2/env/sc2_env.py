@@ -116,6 +116,7 @@ class SC2Env(environment.Base):
                minimap_size_px=None,  # deprecated
                agent_interface_format=None,
                discount=1.,
+               discount_zero_after_timeout=False,
                visualize=False,
                step_mul=None,
                save_replay_episodes=0,
@@ -150,6 +151,8 @@ class SC2Env(environment.Base):
         per agent, matching the order of agents specified in the players list.
         Or a single AgentInterfaceFormat to be used for all agents.
       discount: Returned as part of the observation.
+      discount_zero_after_timeout: If True, the discount will be zero
+          after the `game_steps_per_episode` timeout.
       visualize: Whether to pop up a window showing the camera and feature
           layers. This won't work without access to a window manager.
       step_mul: How many game steps per agent step (action/observation). None
@@ -227,6 +230,7 @@ class SC2Env(environment.Base):
     self._replay_dir = replay_dir
     self._random_seed = random_seed
     self._disable_fog = disable_fog
+    self._discount_zero_after_timeout = discount_zero_after_timeout
 
     if score_index is None:
       self._score_index = map_inst.score_index
@@ -498,7 +502,8 @@ class SC2Env(environment.Base):
     self._episode_steps += self._step_mul
     if self._episode_length > 0 and self._episode_steps >= self._episode_length:
       self._state = environment.StepType.LAST
-      # No change to reward or discount since it's not actually terminal.
+      if self._discount_zero_after_timeout:
+        discount = 0.0
 
     if self._state == environment.StepType.LAST:
       if (self._save_replay_episodes > 0 and

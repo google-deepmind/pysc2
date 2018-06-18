@@ -117,6 +117,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
     self._score_index = -1  # Win/loss only.
     self._score_multiplier = 1
     self._episode_length = 0  # No limit.
+    self._discount_zero_after_timeout = False
 
     self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
