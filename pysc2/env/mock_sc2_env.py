@@ -105,7 +105,8 @@ class _TestEnvironment(environment.Base):
             discount=0.))
       elif step_type is environment.StepType.LAST:
         timesteps.append(timestep._replace(
-            step_type=step_type))
+            step_type=step_type,
+            discount=0.))
       else:
         timesteps.append(timestep)
 
@@ -158,6 +159,7 @@ class SC2TestEnv(_TestEnvironment):
                players=None,
                agent_interface_format=None,
                discount=1.,
+               discount_zero_after_timeout=False,
                visualize=False,
                step_mul=None,
                save_replay_episodes=0,
@@ -177,6 +179,7 @@ class SC2TestEnv(_TestEnvironment):
         per agent, matching the order of agents specified in the players list.
         Or a single AgentInterfaceFormat to be used for all agents.
       discount: Unused.
+      discount_zero_after_timeout: Unused.
       visualize: Unused.
       step_mul: Unused.
       save_replay_episodes: Unused.
@@ -192,6 +195,7 @@ class SC2TestEnv(_TestEnvironment):
     """
     del map_name  # Unused.
     del discount  # Unused.
+    del discount_zero_after_timeout  # Unused.
     del visualize  # Unused.
     del step_mul  # Unused.
     del save_replay_episodes  # Unused.

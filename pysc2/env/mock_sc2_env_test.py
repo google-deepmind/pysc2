@@ -56,7 +56,8 @@ class _TestMixin(object):
 
   def assert_last_step(self, env):
     expected = env.next_timestep[0]._replace(
-        step_type=environment.StepType.LAST)
+        step_type=environment.StepType.LAST,
+        discount=0.)
     timestep = env.step([mock.sentinel.action])
     self.assert_equal(timestep, [expected])
 
@@ -71,7 +72,7 @@ class _TestMixin(object):
       self.assert_mid_step(env)
 
     env.next_timestep = [env.next_timestep[0]._replace(
-        step_type=environment.StepType.LAST, reward=10, discount=0.1)]
+        step_type=environment.StepType.LAST, reward=10, discount=0.0)]
     self.assert_last_step(env)
 
   def _test_episode_length(self, env, length):
