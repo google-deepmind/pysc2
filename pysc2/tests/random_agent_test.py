@@ -34,6 +34,12 @@ class TestRandomAgent(parameterized.TestCase, utils.TestCase):
           feature_dimensions=sc2_env.Dimensions(screen=84, minimap=64))),
       ("rgb", sc2_env.AgentInterfaceFormat(
           rgb_dimensions=sc2_env.Dimensions(screen=128, minimap=64))),
+      ("all", sc2_env.AgentInterfaceFormat(
+          feature_dimensions=sc2_env.Dimensions(screen=84, minimap=64),
+          rgb_dimensions=sc2_env.Dimensions(screen=128, minimap=64),
+          action_space=sc2_env.ActionSpace.FEATURES,
+          use_unit_counts=True,
+          use_feature_units=True)),
   )
   def test_random_agent(self, agent_interface_format):
     steps = 250

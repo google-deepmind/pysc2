@@ -286,6 +286,7 @@ class SC2Env(environment.Base):
         features.features_from_game_info(
             game_info=g,
             use_feature_units=agent_interface_format.use_feature_units,
+            use_unit_counts=agent_interface_format.use_unit_counts,
             action_space=agent_interface_format.action_space,
             hide_specific_actions=agent_interface_format.hide_specific_actions)
         for g, agent_interface_format in zip(game_info, agent_interface_formats)
@@ -312,7 +313,9 @@ class SC2Env(environment.Base):
   @staticmethod
   def _get_interface(agent_interface_format, require_raw):
     interface = sc_pb.InterfaceOptions(
-        raw=(agent_interface_format.use_feature_units or require_raw),
+        raw=(agent_interface_format.use_feature_units or
+             agent_interface_format.use_unit_counts or
+             require_raw),
         score=True)
 
     if agent_interface_format.feature_dimensions:

@@ -119,6 +119,12 @@ class UnitLayer(enum.IntEnum):
   build_progress = 6
 
 
+class UnitCounts(enum.IntEnum):
+  """Indices into the `unit_counts` observations."""
+  unit_type = 0
+  count = 1
+
+
 class FeatureUnit(enum.IntEnum):
   """Indices for the `feature_unit` observations."""
   unit_type = 0
@@ -364,6 +370,7 @@ class AgentInterfaceFormat(object):
       action_space=None,
       camera_width_world_units=None,
       use_feature_units=False,
+      use_unit_counts=False,
       hide_specific_actions=True):
     """Initializer.
 
@@ -380,6 +387,8 @@ class AgentInterfaceFormat(object):
           It'll then represent a camera of size (24, 0.375 * 48) = (24, 18)
           world units.
       use_feature_units: Whether to include feature unit data in observations.
+      use_unit_counts: Whether to include unit_counts observation. Disabled by
+          default since it gives information outside the visible area.
       hide_specific_actions: [bool] Some actions (eg cancel) have many
           specific versions (cancel this building, cancel that spell) and can
           be represented in a more general form. If a specific action is
@@ -425,6 +434,7 @@ class AgentInterfaceFormat(object):
     self._action_space = action_space
     self._camera_width_world_units = camera_width_world_units or 24
     self._use_feature_units = use_feature_units
+    self._use_unit_counts = use_unit_counts
     self._hide_specific_actions = hide_specific_actions
 
     if action_space == actions.ActionSpace.FEATURES:
@@ -453,6 +463,10 @@ class AgentInterfaceFormat(object):
     return self._use_feature_units
 
   @property
+  def use_unit_counts(self):
+    return self._use_unit_counts
+
+  @property
   def hide_specific_actions(self):
     return self._hide_specific_actions
 
@@ -468,7 +482,8 @@ def parse_agent_interface_format(
     rgb_minimap=None,
     action_space=None,
     camera_width_world_units=None,
-    use_feature_units=False):
+    use_feature_units=False,
+    use_unit_counts=False):
   """Creates an AgentInterfaceFormat object from keyword args.
 
   Convenient when using dictionaries or command-line arguments for config.
@@ -487,6 +502,7 @@ def parse_agent_interface_format(
     action_space: ["FEATURES", "RGB"].
     camera_width_world_units: An int.
     use_feature_units: A boolean, defaults to False.
+    use_unit_counts: A boolean, defaults to False.
 
   Returns:
     An `AgentInterfaceFormat` object.
@@ -513,7 +529,8 @@ def parse_agent_interface_format(
       rgb_dimensions=rgb_dimensions,
       action_space=(action_space and actions.ActionSpace[action_space.upper()]),
       camera_width_world_units=camera_width_world_units,
-      use_feature_units=use_feature_units
+      use_feature_units=use_feature_units,
+      use_unit_counts=use_unit_counts
   )
 
 
@@ -521,7 +538,8 @@ def features_from_game_info(
     game_info,
     use_feature_units=False,
     action_space=None,
-    hide_specific_actions=True):
+    hide_specific_actions=True,
+    use_unit_counts=False):
   """Construct a Features object using data extracted from game info.
 
   Args:
@@ -539,6 +557,8 @@ def features_from_game_info(
         as the general action. This simplifies the action space, though can
         lead to some actions in replays not being exactly representable using
         only the general actions.
+      use_unit_counts: Whether to include unit_counts observation. Disabled by
+          default since it gives information outside the visible area.
 
   Returns:
     A features object matching the specified parameterisation.
@@ -569,6 +589,7 @@ def features_from_game_info(
           feature_dimensions=feature_dimensions,
           rgb_dimensions=rgb_dimensions,
           use_feature_units=use_feature_units,
+          use_unit_counts=use_unit_counts,
           camera_width_world_units=camera_width_world_units,
           action_space=action_space,
           hide_specific_actions=hide_specific_actions),
@@ -704,6 +725,9 @@ class Features(object):
                                  3)
     if aif.use_feature_units:
       obs_spec["feature_units"] = (0, len(FeatureUnit))  # pytype: disable=wrong-arg-types
+
+    if aif.use_unit_counts:
+      obs_spec["unit_counts"] = (0, len(UnitCounts))
     return obs_spec
 
   def action_spec(self):
@@ -883,6 +907,15 @@ class Features(object):
             feature_units.append(feature_unit_vec(u))
         out["feature_units"] = named_array.NamedNumpyArray(
             feature_units, [None, FeatureUnit], dtype=np.int32)
+
+    if aif.use_unit_counts:
+      with sw("unit_counts"):
+        unit_counts = collections.defaultdict(int)
+        for u in raw.units:
+          if u.alliance == sc_raw.Self:
+            unit_counts[u.unit_type] += 1
+        out["unit_counts"] = named_array.NamedNumpyArray(
+            sorted(unit_counts.items()), [None, UnitCounts], dtype=np.int32)
 
     out["available_actions"] = np.array(self.available_actions(obs.observation),
                                         dtype=np.int32)
