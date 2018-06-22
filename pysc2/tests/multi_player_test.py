@@ -24,10 +24,10 @@ import os
 from absl.testing import absltest
 from future.builtins import range  # pylint: disable=redefined-builtin
 
-import portpicker
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.lib import point
+from pysc2.lib import portspicker
 from pysc2.lib import run_parallel
 from pysc2.tests import utils
 
@@ -54,7 +54,7 @@ class TestMultiplayer(utils.TestCase):
     minimap_size_px.assign_to(interface.feature_layer.minimap_resolution)
 
     # Reserve a whole bunch of ports for the weird multiplayer implementation.
-    ports = [portpicker.pick_unused_port() for _ in range(players * 2)]
+    ports = portspicker.pick_unused_ports(players * 2)
     logging.info("Valid Ports: %s", ports)
 
     # Actually launch the game processes.
@@ -119,6 +119,7 @@ class TestMultiplayer(utils.TestCase):
         c.quit()
       for p in sc2_procs:
         p.close()
+      portspicker.return_ports(ports)
 
 
 if __name__ == "__main__":

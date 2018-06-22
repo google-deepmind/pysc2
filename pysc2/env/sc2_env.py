@@ -19,10 +19,8 @@ from __future__ import print_function
 
 import collections
 from absl import logging
-import time
 
 import enum
-import portpicker
 
 from pysc2 import maps
 from pysc2 import run_configs
@@ -30,6 +28,7 @@ from pysc2.env import environment
 from pysc2.lib import actions as actions_lib
 from pysc2.lib import features
 from pysc2.lib import metrics
+from pysc2.lib import portspicker
 from pysc2.lib import renderer_human
 from pysc2.lib import run_parallel
 from pysc2.lib import stopwatch
@@ -77,25 +76,6 @@ parse_agent_interface_format = features.parse_agent_interface_format
 
 Agent = collections.namedtuple("Agent", ["race"])
 Bot = collections.namedtuple("Bot", ["race", "difficulty"])
-
-
-def _pick_unused_ports(num_ports, retry_interval_secs=3, retry_attempts=5):
-  """Returns a list of `num_ports` unused ports."""
-  ports = set()
-  for _ in range(retry_attempts):
-    ports.update(
-        portpicker.pick_unused_port() for _ in range(num_ports - len(ports)))
-    ports.discard(None)  # portpicker returns None on error.
-    if len(ports) == num_ports:
-      return list(ports)
-    # Duplicate ports can be returned, especially when insufficient ports are
-    # free. Wait for more ports to be freed and retry.
-    time.sleep(retry_interval_secs)
-
-  # Could not obtain enough ports. Release what we do have.
-  for port in ports:
-    portpicker.return_port(port)
-  raise RuntimeError("Unable to obtain %d unused ports." % num_ports)
 
 
 class SC2Env(environment.Base):
@@ -360,7 +340,7 @@ class SC2Env(environment.Base):
 
   def _launch_mp(self, map_inst, interfaces):
     # Reserve a whole bunch of ports for the weird multiplayer implementation.
-    self._ports = _pick_unused_ports(self._num_agents * 2)
+    self._ports = portspicker.pick_unused_ports(self._num_agents * 2)
 
     # Actually launch the game processes.
     self._sc2_procs = [self._run_config.start(extra_ports=self._ports)
@@ -558,6 +538,5 @@ class SC2Env(environment.Base):
       self._sc2_procs = None
 
     if hasattr(self, "_ports") and self._ports:
-      for port in self._ports:
-        portpicker.return_port(port)
+      portspicker.return_ports(self._ports)
       self._ports = None

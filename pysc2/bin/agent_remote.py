@@ -52,7 +52,6 @@ import time
 
 from absl import app
 from absl import flags
-import portpicker
 
 from pysc2 import maps
 from pysc2 import run_configs
@@ -60,6 +59,7 @@ from pysc2.env import remote_sc2_env
 from pysc2.env import run_loop
 from pysc2.env import sc2_env
 from pysc2.lib import point_flag
+from pysc2.lib import portspicker
 from pysc2.lib import renderer_human
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
@@ -151,12 +151,7 @@ def human():
     logging.info("Use --rgb_screen_size and --rgb_minimap_size if you want rgb "
                  "observations.")
 
-  while True:
-    start_port = portpicker.pick_unused_port()
-    ports = [start_port + p for p in range(4)]  # 2 * num_players
-    if all(portpicker.is_port_free(p) for p in ports):
-      break
-
+  ports = portspicker.pick_contiguous_unused_ports(4)  # 2 * num_players
   host_proc = run_config.start(extra_ports=ports, host=FLAGS.host,
                                timeout_seconds=300, window_loc=(50, 50))
   client_proc = run_config.start(extra_ports=ports, host=FLAGS.host,
@@ -173,7 +168,7 @@ def human():
 
   print("-" * 80)
   print("Join host: play_vs_agent --map %s --host %s --host_port %s "
-        "--lan_port %s" % (FLAGS.map, FLAGS.host, client_proc.port, start_port))
+        "--lan_port %s" % (FLAGS.map, FLAGS.host, client_proc.port, ports[0]))
   print("-" * 80)
 
   join = sc_pb.RequestJoinGame()
@@ -216,6 +211,8 @@ def human():
 
   for p in [host_proc, client_proc]:
     p.close()
+
+  portspicker.return_ports(ports)
 
 
 def entry_point():  # Needed so setup.py scripts work.
