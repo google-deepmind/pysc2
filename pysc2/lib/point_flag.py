@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from absl import flags
+import six
 
 from pysc2.lib import point
 
@@ -33,7 +34,7 @@ class PointParser(flags.ArgumentParser):
       args = [argument]
     elif isinstance(argument, (list, tuple)):
       args = argument
-    elif isinstance(argument, str):
+    elif isinstance(argument, six.string_types):
       args = argument.split(",")
     else:
       raise ValueError(
