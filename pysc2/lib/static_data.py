@@ -26,6 +26,7 @@ class StaticData(object):
   def __init__(self, data):
     """Takes data from RequestData."""
     self._units = {u.unit_id: u.name for u in data.units}
+    self._unit_stats = {u.unit_id: u for u in data.units}
     self._abilities = {a.ability_id: a for a in data.abilities}
     self._general_abilities = {a.remaps_to_ability_id
                                for a in data.abilities
@@ -41,6 +42,10 @@ class StaticData(object):
   @property
   def units(self):
     return self._units
+
+  @property
+  def unit_stats(self):
+    return self._unit_stats
 
   @property
   def general_abilities(self):
