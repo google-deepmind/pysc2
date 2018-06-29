@@ -20,14 +20,21 @@ from __future__ import print_function
 import functools
 from absl import logging
 import socket
+import sys
 import time
 
+from absl import flags
 from pysc2.lib import protocol
 from pysc2.lib import static_data
 from pysc2.lib import stopwatch
 import websocket
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
+
+flags.DEFINE_bool("sc2_log_actions", False,
+                  ("Print all the actions sent to SC2. If you want observations"
+                   " as well, consider using `sc2_verbose_protocol`."))
+FLAGS = flags.FLAGS
 
 sw = stopwatch.sw
 
@@ -210,6 +217,11 @@ class RemoteController(object):
   @sw.decorate
   def actions(self, req_action):
     """Send a `sc_pb.RequestAction`, which may include multiple actions."""
+    if FLAGS.sc2_log_actions:
+      for action in req_action.actions:
+        sys.stderr.write(str(action))
+        sys.stderr.flush()
+
     return self._client.send(action=req_action)
 
   def act(self, action):
