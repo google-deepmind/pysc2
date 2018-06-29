@@ -45,6 +45,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
   def __init__(self,  # pylint: disable=invalid-name
                _only_use_kwargs=None,
                map_name=None,
+               save_map=True,
                host="127.0.0.1",
                host_port=None,
                lan_port=None,
@@ -75,6 +76,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
       map_name: Name of a SC2 map. Run bin/map_list to get the full list of
           known maps. Alternatively, pass a Map instance. Take a look at the
           docs in maps/README.md for more information on available maps.
+      save_map: Whether to save map data before joining the game.
       host: Host where the SC2 process we're connecting to is running.
       host_port: The WebSocket port for the SC2 process we're connecting to.
       lan_port: Either an explicit sequence of LAN ports corresponding to
@@ -133,7 +135,8 @@ class RemoteSC2Env(sc2_env.SC2Env):
     else:
       ports = [lan_port + p for p in range(4)]  # 2 * num players *in the game*.
 
-    self._connect_remote(host, host_port, ports, race, map_inst, interface)
+    self._connect_remote(
+        host, host_port, ports, race, map_inst, save_map, interface)
 
     self._finalize([agent_interface_format], [interface], visualize)
 
@@ -151,14 +154,14 @@ class RemoteSC2Env(sc2_env.SC2Env):
     super(RemoteSC2Env, self).close()
 
   def _connect_remote(self, host, host_port, lan_ports, race, map_inst,
-                      interface):
+                      save_map, interface):
     """Make sure this stays synced with bin/agent_remote.py."""
     # Connect!
     logging.info("Connecting...")
     self._controllers = [remote_controller.RemoteController(host, host_port)]
     logging.info("Connected")
 
-    if map_inst:
+    if map_inst and save_map:
       run_config = run_configs.get()
       self._controllers[0].save_map(map_inst.path, map_inst.data(run_config))
 
