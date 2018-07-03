@@ -92,7 +92,16 @@ class DummyObservationTest(absltest.TestCase):
     nits = [_MOTHERSHIP, _PROBE, _PROBE, _ZEALOT]
     self._builder.multi_select(nits)
     obs = self._get_obs()
+    self.assertEqual(len(obs.ui_data.multi.units), 4)
     for proto, builder in zip(obs.ui_data.multi.units, nits):
+      self._check_unit(proto, builder)
+
+  def testBuildQueue(self):
+    nits = [_MOTHERSHIP, _PROBE]
+    self._builder.build_queue(nits)
+    obs = self._get_obs()
+    self.assertEqual(len(obs.ui_data.production.build_queue), 2)
+    for proto, builder in zip(obs.ui_data.production.build_queue, nits):
       self._check_unit(proto, builder)
 
   def testFeatureUnitsAreAdded(self):

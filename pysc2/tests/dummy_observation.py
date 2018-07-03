@@ -147,6 +147,7 @@ class Builder(object):
     self._obs_spec = obs_spec
     self._single_select = None
     self._multi_select = None
+    self._build_queue = None
     self._feature_units = None
 
   def single_select(self, unit):
@@ -155,6 +156,10 @@ class Builder(object):
 
   def multi_select(self, units):
     self._multi_select = units
+    return self
+
+  def build_queue(self, build_queue):
+    self._build_queue = build_queue
     return self
 
   def feature_units(self, feature_units):
@@ -224,6 +229,10 @@ class Builder(object):
     if self._multi_select:
       for unit in self._multi_select:
         obs.ui_data.multi.units.add(**unit.as_dict())
+
+    if self._build_queue:
+      for unit in self._build_queue:
+        obs.ui_data.production.build_queue.add(**unit.as_dict())
 
     if self._feature_units:
       for feature_unit in self._feature_units:
