@@ -198,7 +198,7 @@ def _get_desktop_size():
   if os.name == "posix":
     try:
       xrandr_query = subprocess.check_output(["xrandr", "--query"])
-      sizes = re.findall(r"\bconnected primary (\d+)x(\d+)", xrandr_query)
+      sizes = re.findall(r"\bconnected primary (\d+)x(\d+)", str(xrandr_query))
       if sizes[0]:
         return point.Point(int(sizes[0][0]), int(sizes[0][1]))
     except:  # pylint: disable=bare-except
