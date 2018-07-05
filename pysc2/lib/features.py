@@ -147,6 +147,7 @@ class FeatureUnit(enum.IntEnum):
   assigned_harvesters = 23
   ideal_harvesters = 24
   weapon_cooldown = 25
+  addon_unit_type = 26
 
 
 class Feature(collections.namedtuple(
@@ -833,10 +834,16 @@ class Features(object):
             [unit_vec(u) for u in ui.production.build_queue],
             [None, UnitLayer])
 
-    def feature_unit_vec(u):
+    def feature_unit_vec(u, raw_units):
       screen_pos = self._world_to_feature_screen_px.fwd_pt(
           point.Point.build(u.pos))
       screen_radius = self._world_to_feature_screen_px.fwd_dist(u.radius)
+      add_on_unit_type = 0
+      if u.add_on_tag > 0:
+        for raw_unit in raw_units:
+          if raw_unit.tag == u.add_on_tag:
+            add_on_unit_type = raw_unit.unit_type
+            break
       return np.array((
           # Match unit_vec order
           u.unit_type,
@@ -869,6 +876,7 @@ class Features(object):
           u.assigned_harvesters,
           u.ideal_harvesters,
           u.weapon_cooldown,
+          add_on_unit_type,
       ), dtype=np.int32)
 
     raw = obs.observation.raw_data
@@ -880,7 +888,7 @@ class Features(object):
         feature_units = []
         for u in raw.units:
           if u.is_on_screen and u.display_type != sc_raw.Hidden:
-            feature_units.append(feature_unit_vec(u))
+            feature_units.append(feature_unit_vec(u, raw.units))
         out["feature_units"] = named_array.NamedNumpyArray(
             feature_units, [None, FeatureUnit], dtype=np.int32)
 
