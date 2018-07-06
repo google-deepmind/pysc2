@@ -187,6 +187,10 @@ class StarcraftProcess(object):
     # poll returns None if it's running, otherwise the exit code.
     return self._proc and (self._proc.poll() is None)
 
+  @property
+  def pid(self):
+    return self._proc.pid if self.running else None
+
 
 def _shutdown_proc(p, timeout):
   """Wait for a proc to shut down, then terminate or kill it after `timeout`."""

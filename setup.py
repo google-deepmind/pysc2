@@ -66,6 +66,7 @@ setup(
         'numpy>=1.10',
         'portpicker>=1.2.0',
         'protobuf>=2.6',
+        'psutil',
         'pygame',
         'requests',
         's2clientprotocol>=3.19.0.58400.0',
