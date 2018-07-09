@@ -36,6 +36,7 @@ ladder_seasons = [
     "Ladder2017Season3",
     "Ladder2017Season4",
     "Ladder2018Season1",
+    "Ladder2018Season2",
 ]
 
 for name in ladder_seasons:
@@ -45,9 +46,10 @@ for name in ladder_seasons:
 # pylint: disable=bad-whitespace, undefined-variable
 # pytype: disable=name-error
 ladder_maps = [
+    ("16Bit",                Ladder2018Season2, "(2)16-BitLE", 2),
     ("Abiogenesis",          Ladder2018Season1, "AbiogenesisLE", 2),
     ("AbyssalReef",          Ladder2017Season4, "AbyssalReefLE", 2),
-    ("AcidPlant",            Ladder2018Season1, "AcidPlantLE", 2),
+    ("AcidPlant",            Ladder2018Season2, "(2)AcidPlantLE", 2),
     ("Acolyte",              Ladder2017Season3, "AcolyteLE", 2),
     ("AscensiontoAiur",      Ladder2017Season4, "AscensiontoAiurLE", 2),
     ("Backwater",            Ladder2018Season1, "BackwaterLE", 2),
@@ -56,17 +58,21 @@ ladder_maps = [
     ("Blackpink",            Ladder2018Season1, "BlackpinkLE", 2),
     ("BloodBoil",            Ladder2017Season2, "BloodBoilLE", 2),
     ("CactusValley",         Ladder2017Season1, "CactusValleyLE", 4),
-    ("Catalyst",             Ladder2018Season1, "CatalystLE", 2),
+    ("Catalyst",             Ladder2018Season2, "(2)CatalystLE", 2),
+    ("DarknessSanctuary",    Ladder2018Season2, "(4)DarknessSanctuaryLE", 4),
     ("DefendersLanding",     Ladder2017Season2, "DefendersLandingLE", 2),
+    ("Dreamcatcher",         Ladder2018Season2, "(2)DreamcatcherLE", 2),
     ("Eastwatch",            Ladder2018Season1, "EastwatchLE", 2),
     ("Frost",                Ladder2017Season3, "FrostLE", 2),
     ("Honorgrounds",         Ladder2017Season1, "HonorgroundsLE", 4),
     ("Interloper",           Ladder2017Season3, "InterloperLE", 2),
+    ("LostandFound",         Ladder2018Season2, "(2)LostandFoundLE", 2),
     ("MechDepot",            Ladder2017Season3, "MechDepotLE", 2),
     ("NewkirkPrecinct",      Ladder2017Season1, "NewkirkPrecinctTE", 2),
     ("Odyssey",              Ladder2017Season4, "OdysseyLE", 2),
     ("PaladinoTerminal",     Ladder2017Season1, "PaladinoTerminalLE", 2),
     ("ProximaStation",       Ladder2017Season2, "ProximaStationLE", 2),
+    ("Redshift",             Ladder2018Season2, "(2)RedshiftLE", 2),
     ("Sequencer",            Ladder2017Season2, "SequencerLE", 2),
 
     # Disabled due to failing on 4.1.2 on Linux (Websocket Timeout).
