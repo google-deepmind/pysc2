@@ -18,9 +18,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import collections
 import time
 
 from absl import app
+from absl import flags
 from future.builtins import range  # pylint: disable=redefined-builtin
 
 import psutil
@@ -30,6 +32,22 @@ from pysc2 import run_configs
 
 from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
+
+
+flags.DEFINE_integer("mem_limit", 2000, "Max memory usage in Mb.")
+flags.DEFINE_integer("episodes", 200, "Max number of episodes.")
+FLAGS = flags.FLAGS
+
+
+class MemoryException(Exception):
+  pass
+
+
+class Timestep(collections.namedtuple(
+    "Timestep", ["episode", "time", "cpu", "memory", "name"])):
+
+  def __str__(self):
+    return "[%3d: %7.3f] cpu: %5.1f s, mem: %4d Mb; %s" % self
 
 
 def main(unused_argv):
@@ -48,17 +66,19 @@ def main(unused_argv):
   run_config = run_configs.get()
   proc = run_config.start()
   process = psutil.Process(proc.pid)
+  episode = 0
 
   def add(s):
     cpu = process.cpu_times().user
     mem = process.memory_info().rss / 2 ** 20  # In Mb
-    timeline.append((time.time() - start, cpu, mem, s))
-
-    if mem > 2000:
-      raise Exception("2gb mem limit exceeded")
+    step = Timestep(episode, time.time() - start, cpu, mem, s)
+    print(step)
+    timeline.append(step)
+    if mem > FLAGS.mem_limit:
+      raise MemoryException("%s Mb mem limit exceeded" % FLAGS.mem_limit)
 
   try:
-    add("Started")
+    add("Started process")
 
     controller = proc.controller
     map_inst = maps.get("Simple64")
@@ -72,34 +92,36 @@ def main(unused_argv):
     join = sc_pb.RequestJoinGame(race=sc_common.Random, options=interface)
     controller.create_game(create)
 
-    add("Created")
+    add("Created game")
 
     controller.join_game(join)
 
-    add("Joined")
+    episode += 1
+    add("Joined game")
 
-    for _ in range(30):
-
+    for _ in range(FLAGS.episodes):
       for i in range(2000):
         controller.step(16)
         obs = controller.observe()
         if obs.player_result:
-          add("Lost")
+          add("Lost on step %s" % i)
           break
-        if i % 100 == 0:
-          add(i)
-
+        if i > 0 and i % 100 == 0:
+          add("Step %s" % i)
       controller.restart()
+      episode += 1
       add("Restarted")
     add("Done")
   except KeyboardInterrupt:
     pass
+  except MemoryException as e:
+    print(e)
   finally:
     proc.close()
 
   print("Timeline:")
   for t in timeline:
-    print("[%7.3f] cpu: %5.1f s, mem: %4d M; %s" % t)
+    print(t)
 
 
 if __name__ == "__main__":
