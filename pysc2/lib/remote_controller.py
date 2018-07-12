@@ -97,6 +97,34 @@ def valid_status(*valid):
   return decorator
 
 
+def catch_game_end(func):
+  """Decorator to handle 'Game has already ended' exceptions."""
+  @functools.wraps(func)
+  def _catch_game_end(self, *args, **kwargs):
+    """Decorator to handle 'Game has already ended' exceptions."""
+    prev_status = self.status
+    try:
+      return func(self, *args, **kwargs)
+    except protocol.ProtocolError as protocol_error:
+      if prev_status == Status.in_game and (
+          "Game has already ended" in str(protocol_error)):
+        # It's currently possible for us to receive this error even though
+        # our previous status was in_game. This shouldn't happen according
+        # to the protocol. It does happen sometimes when we don't observe on
+        # every step (possibly also requiring us to be playing against a
+        # built-in bot). To work around the issue, we catch the exception
+        # and so let the client code continue.
+        logging.warning(
+            "Received a 'Game has already ended' error from SC2 whilst status "
+            "in_game. Suppressing the exception, returning None.")
+
+        return None
+      else:
+        raise
+
+  return _catch_game_end
+
+
 class RemoteController(object):
   """Implements a python interface to interact with the SC2 binary.
 
@@ -207,6 +235,7 @@ class RemoteController(object):
     return self._client.send(observation=sc_pb.RequestObservation())
 
   @valid_status(Status.in_game, Status.in_replay)
+  @catch_game_end
   @sw.decorate
   def step(self, count=1):
     """Step the engine forward by one (or more) step."""
@@ -214,6 +243,7 @@ class RemoteController(object):
 
   @skip_status(Status.in_replay)
   @valid_status(Status.in_game)
+  @catch_game_end
   @sw.decorate
   def actions(self, req_action):
     """Send a `sc_pb.RequestAction`, which may include multiple actions."""

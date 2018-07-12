@@ -82,8 +82,10 @@ class _TestEnvironment(environment.Base):
     self._episode_steps = 0
     return self.step([None] * self._num_agents)
 
-  def step(self, actions):
+  def step(self, actions, update_observation=True):
     """Returns `next_observation` modifying its `step_type` if necessary."""
+    del update_observation  # ignored currently
+
     if len(actions) != self._num_agents:
       raise ValueError(
           'Expected %d actions, received %d.' % (
