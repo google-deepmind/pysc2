@@ -30,6 +30,41 @@ class Version(collections.namedtuple("Version", [
   __slots__ = ()
 
 
+def version_dict(versions):
+  return {ver.game_version: ver for ver in versions}
+
+
+# https://github.com/Blizzard/s2client-proto/blob/master/buildinfo/versions.json
+# Generate with bin/gen_versions.py
+VERSIONS = version_dict([
+    Version("3.13.0", 52910, "8D9FEF2E1CF7C6C9CBE4FBCA830DDE1C", None),
+    Version("3.14.0", 53644, "CA275C4D6E213ED30F80BACCDFEDB1F5", None),
+    Version("3.15.0", 54518, "BBF619CCDCC80905350F34C2AF0AB4F6", None),
+    Version("3.15.1", 54518, "6EB25E687F8637457538F4B005950A5E", None),
+    Version("3.16.0", 55505, "60718A7CA50D0DF42987A30CF87BCB80", None),
+    Version("3.16.1", 55958, "5BD7C31B44525DAB46E64C4602A81DC2", None),
+    Version("3.17.0", 56787, "DFD1F6607F2CF19CB4E1C996B2563D9B", None),
+    Version("3.17.1", 56787, "3F2FCED08798D83B873B5543BEFA6C4B", None),
+    Version("3.17.2", 56787, "C690FC543082D35EA0AAA876B8362BEA", None),
+    Version("3.18.0", 57507, "1659EF34997DA3470FF84A14431E3A86", None),
+    Version("3.19.0", 58400, "2B06AEE58017A7DF2A3D452D733F1019", None),
+    Version("3.19.1", 58400, "D9B568472880CC4719D1B698C0D86984", None),
+    Version("4.0.0", 59587, "9B4FD995C61664831192B7DA46F8C1A1", None),
+    Version("4.0.2", 59587, "B43D9EE00A363DAFAD46914E3E4AF362", None),
+    Version("4.1.0", 60196, "1B8ACAB0C663D5510941A9871B3E9FBE", None),
+    Version("4.1.1", 60321, "5C021D8A549F4A776EE9E9C1748FFBBC", None),
+    Version("4.1.2", 60321, "33D9FE28909573253B7FC352CE7AEA40", None),
+    Version("4.2.0", 62347, "C0C0E9D37FCDBC437CE386C6BE2D1F93", None),
+    Version("4.2.1", 62848, "29BBAC5AFF364B6101B661DB468E3A37", None),
+    Version("4.2.2", 63454, "3CB54C86777E78557C984AB1CF3494A0", None),
+    Version("4.2.3", 63454, "5E3A8B21E41B987E05EE4917AAD68C69", None),
+    Version("4.2.4", 63454, "7C51BC7B0841EACD3535E6FA6FF2116B", None),
+    Version("4.3.0", 64469, "C92B3E9683D5A59E08FC011F4BE167FF", None),
+    Version("4.3.1", 65094, "E5A21037AA7A25C03AC441515F4E0644", None),
+    Version("4.3.2", 65384, "B6D73C85DFB70F5D01DEABB2517BF11C", None),
+])
+
+
 class RunConfig(object):
   """Base class for different run configs."""
 
@@ -124,4 +159,17 @@ class RunConfig(object):
   def priority(cls):
     """None means this isn't valid. Run the one with the max priority."""
     return None
+
+  def get_versions(self):
+    """Return a dict of all versions that can be run."""
+    return VERSIONS
+
+  def _get_version(self, game_version):
+    versions = self.get_versions()
+    if game_version.count(".") == 1:
+      game_version += ".0"
+    if game_version not in versions:
+      raise ValueError("Unknown game version: %s. Known versions: %s" % (
+          game_version, sorted(versions.keys())))
+    return versions[game_version]
 

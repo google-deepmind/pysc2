@@ -29,41 +29,10 @@ from absl import flags
 from pysc2.lib import sc_process
 from pysc2.run_configs import lib
 
-# https://github.com/Blizzard/s2client-proto/blob/master/buildinfo/versions.json
-# Generate with bin/gen_versions.py
-VERSIONS = {ver.game_version: ver for ver in [
-    lib.Version("3.16.1", 55958, "5BD7C31B44525DAB46E64C4602A81DC2", None),
-    lib.Version("3.17.0", 56787, "DFD1F6607F2CF19CB4E1C996B2563D9B", None),
-    lib.Version("3.17.1", 56787, "3F2FCED08798D83B873B5543BEFA6C4B", None),
-    lib.Version("3.17.2", 56787, "C690FC543082D35EA0AAA876B8362BEA", None),
-    lib.Version("3.18.0", 57507, "1659EF34997DA3470FF84A14431E3A86", None),
-    lib.Version("3.19.0", 58400, "2B06AEE58017A7DF2A3D452D733F1019", None),
-    lib.Version("3.19.1", 58400, "D9B568472880CC4719D1B698C0D86984", None),
-    lib.Version("4.0.0", 59587, "9B4FD995C61664831192B7DA46F8C1A1", None),
-    lib.Version("4.0.2", 59587, "B43D9EE00A363DAFAD46914E3E4AF362", None),
-    lib.Version("4.1.0", 60196, "1B8ACAB0C663D5510941A9871B3E9FBE", None),
-    lib.Version("4.1.1", 60321, "5C021D8A549F4A776EE9E9C1748FFBBC", None),
-    lib.Version("4.1.2", 60321, "33D9FE28909573253B7FC352CE7AEA40", None),
-    lib.Version("4.2.0", 62347, "C0C0E9D37FCDBC437CE386C6BE2D1F93", None),
-    lib.Version("4.2.1", 62848, "29BBAC5AFF364B6101B661DB468E3A37", None),
-    lib.Version("4.2.2", 63454, "3CB54C86777E78557C984AB1CF3494A0", None),
-    lib.Version("4.3.0", 64469, "C92B3E9683D5A59E08FC011F4BE167FF", None),
-    lib.Version("4.3.1", 65094, "E5A21037AA7A25C03AC441515F4E0644", None),
-    lib.Version("4.3.2", 65384, "B6D73C85DFB70F5D01DEABB2517BF11C", None),
-]}
 
-flags.DEFINE_enum("sc2_version", None, sorted(VERSIONS.keys()),
+flags.DEFINE_enum("sc2_version", None, sorted(lib.VERSIONS.keys()),
                   "Which version of the game to use.")
 FLAGS = flags.FLAGS
-
-
-def _get_version(game_version):
-  if game_version.count(".") == 1:
-    game_version += ".0"
-  if game_version not in VERSIONS:
-    raise ValueError("Unknown game version: %s. Known versions: %s" % (
-        game_version, sorted(VERSIONS.keys())))
-  return VERSIONS[game_version]
 
 
 def _read_execute_info(path, parents):
@@ -103,21 +72,12 @@ class LocalBase(lib.RunConfig):
     version = version or FLAGS.sc2_version
     if isinstance(version, lib.Version) and not version.data_version:
       # This is for old replays that don't have the embedded data_version.
-      version = _get_version(version.game_version)
+      version = self._get_version(version.game_version)
     elif isinstance(version, str):
-      version = _get_version(version)
+      version = self._get_version(version)
     elif not version:
-      versions_dir = os.path.join(self.data_dir, "Versions")
-      version_prefix = "Base"
-      versions_found = [int(v[len(version_prefix):])
-                        for v in os.listdir(versions_dir)
-                        if v.startswith(version_prefix)]
-      if not versions_found:
-        raise sc_process.SC2LaunchError(
-            "No SC2 Versions found in %s" % versions_dir)
-      build_version = max(versions_found)
-      version = lib.Version(None, build_version, None, None)
-    if version.build_version < VERSIONS["3.16.1"].build_version:
+      version = self._get_version("latest")
+    if version.build_version < lib.VERSIONS["3.16.1"].build_version:
       raise sc_process.SC2LaunchError(
           "SC2 Binaries older than 3.16.1 don't support the api.")
     exec_path = os.path.join(
@@ -129,6 +89,24 @@ class LocalBase(lib.RunConfig):
 
     return sc_process.StarcraftProcess(
         self, exec_path=exec_path, version=version, **kwargs)
+
+  def get_versions(self):
+    versions_dir = os.path.join(self.data_dir, "Versions")
+    version_prefix = "Base"
+    versions_found = sorted(int(v[len(version_prefix):])
+                            for v in os.listdir(versions_dir)
+                            if v.startswith(version_prefix))
+    if not versions_found:
+      raise sc_process.SC2LaunchError(
+          "No SC2 Versions found in %s" % versions_dir)
+    known_versions = [v for v in lib.VERSIONS.values()
+                      if v.build_version in versions_found]
+    # Add one more with the max version. That one doesn't need a data version
+    # since SC2 will find it in the .build.info file. This allows running
+    # versions newer than what are known by pysc2, and so is the default.
+    known_versions.append(
+        lib.Version("latest", max(versions_found), None, None))
+    return lib.version_dict(known_versions)
 
 
 class Windows(LocalBase):

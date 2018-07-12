@@ -35,7 +35,7 @@ def main(argv):
     version_str = v["label"]
     if version_str.count(".") == 1:
       version_str += ".0"
-    print('    lib.Version("%s", %i, "%s", None),' % (
+    print('    Version("%s", %i, "%s", None),' % (
         version_str, v["base-version"], v["data-hash"]))
 
 
