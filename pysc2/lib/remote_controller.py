@@ -280,6 +280,12 @@ class RemoteController(object):
     res = self._client.send(save_replay=sc_pb.RequestSaveReplay())
     return res.data
 
+  @valid_status(Status.in_game)
+  @sw.decorate
+  def debug(self, req_debug):
+    """Request a debug action."""
+    return self._client.send(debug=sc_pb.RequestDebug(debug = req_debug))
+
   @skip_status(Status.quit)
   @sw.decorate
   def quit(self):
