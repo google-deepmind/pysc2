@@ -267,7 +267,9 @@ class SC2Env(environment.Base):
         features.features_from_game_info(
             game_info=g,
             use_feature_units=agent_interface_format.use_feature_units,
+            use_raw_units=agent_interface_format.use_raw_units,
             use_unit_counts=agent_interface_format.use_unit_counts,
+            use_camera_position=agent_interface_format.use_camera_position,
             action_space=agent_interface_format.action_space,
             hide_specific_actions=agent_interface_format.hide_specific_actions)
         for g, agent_interface_format in zip(game_info, agent_interface_formats)
@@ -297,6 +299,7 @@ class SC2Env(environment.Base):
     interface = sc_pb.InterfaceOptions(
         raw=(agent_interface_format.use_feature_units or
              agent_interface_format.use_unit_counts or
+             agent_interface_format.use_raw_units or
              require_raw),
         score=True)
 

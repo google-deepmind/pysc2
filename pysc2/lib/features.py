@@ -370,7 +370,9 @@ class AgentInterfaceFormat(object):
       action_space=None,
       camera_width_world_units=None,
       use_feature_units=False,
+      use_raw_units=False,
       use_unit_counts=False,
+      use_camera_position=False,
       hide_specific_actions=True):
     """Initializer.
 
@@ -387,8 +389,14 @@ class AgentInterfaceFormat(object):
           It'll then represent a camera of size (24, 0.375 * 48) = (24, 18)
           world units.
       use_feature_units: Whether to include feature unit data in observations.
+      use_raw_units: Whether to include raw unit data in observations. This
+          differs from feature_units because it includes units outside the
+          screen and hidden units, and because unit positions are given in
+          terms of world units instead of screen units.
       use_unit_counts: Whether to include unit_counts observation. Disabled by
           default since it gives information outside the visible area.
+      use_camera_position: Whether to include the camera's position (in world
+          units) in the observations.
       hide_specific_actions: [bool] Some actions (eg cancel) have many
           specific versions (cancel this building, cancel that spell) and can
           be represented in a more general form. If a specific action is
@@ -434,7 +442,9 @@ class AgentInterfaceFormat(object):
     self._action_space = action_space
     self._camera_width_world_units = camera_width_world_units or 24
     self._use_feature_units = use_feature_units
+    self._use_raw_units = use_raw_units
     self._use_unit_counts = use_unit_counts
+    self._use_camera_position = use_camera_position
     self._hide_specific_actions = hide_specific_actions
 
     if action_space == actions.ActionSpace.FEATURES:
@@ -463,8 +473,16 @@ class AgentInterfaceFormat(object):
     return self._use_feature_units
 
   @property
+  def use_raw_units(self):
+    return self._use_raw_units
+
+  @property
   def use_unit_counts(self):
     return self._use_unit_counts
+
+  @property
+  def use_camera_position(self):
+    return self._use_camera_position
 
   @property
   def hide_specific_actions(self):
@@ -483,7 +501,9 @@ def parse_agent_interface_format(
     action_space=None,
     camera_width_world_units=None,
     use_feature_units=False,
-    use_unit_counts=False):
+    use_raw_units=False,
+    use_unit_counts=False,
+    use_camera_position=False):
   """Creates an AgentInterfaceFormat object from keyword args.
 
   Convenient when using dictionaries or command-line arguments for config.
@@ -502,7 +522,9 @@ def parse_agent_interface_format(
     action_space: ["FEATURES", "RGB"].
     camera_width_world_units: An int.
     use_feature_units: A boolean, defaults to False.
+    use_raw_units: A boolean, defaults to False.
     use_unit_counts: A boolean, defaults to False.
+    use_camera_position: A boolean, defaults to False.
 
   Returns:
     An `AgentInterfaceFormat` object.
@@ -530,21 +552,29 @@ def parse_agent_interface_format(
       action_space=(action_space and actions.ActionSpace[action_space.upper()]),
       camera_width_world_units=camera_width_world_units,
       use_feature_units=use_feature_units,
-      use_unit_counts=use_unit_counts
+      use_raw_units=use_raw_units,
+      use_unit_counts=use_unit_counts,
+      use_camera_position=use_camera_position
   )
 
 
 def features_from_game_info(
     game_info,
     use_feature_units=False,
+    use_raw_units=False,
     action_space=None,
     hide_specific_actions=True,
-    use_unit_counts=False):
+    use_unit_counts=False,
+    use_camera_position=False):
   """Construct a Features object using data extracted from game info.
 
   Args:
     game_info: A `sc_pb.ResponseGameInfo` from the game.
     use_feature_units: Whether to include the feature unit observation.
+    use_raw_units: Whether to include raw unit data in observations. This
+        differs from feature_units because it includes units outside the
+        screen and hidden units, and because unit positions are given in
+        terms of world units instead of screen units.
     action_space: If you pass both feature and rgb sizes, then you must also
         specify which you want to use for your actions as an ActionSpace enum.
     hide_specific_actions: [bool] Some actions (eg cancel) have many
@@ -557,8 +587,10 @@ def features_from_game_info(
         as the general action. This simplifies the action space, though can
         lead to some actions in replays not being exactly representable using
         only the general actions.
-      use_unit_counts: Whether to include unit_counts observation. Disabled by
-          default since it gives information outside the visible area.
+    use_unit_counts: Whether to include unit_counts observation. Disabled by
+        default since it gives information outside the visible area.
+    use_camera_position: Whether to include the camera's position (in world
+        units) in the observations.
 
   Returns:
     A features object matching the specified parameterisation.
@@ -589,7 +621,9 @@ def features_from_game_info(
           feature_dimensions=feature_dimensions,
           rgb_dimensions=rgb_dimensions,
           use_feature_units=use_feature_units,
+          use_raw_units=use_raw_units,
           use_unit_counts=use_unit_counts,
+          use_camera_position=use_camera_position,
           camera_width_world_units=camera_width_world_units,
           action_space=action_space,
           hide_specific_actions=hide_specific_actions),
@@ -636,29 +670,48 @@ class Features(object):
 
     Raises:
       ValueError: if agent_interface_format isn't specified.
-      ValueError: if map_size isn't specified when use_feature_units is.
+      ValueError: if map_size isn't specified when use_feature_units or
+          use_camera_position is.
     """
     if not agent_interface_format:
       raise ValueError("Please specify agent_interface_format")
 
     self._agent_interface_format = agent_interface_format
+    aif = self._agent_interface_format
 
-    if agent_interface_format.use_feature_units:
-      self._init_camera(
-          agent_interface_format.feature_dimensions,
+    if (aif.use_feature_units
+        or aif.use_camera_position
+        or aif.use_raw_units):
+      self.init_camera(
+          aif.feature_dimensions,
           map_size,
-          agent_interface_format.camera_width_world_units)
+          aif.camera_width_world_units)
 
     self._valid_functions = _init_valid_functions(
-        agent_interface_format.action_dimensions)
+        aif.action_dimensions)
 
-  def _init_camera(
+  def init_camera(
       self, feature_dimensions, map_size, camera_width_world_units):
-    """Initialize the feature_units camera."""
+    """Initialize the camera (especially for feature_units).
+
+    This is called in the constructor and may be called repeatedly after
+    `Features` is constructed, since it deals with rescaling coordinates and not
+    changing environment/action specs.
+
+    Args:
+      feature_dimensions: See the documentation in `AgentInterfaceFormat`.
+      map_size: The size of the map in world units.
+      camera_width_world_units: See the documentation in `AgentInterfaceFormat`.
+
+    Raises:
+      ValueError: If map_size or camera_width_world_units are falsey (which
+          should mainly happen if called by the constructor).
+    """
     if not map_size or not camera_width_world_units:
       raise ValueError(
           "Either pass the game_info with raw enabled, or map_size and "
-          "camera_width_world_units in order to use feature_units.")
+          "camera_width_world_units in order to use feature_units or camera"
+          "position.")
     map_size = point.Point.build(map_size)
     self._world_to_world_tl = transform.Linear(point.Point(1, -1),
                                                point.Point(0, map_size.y))
@@ -726,8 +779,14 @@ class Features(object):
     if aif.use_feature_units:
       obs_spec["feature_units"] = (0, len(FeatureUnit))  # pytype: disable=wrong-arg-types
 
+    if aif.use_raw_units:
+      obs_spec["raw_units"] = (0, len(FeatureUnit))
+
     if aif.use_unit_counts:
       obs_spec["unit_counts"] = (0, len(UnitCounts))
+
+    if aif.use_camera_position:
+      obs_spec["camera_position"] = (2,)
     return obs_spec
 
   def action_spec(self):
@@ -857,10 +916,10 @@ class Features(object):
             [unit_vec(u) for u in ui.production.build_queue],
             [None, UnitLayer])
 
-    def feature_unit_vec(u):
-      screen_pos = self._world_to_feature_screen_px.fwd_pt(
+    def full_unit_vec(u, pos_transform):
+      screen_pos = pos_transform.fwd_pt(
           point.Point.build(u.pos))
-      screen_radius = self._world_to_feature_screen_px.fwd_dist(u.radius)
+      screen_radius = pos_transform.fwd_dist(u.radius)
       return np.array((
           # Match unit_vec order
           u.unit_type,
@@ -904,9 +963,17 @@ class Features(object):
         feature_units = []
         for u in raw.units:
           if u.is_on_screen and u.display_type != sc_raw.Hidden:
-            feature_units.append(feature_unit_vec(u))
+            feature_units.append(
+                full_unit_vec(u, self._world_to_feature_screen_px))
         out["feature_units"] = named_array.NamedNumpyArray(
             feature_units, [None, FeatureUnit], dtype=np.int32)
+
+    if aif.use_raw_units:
+      with sw("raw_units"):
+        raw_units = [full_unit_vec(u, self._world_to_world_tl)
+                     for u in raw.units]
+        out["raw_units"] = named_array.NamedNumpyArray(
+            raw_units, [None, FeatureUnit], dtype=np.int32)
 
     if aif.use_unit_counts:
       with sw("unit_counts"):
@@ -916,6 +983,12 @@ class Features(object):
             unit_counts[u.unit_type] += 1
         out["unit_counts"] = named_array.NamedNumpyArray(
             sorted(unit_counts.items()), [None, UnitCounts], dtype=np.int32)
+
+    if aif.use_camera_position:
+      camera_position = self._world_to_world_tl.fwd_pt(
+          point.Point.build(raw.player.camera))
+      out["camera_position"] = np.array((camera_position.x, camera_position.y),
+                                        dtype=np.int32)
 
     out["available_actions"] = np.array(self.available_actions(obs.observation),
                                         dtype=np.int32)
