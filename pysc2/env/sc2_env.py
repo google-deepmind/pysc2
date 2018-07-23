@@ -102,6 +102,7 @@ class SC2Env(environment.Base):
                step_mul=None,
                save_replay_episodes=0,
                replay_dir=None,
+               replay_prefix=None,
                game_steps_per_episode=None,
                score_index=None,
                score_multiplier=None,
@@ -141,6 +142,7 @@ class SC2Env(environment.Base):
       save_replay_episodes: Save a replay after this many episodes. Default of 0
           means don't save replays.
       replay_dir: Directory to save replays. Required with save_replay_episodes.
+      replay_prefix: An optional prefix to use when saving replays.
       game_steps_per_episode: Game steps per episode, independent of the
           step_mul. 0 means no limit. None means use the map default.
       score_index: -1 means use the win/loss reward, >=0 is the index into the
@@ -209,6 +211,7 @@ class SC2Env(environment.Base):
     self._step_mul = step_mul or map_inst.step_mul
     self._save_replay_episodes = save_replay_episodes
     self._replay_dir = replay_dir
+    self._replay_prefix = replay_prefix
     self._random_seed = random_seed
     self._disable_fog = disable_fog
     self._discount_zero_after_timeout = discount_zero_after_timeout
@@ -516,7 +519,7 @@ class SC2Env(environment.Base):
     if self._state == environment.StepType.LAST:
       if (self._save_replay_episodes > 0 and
           self._episode_count % self._save_replay_episodes == 0):
-        self.save_replay(self._replay_dir)
+        self.save_replay(self._replay_dir, self._replay_prefix)
       logging.info(("Episode %s finished after %s game steps. "
                     "Outcome: %s, reward: %s, score: %s"),
                    self._episode_count, self._episode_steps, outcome, reward,

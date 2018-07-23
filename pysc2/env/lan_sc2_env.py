@@ -207,7 +207,8 @@ class LanSC2Env(sc2_env.SC2Env):
                discount=1.,
                visualize=False,
                step_mul=None,
-               replay_dir=None):
+               replay_dir=None,
+               replay_prefix=None):
     """Create a SC2 Env that connects to a remote instance of the game.
 
     This assumes that the game is already up and running, and it only needs to
@@ -236,6 +237,7 @@ class LanSC2Env(sc2_env.SC2Env):
       step_mul: How many game steps per agent step (action/observation). None
           means use the map default.
       replay_dir: Directory to save a replay.
+      replay_prefix: An optional prefix to use when saving replays.
 
     Raises:
       ValueError: if the race is invalid.
@@ -261,6 +263,7 @@ class LanSC2Env(sc2_env.SC2Env):
     self._step_mul = step_mul or 8
     self._save_replay_episodes = 1 if replay_dir else 0
     self._replay_dir = replay_dir
+    self._replay_prefix = replay_prefix
 
     self._score_index = -1  # Win/loss only.
     self._score_multiplier = 1
