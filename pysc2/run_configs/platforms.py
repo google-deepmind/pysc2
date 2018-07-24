@@ -32,6 +32,8 @@ from pysc2.run_configs import lib
 
 flags.DEFINE_enum("sc2_version", None, sorted(lib.VERSIONS.keys()),
                   "Which version of the game to use.")
+flags.DEFINE_bool("sc2_dev_build", False,
+                  "Use a dev build. Mostly useful for testing by Blizzard.")
 FLAGS = flags.FLAGS
 
 
@@ -80,8 +82,10 @@ class LocalBase(lib.RunConfig):
     if version.build_version < lib.VERSIONS["3.16.1"].build_version:
       raise sc_process.SC2LaunchError(
           "SC2 Binaries older than 3.16.1 don't support the api.")
+    if FLAGS.sc2_dev_build:
+      version = version._replace(build_version=0)
     exec_path = os.path.join(
-        self.data_dir, "Versions/Base%s" % version.build_version,
+        self.data_dir, "Versions/Base%05d" % version.build_version,
         self._exec_name)
 
     if not os.path.exists(exec_path):
