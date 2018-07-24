@@ -71,6 +71,69 @@ class DummyObservationTest(absltest.TestCase):
     obs = self._get_obs()
     self._check_layer(obs.render_data.map, 128, 124, 24)
 
+  def testGameLoopCanBeSet(self):
+    self._builder.game_loop(1234)
+    obs = self._get_obs()
+    self.assertEqual(obs.game_loop, 1234)
+
+  def testPlayerCommonCanBeSet(self):
+    self._builder.player_common(
+        minerals=1000,
+        vespene=200,
+        food_cap=200,
+        food_used=198,
+        food_army=140,
+        food_workers=58,
+        army_count=92,
+        warp_gate_count=7,
+        larva_count=15)
+
+    obs = self._get_obs()
+    self.assertEqual(obs.player_common.player_id, 1)  # (we didn't set it)
+    self.assertEqual(obs.player_common.minerals, 1000)
+    self.assertEqual(obs.player_common.vespene, 200)
+    self.assertEqual(obs.player_common.food_cap, 200)
+    self.assertEqual(obs.player_common.food_used, 198)
+    self.assertEqual(obs.player_common.food_army, 140)
+    self.assertEqual(obs.player_common.food_workers, 58)
+    self.assertEqual(obs.player_common.idle_worker_count, 2)  # (didn't set it)
+    self.assertEqual(obs.player_common.army_count, 92)
+    self.assertEqual(obs.player_common.warp_gate_count, 7)
+    self.assertEqual(obs.player_common.larva_count, 15)
+
+  def testScoreCanBeSet(self):
+    self._builder.score(54321)
+    obs = self._get_obs()
+    self.assertEqual(obs.score.score, 54321)
+
+  def testScoreDetailsCanBeSet(self):
+    self._builder.score_details(
+        idle_production_time=1,
+        idle_worker_time=2,
+        total_value_units=3,
+        killed_value_units=5,
+        killed_value_structures=6,
+        collected_minerals=7,
+        collected_vespene=8,
+        collection_rate_minerals=9,
+        collection_rate_vespene=10,
+        spent_minerals=11,
+        spent_vespene=12,
+    )
+    obs = self._get_obs()
+    self.assertEqual(obs.score.score_details.idle_production_time, 1)
+    self.assertEqual(obs.score.score_details.idle_worker_time, 2)
+    self.assertEqual(obs.score.score_details.total_value_units, 3)
+    self.assertEqual(obs.score.score_details.total_value_structures, 230)
+    self.assertEqual(obs.score.score_details.killed_value_units, 5)
+    self.assertEqual(obs.score.score_details.killed_value_structures, 6)
+    self.assertEqual(obs.score.score_details.collected_minerals, 7)
+    self.assertEqual(obs.score.score_details.collected_vespene, 8)
+    self.assertEqual(obs.score.score_details.collection_rate_minerals, 9)
+    self.assertEqual(obs.score.score_details.collection_rate_vespene, 10)
+    self.assertEqual(obs.score.score_details.spent_minerals, 11)
+    self.assertEqual(obs.score.score_details.spent_vespene, 12)
+
   def testRgbMinimapMatchesSpec(self):
     obs = self._get_obs()
     self._check_layer(obs.render_data.minimap, 64, 60, 24)

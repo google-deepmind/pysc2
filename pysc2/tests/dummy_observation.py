@@ -24,10 +24,12 @@ from __future__ import print_function
 import math
 
 import numpy as np
+import six
 from pysc2.lib import features
 
 from s2clientprotocol import raw_pb2
 from s2clientprotocol import sc2api_pb2 as sc_pb
+from s2clientprotocol import score_pb2
 
 
 class Unit(object):
@@ -144,11 +146,95 @@ class Builder(object):
   """For test code - build a dummy ResponseObservation proto."""
 
   def __init__(self, obs_spec):
+    self._game_loop = 1
+    self._player_common = sc_pb.PlayerCommon(
+        player_id=1,
+        minerals=20,
+        vespene=50,
+        food_cap=36,
+        food_used=21,
+        food_army=6,
+        food_workers=15,
+        idle_worker_count=2,
+        army_count=6,
+        warp_gate_count=0,
+        larva_count=0,
+    )
+
+    self._score = 300
+    self._score_details = score_pb2.ScoreDetails(
+        idle_production_time=0,
+        idle_worker_time=0,
+        total_value_units=190,
+        total_value_structures=230,
+        killed_value_units=0,
+        killed_value_structures=0,
+        collected_minerals=2130,
+        collected_vespene=560,
+        collection_rate_minerals=50,
+        collection_rate_vespene=20,
+        spent_minerals=2000,
+        spent_vespene=500,
+    )
+
     self._obs_spec = obs_spec
     self._single_select = None
     self._multi_select = None
     self._build_queue = None
     self._feature_units = None
+
+  def game_loop(self, game_loop):
+    self._game_loop = game_loop
+    return self
+
+  # pylint:disable=unused-argument
+  def player_common(
+      self,
+      player_id=None,
+      minerals=None,
+      vespene=None,
+      food_cap=None,
+      food_used=None,
+      food_army=None,
+      food_workers=None,
+      idle_worker_count=None,
+      army_count=None,
+      warp_gate_count=None,
+      larva_count=None):
+    """Update some or all of the fields in the PlayerCommon data."""
+
+    args = dict(locals())
+    for key, value in six.iteritems(args):
+      if value is not None and key != 'self':
+        setattr(self._player_common, key, value)
+    return self
+
+  def score(self, score):
+    self._score = score
+    return self
+
+  def score_details(
+      self,
+      idle_production_time=None,
+      idle_worker_time=None,
+      total_value_units=None,
+      total_value_structures=None,
+      killed_value_units=None,
+      killed_value_structures=None,
+      collected_minerals=None,
+      collected_vespene=None,
+      collection_rate_minerals=None,
+      collection_rate_vespene=None,
+      spent_minerals=None,
+      spent_vespene=None):
+    """Update some or all of the fields in the ScoreDetails data."""
+
+    args = dict(locals())
+    for key, value in six.iteritems(args):
+      if value is not None and key != 'self':
+        setattr(self._score_details, key, value)
+    return self
+  # pylint:enable=unused-argument
 
   def single_select(self, unit):
     self._single_select = unit
@@ -171,35 +257,13 @@ class Builder(object):
     response_observation = sc_pb.ResponseObservation()
     obs = response_observation.observation
 
-    obs.game_loop = 1
-    obs.player_common.player_id = 1
-    obs.player_common.minerals = 20
-    obs.player_common.vespene = 50
-    obs.player_common.food_cap = 36
-    obs.player_common.food_used = 21
-    obs.player_common.food_army = 6
-    obs.player_common.food_workers = 15
-    obs.player_common.idle_worker_count = 2
-    obs.player_common.army_count = 6
-    obs.player_common.warp_gate_count = 0
-    obs.player_common.larva_count = 0
+    obs.game_loop = self._game_loop
+    obs.player_common.CopyFrom(self._player_common)
 
     obs.abilities.add(ability_id=1, requires_point=True)  # Smart
 
-    obs.score.score = 300
-    score_details = obs.score.score_details
-    score_details.idle_production_time = 0
-    score_details.idle_worker_time = 0
-    score_details.total_value_units = 190
-    score_details.total_value_structures = 230
-    score_details.killed_value_units = 0
-    score_details.killed_value_structures = 0
-    score_details.collected_minerals = 2130
-    score_details.collected_vespene = 560
-    score_details.collection_rate_minerals = 50
-    score_details.collection_rate_vespene = 20
-    score_details.spent_minerals = 2000
-    score_details.spent_vespene = 500
+    obs.score.score = self._score
+    obs.score.score_details.CopyFrom(self._score_details)
 
     def fill(image_data, size, bits):
       image_data.bits_per_pixel = bits
