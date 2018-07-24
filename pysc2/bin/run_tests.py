@@ -24,6 +24,7 @@ from __future__ import print_function
 from absl.testing import absltest
 
 import pysc2
+import pysc2.run_configs.platforms  # So that the version flags work.
 
 
 if __name__ == '__main__':
