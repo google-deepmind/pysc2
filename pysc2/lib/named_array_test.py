@@ -110,6 +110,7 @@ class NamedArrayTest(parameterized.TestCase):
     with self.assertRaises(KeyError):
       a["d"]  # pylint: disable=pointless-statement
 
+    # range slicing
     self.assertArrayEqual(a[0:2], [1, 3])
     self.assertArrayEqual(a[1:3], [3, 6])
     self.assertArrayEqual(a[0:2:], [1, 3])
@@ -118,6 +119,14 @@ class NamedArrayTest(parameterized.TestCase):
     self.assertEqual(a[1:3, 0], 3)
     self.assertEqual(a[1:3].b, 3)
     self.assertEqual(a[1:3].c, 6)
+
+    # list slicing
+    self.assertArrayEqual(a[[0, 1]], [1, 3])
+    self.assertArrayEqual(a[[1, 0]], [3, 1])
+    self.assertArrayEqual(a[[1, 2]], [3, 6])
+    self.assertArrayEqual(a[np.array([0, 2])], [1, 6])
+    self.assertEqual(a[[1, 2]].b, 3)
+    self.assertEqual(a[[2, 0]].c, 6)
 
     a[1] = 4
     self.assertEqual(a[1], 4)
@@ -128,6 +137,11 @@ class NamedArrayTest(parameterized.TestCase):
     self.assertEqual(a[1], 2)
     self.assertEqual(a.b, 2)
     self.assertEqual(a["b"], 2)
+
+    a[[1]] = 3
+    self.assertEqual(a[1], 3)
+    self.assertEqual(a.b, 3)
+    self.assertEqual(a["b"], 3)
 
     a.b = 5
     self.assertEqual(a[1], 5)

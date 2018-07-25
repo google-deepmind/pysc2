@@ -147,9 +147,10 @@ class NamedNumpyArray(np.ndarray):
       if isinstance(obj, np.ndarray):  # If this is a view, index the names too.
         if isinstance(index, numbers.Integral):
           obj._index_names = obj._index_names[1:]
-        elif isinstance(index, slice) and self._index_names[0]:
-          # Rebuild the index of names.
+        elif self._index_names[0]:  # Skip index rebuild if there are no names.
+          # Rebuild the index of names for the various forms of slicing.
           names = sorted(obj._index_names[0].items(), key=lambda item: item[1])
+          names = np.array(names, dtype=object)  # Support full numpy slicing.
           sliced = {n: i for i, (n, _) in enumerate(names[index])}
           obj._index_names = [sliced] + obj._index_names[1:]
     return obj
@@ -203,10 +204,8 @@ class NamedNumpyArray(np.ndarray):
 
 
 def _get_index(obj, index):
-  """Turn a generalized index (int/slice/str) into a real index (int/slice)."""
-  if isinstance(index, (numbers.Integral, slice)):
-    return index
-  elif isinstance(index, str):
+  """Turn a string into a real index, otherwise return the index."""
+  if isinstance(index, str):
     try:
       return obj._index_names[0][index]
     except KeyError:
@@ -214,5 +213,4 @@ def _get_index(obj, index):
     except TypeError:
       raise TypeError("Trying to access an unnamed axis by name: '%s'" % index)
   else:
-    raise TypeError(
-        "Can't index by type: %s; only int, string or slice" % type(index))
+    return index
