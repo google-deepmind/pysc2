@@ -168,6 +168,9 @@ class ArgumentType(collections.namedtuple(
   def __str__(self):
     return "%s/%s %s" % (self.id, self.name, list(self.sizes))
 
+  def __reduce__(self):
+    return self.__class__, tuple(self)
+
   @classmethod
   def enum(cls, options, values):
     """Create an ArgumentType where you choose one of a set of known values."""
@@ -228,6 +231,9 @@ class Arguments(collections.namedtuple("Arguments", [
     named = {name: factory(Arguments._fields.index(name), name)
              for name, factory in six.iteritems(kwargs)}
     return cls(**named)
+
+  def __reduce__(self):
+    return self.__class__, tuple(self)
 
 
 def _define_position_based_enum(name, options):
@@ -383,6 +389,9 @@ class Function(collections.namedtuple(
   def __call__(self, *args):
     """A convenient way to create a FunctionCall from this Function."""
     return FunctionCall.init_with_validation(self.id, args)
+
+  def __reduce__(self):
+    return self.__class__, tuple(self)
 
   def str(self, space=False):
     """String version. Set space=True to line them all up nicely."""
@@ -1085,6 +1094,9 @@ class FunctionCall(collections.namedtuple(
       arguments = Arguments(*arguments)
     return cls(function, arguments)
 
+  def __reduce__(self):
+    return self.__class__, tuple(self)
+
 
 class ValidActions(collections.namedtuple(
     "ValidActions", ["types", "functions"])):
@@ -1096,3 +1108,6 @@ class ValidActions(collections.namedtuple(
     functions: A namedtuple of all the functions.
   """
   __slots__ = ()
+
+  def __reduce__(self):
+    return self.__class__, tuple(self)
