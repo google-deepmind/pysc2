@@ -18,14 +18,24 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+# pylint: disable=g-import-not-at-top
+
 import collections
+import sys
 import time
 
 from absl import app
 from absl import flags
 from future.builtins import range  # pylint: disable=redefined-builtin
 
-import psutil
+try:
+  import psutil
+except ImportError:
+  sys.exit(
+      "`psutil` library required to track memory. This can be installed with:\n"
+      "$ pip install psutil\n"
+      "and needs the python-dev headers installed, for example:\n"
+      "$ apt install python-dev")
 
 from pysc2 import maps
 from pysc2 import run_configs
@@ -33,6 +43,8 @@ from pysc2.lib import protocol
 
 from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
+
+# pylint: enable=g-import-not-at-top
 
 
 flags.DEFINE_integer("mem_limit", 2000, "Max memory usage in Mb.")
