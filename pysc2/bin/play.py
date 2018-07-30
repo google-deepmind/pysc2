@@ -108,11 +108,13 @@ def main(unused_argv):
   interface.raw = FLAGS.render
   interface.score = True
   interface.feature_layer.width = 24
-  FLAGS.feature_screen_size.assign_to(interface.feature_layer.resolution)
-  FLAGS.feature_minimap_size.assign_to(
-      interface.feature_layer.minimap_resolution)
-  FLAGS.rgb_screen_size.assign_to(interface.render.resolution)
-  FLAGS.rgb_minimap_size.assign_to(interface.render.minimap_resolution)
+  if FLAGS.feature_screen_size and FLAGS.feature_minimap_size:
+    FLAGS.feature_screen_size.assign_to(interface.feature_layer.resolution)
+    FLAGS.feature_minimap_size.assign_to(
+        interface.feature_layer.minimap_resolution)
+  if FLAGS.rgb_screen_size and FLAGS.rgb_minimap_size:
+    FLAGS.rgb_screen_size.assign_to(interface.render.resolution)
+    FLAGS.rgb_minimap_size.assign_to(interface.render.minimap_resolution)
 
   max_episode_steps = FLAGS.max_episode_steps
 
