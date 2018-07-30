@@ -49,11 +49,12 @@ class TestVersions(absltest.TestCase):
           ping = controller.ping()
           logging.info("expected: %s", version)
           logging.info("actual: %s", ", ".join(str(ping).strip().split("\n")))
-          self.assertEqual(major_version(ping.game_version),
-                           major_version(version.game_version))
           self.assertEqual(version.build_version, ping.base_build)
-          self.assertEqual(version.data_version.lower(),
-                           ping.data_version.lower())
+          if version.game_version != "latest":
+            self.assertEqual(major_version(ping.game_version),
+                             major_version(version.game_version))
+            self.assertEqual(version.data_version.lower(),
+                             ping.data_version.lower())
         log_center("success: %s", game_version)
       except:  # pylint: disable=bare-except
         log_center("failure: %s", game_version)
