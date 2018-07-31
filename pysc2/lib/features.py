@@ -93,6 +93,44 @@ class ScoreCumulative(enum.IntEnum):
   spent_vespene = 12
 
 
+class ScoreByCategory(enum.IntEnum):
+  """Indices for the `score_by_category` observation's first dimension."""
+  food_used = 0
+  killed_minerals = 1
+  killed_vespene = 2
+  lost_minerals = 3
+  lost_vespene = 4
+  friendly_fire_minerals = 5
+  friendly_fire_vespene = 6
+  used_minerals = 7
+  used_vespene = 8
+  total_used_minerals = 9
+  total_used_vespene = 10
+
+
+class ScoreCategories(enum.IntEnum):
+  """Indices for the `score_by_category` observation's second dimension."""
+  none = 0
+  army = 1
+  economy = 2
+  technology = 3
+  upgrade = 4
+
+
+class ScoreByVital(enum.IntEnum):
+  """Indices for the `score_by_vital` observation's first dimension."""
+  total_damage_dealt = 0
+  total_damage_taken = 1
+  total_healed = 2
+
+
+class ScoreVitals(enum.IntEnum):
+  """Indices for the `score_by_vital` observation's second dimension."""
+  life = 0
+  shields = 1
+  energy = 2
+
+
 class Player(enum.IntEnum):
   """Indices into the `player` observation."""
   player_id = 0
@@ -756,6 +794,8 @@ class Features(object):
         "multi_select": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
         "player": (len(Player),),  # pytype: disable=wrong-arg-types
         "score_cumulative": (len(ScoreCumulative),),  # pytype: disable=wrong-arg-types
+        "score_by_category": (len(ScoreByCategory), len(ScoreCategories)),  # pytype: disable=wrong-arg-types
+        "score_by_vital": (len(ScoreByVital), len(ScoreVitals)),  # pytype: disable=wrong-arg-types
         "single_select": (0, len(UnitLayer)),  # Only (n, 7) for n in (0, 1).  # pytype: disable=wrong-arg-types
     })
 
@@ -858,6 +898,24 @@ class Features(object):
         score_details.spent_minerals,
         score_details.spent_vespene,
     ], names=ScoreCumulative, dtype=np.int32)
+
+    def get_score_by_category_entry(key, details):
+      row = getattr(details, key.name)
+      return [getattr(row, category.name) for category in ScoreCategories]
+
+    out["score_by_category"] = named_array.NamedNumpyArray([
+        get_score_by_category_entry(key, score_details)
+        for key in ScoreByCategory
+    ], names=[ScoreByCategory, ScoreCategories], dtype=np.int32)
+
+    def get_score_by_vital_entry(key, details):
+      row = getattr(details, key.name)
+      return [getattr(row, category.name) for category in ScoreVitals]
+
+    out["score_by_vital"] = named_array.NamedNumpyArray([
+        get_score_by_vital_entry(key, score_details)
+        for key in ScoreByVital
+    ], names=[ScoreByVital, ScoreVitals], dtype=np.int32)
 
     player = obs.observation.player_common
     out["player"] = named_array.NamedNumpyArray([

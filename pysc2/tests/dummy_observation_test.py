@@ -18,6 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 from absl.testing import absltest
+from absl.testing import parameterized
+import numpy as np
 
 from pysc2.lib import actions
 from pysc2.lib import features
@@ -38,7 +40,7 @@ _MOTHERSHIP = dummy_observation.Unit(
     units.Protoss.Mothership, features.PlayerRelative.SELF, 350, 7, 200, 0, 1.0)
 
 
-class DummyObservationTest(absltest.TestCase):
+class DummyObservationTest(parameterized.TestCase):
 
   def setUp(self):
     self._features = features.Features(
@@ -133,6 +135,68 @@ class DummyObservationTest(absltest.TestCase):
     self.assertEqual(obs.score.score_details.collection_rate_vespene, 10)
     self.assertEqual(obs.score.score_details.spent_minerals, 11)
     self.assertEqual(obs.score.score_details.spent_vespene, 12)
+
+  def testScoreByCategorySpec(self):
+    # Note that if these dimensions are changed, client code is liable to break.
+    np.testing.assert_array_equal(
+        self._obs_spec.score_by_category,
+        np.array([11, 5], dtype=np.int32))
+
+  @parameterized.parameters([entry.name for entry in features.ScoreByCategory])
+  def testScoreByCategory(self, entry_name):
+    self._builder.score_by_category(
+        entry_name,
+        none=10,
+        army=1200,
+        economy=400,
+        technology=100,
+        upgrade=200)
+
+    response_observation = self._builder.build()
+    obs = response_observation.observation
+    entry = getattr(obs.score.score_details, entry_name)
+    self.assertEqual(entry.none, 10)
+    self.assertEqual(entry.army, 1200)
+    self.assertEqual(entry.economy, 400)
+    self.assertEqual(entry.technology, 100)
+    self.assertEqual(entry.upgrade, 200)
+
+    # Check the transform_obs does what we expect, too.
+    transformed_obs = self._features.transform_obs(response_observation)
+    transformed_entry = getattr(transformed_obs.score_by_category, entry_name)
+    self.assertEqual(transformed_entry.none, 10)
+    self.assertEqual(transformed_entry.army, 1200)
+    self.assertEqual(transformed_entry.economy, 400)
+    self.assertEqual(transformed_entry.technology, 100)
+    self.assertEqual(transformed_entry.upgrade, 200)
+
+  def testScoreByVitalSpec(self):
+    # Note that if these dimensions are changed, client code is liable to break.
+    np.testing.assert_array_equal(
+        self._obs_spec.score_by_vital,
+        np.array([3, 3], dtype=np.int32))
+
+  @parameterized.parameters([entry.name for entry in features.ScoreByVital])
+  def testScoreByVital(self, entry_name):
+    self._builder.score_by_vital(
+        entry_name,
+        life=1234,
+        shields=45,
+        energy=423)
+
+    response_observation = self._builder.build()
+    obs = response_observation.observation
+    entry = getattr(obs.score.score_details, entry_name)
+    self.assertEqual(entry.life, 1234)
+    self.assertEqual(entry.shields, 45)
+    self.assertEqual(entry.energy, 423)
+
+    # Check the transform_obs does what we expect, too.
+    transformed_obs = self._features.transform_obs(response_observation)
+    transformed_entry = getattr(transformed_obs.score_by_vital, entry_name)
+    self.assertEqual(transformed_entry.life, 1234)
+    self.assertEqual(transformed_entry.shields, 45)
+    self.assertEqual(transformed_entry.energy, 423)
 
   def testRgbMinimapMatchesSpec(self):
     obs = self._get_obs()

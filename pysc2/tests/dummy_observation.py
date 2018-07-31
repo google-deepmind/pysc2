@@ -236,6 +236,26 @@ class Builder(object):
     return self
   # pylint:enable=unused-argument
 
+  def score_by_category(
+      self, entry_name, none, army, economy, technology, upgrade):
+
+    field = getattr(self._score_details, entry_name)
+    field.CopyFrom(
+        score_pb2.CategoryScoreDetails(
+            none=none,
+            army=army,
+            economy=economy,
+            technology=technology,
+            upgrade=upgrade))
+
+  def score_by_vital(self, entry_name, life, shields, energy):
+    field = getattr(self._score_details, entry_name)
+    field.CopyFrom(
+        score_pb2.VitalScoreDetails(
+            life=life,
+            shields=shields,
+            energy=energy))
+
   def single_select(self, unit):
     self._single_select = unit
     return self
