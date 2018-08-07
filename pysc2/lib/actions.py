@@ -637,6 +637,7 @@ _FUNCTIONS = [
     Function.ability(175, "Cancel_QueuePassiveCancelToSelection_quick", cmd_quick, 1833, 3671),
     Function.ability(176, "Effect_Abduct_screen", cmd_screen, 2067),
     Function.ability(177, "Effect_AdeptPhaseShift_screen", cmd_screen, 2544),
+    Function.ability(547, "Effect_AdeptPhaseShift_minimap", cmd_minimap, 2544),
     Function.ability(526, "Effect_AntiArmorMissile_screen", cmd_screen, 3753),
     Function.ability(178, "Effect_AutoTurret_screen", cmd_screen, 1764),
     Function.ability(179, "Effect_BlindingCloud_screen", cmd_screen, 2063),
