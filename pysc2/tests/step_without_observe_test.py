@@ -44,7 +44,7 @@ class StepWithoutObserveTest(utils.TestCase):
 
       self.assertEqual(
           timestep[0].observation.game_loop[0],
-          1)
+          0)
 
   def test_returns_old_observation_when_no_observe(self):
     with sc2_env.SC2Env(
@@ -59,7 +59,7 @@ class StepWithoutObserveTest(utils.TestCase):
             actions=[actions.FUNCTIONS.no_op()],
             update_observation=[observe])
 
-        expected_game_loop = 3 * (step // 3) + 1
+        expected_game_loop = 3 * (step // 3)
         self.assertEqual(
             timestep[0].observation.game_loop[0],
             expected_game_loop)
@@ -80,14 +80,14 @@ class StepWithoutObserveTest(utils.TestCase):
             actions=[actions.FUNCTIONS.no_op()] * 2,
             update_observation=[observe, True])
 
-        expected_game_loop = 3 * (step // 3) + 1
+        expected_game_loop = 3 * (step // 3)
         self.assertEqual(
             timestep[0].observation.game_loop[0],
             expected_game_loop)
 
         self.assertEqual(
             timestep[1].observation.game_loop[0],
-            step + 1)
+            step)
 
   def test_episode_ends_when_not_observing(self):
     with sc2_env.SC2Env(

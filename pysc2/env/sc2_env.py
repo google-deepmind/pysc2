@@ -430,7 +430,7 @@ class SC2Env(environment.Base):
 
     self._last_score = [0] * self._num_agents
     self._state = environment.StepType.FIRST
-    return self._step(None)
+    return self._observe()
 
   @sw.decorate("step_env")
   def step(self, actions, update_observation=None):
@@ -457,15 +457,18 @@ class SC2Env(environment.Base):
     return self._step(update_observation)
 
   def _step(self, update_observation=None):
-    if update_observation is None:
-      update_observation = [True] * len(self._controllers)
-
     if self._controllers[0].status != protocol.Status.ended:
       # It's currently possible for the game to enter the 'ended' Status
       # during the call to act() - although it should only do this on a call
       # to step(). We skip step when that happens (the episode has completed).
       with self._metrics.measure_step_time(self._step_mul):
         self._parallel.run((c.step, self._step_mul) for c in self._controllers)
+
+    return self._observe(update_observation)
+
+  def _observe(self, update_observation=None):
+    if update_observation is None:
+      update_observation = [True] * len(self._controllers)
 
     self._update_observations(update_observation)
 
