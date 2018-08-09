@@ -107,7 +107,8 @@ class SC2Env(environment.Base):
                score_index=None,
                score_multiplier=None,
                random_seed=None,
-               disable_fog=False):
+               disable_fog=False,
+               ensure_available_actions=True):
     """Create a SC2 Env.
 
     You must pass a resolution that you want to play at. You can send either
@@ -152,6 +153,8 @@ class SC2Env(environment.Base):
       random_seed: Random number seed to use when initializing the game. This
           lets you run repeatable games/tests.
       disable_fog: Whether to disable fog of war.
+      ensure_available_actions: Whether to throw an exception when an
+          unavailable action is passed to step().
 
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
@@ -214,6 +217,7 @@ class SC2Env(environment.Base):
     self._replay_prefix = replay_prefix
     self._random_seed = random_seed
     self._disable_fog = disable_fog
+    self._ensure_available_actions = ensure_available_actions
     self._discount_zero_after_timeout = discount_zero_after_timeout
 
     if score_index is None:
@@ -448,8 +452,9 @@ class SC2Env(environment.Base):
     if self._state == environment.StepType.LAST:
       return self.reset()
 
+    skip = not self._ensure_available_actions
     self._parallel.run(
-        (c.act, f.transform_action(o.observation, a))
+        (c.act, f.transform_action(o.observation, a, skip_available=skip))
         for c, f, o, a in zip(
             self._controllers, self._features, self._obs, actions))
 
