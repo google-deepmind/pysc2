@@ -899,21 +899,17 @@ class Features(object):
         score_details.spent_vespene,
     ], names=ScoreCumulative, dtype=np.int32)
 
-    def get_score_by_category_entry(key, details):
+    def get_score_details(key, details, categories):
       row = getattr(details, key.name)
-      return [getattr(row, category.name) for category in ScoreCategories]
+      return [getattr(row, category.name) for category in categories]
 
     out["score_by_category"] = named_array.NamedNumpyArray([
-        get_score_by_category_entry(key, score_details)
+        get_score_details(key, score_details, ScoreCategories)
         for key in ScoreByCategory
     ], names=[ScoreByCategory, ScoreCategories], dtype=np.int32)
 
-    def get_score_by_vital_entry(key, details):
-      row = getattr(details, key.name)
-      return [getattr(row, category.name) for category in ScoreVitals]
-
     out["score_by_vital"] = named_array.NamedNumpyArray([
-        get_score_by_vital_entry(key, score_details)
+        get_score_details(key, score_details, ScoreVitals)
         for key in ScoreByVital
     ], names=[ScoreByVital, ScoreVitals], dtype=np.int32)
 
