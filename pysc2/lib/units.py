@@ -25,9 +25,16 @@ class Neutral(enum.IntEnum):
   """Neutral units."""
   BattleStationMineralField = 886
   BattleStationMineralField750 = 887
+  CarrionBird = 322
   CollapsibleRockTowerDebris = 490
+  CollapsibleRockTowerDebrisRampLeft = 518
+  CollapsibleRockTowerDebrisRampRight = 517
   CollapsibleRockTowerDiagonal = 588
   CollapsibleRockTowerPushUnit = 561
+  CollapsibleRockTowerPushUnitRampLeft = 564
+  CollapsibleRockTowerPushUnitRampRight = 563
+  CollapsibleRockTowerRampLeft = 664
+  CollapsibleRockTowerRampRight = 663
   CollapsibleTerranTowerDebris = 485
   CollapsibleTerranTowerDiagonal = 589
   CollapsibleTerranTowerPushUnit = 562
@@ -37,12 +44,19 @@ class Neutral(enum.IntEnum):
   CollapsibleTerranTowerRampRight = 591
   DebrisRampLeft = 486
   DebrisRampRight = 487
+  DestructibleCityDebrisHugeDiagonalBLUR = 630
   DestructibleDebris6x6 = 365
   DestructibleDebrisRampDiagonalHugeBLUR = 377
   DestructibleDebrisRampDiagonalHugeULBR = 376
+  DestructibleRampDiagonalHugeBLUR = 373
   DestructibleRock6x6 = 371
+  DestructibleRockEx14x4 = 638
+  DestructibleRockEx16x6 = 639
   DestructibleRockEx1DiagonalHugeBLUR = 641
+  DestructibleRockEx1DiagonalHugeULBR = 640
+  DestructibleRockEx1HorizontalHuge = 643
   KarakFemale = 324
+  LabBot = 661
   LabMineralField = 665
   LabMineralField750 = 666
   MineralField = 341
@@ -61,8 +75,11 @@ class Neutral(enum.IntEnum):
   SpacePlatformGeyser = 343
   UnbuildableBricksDestructible = 473
   UnbuildablePlatesDestructible = 474
+  UnbuildableRocksDestructible = 472
   UtilityBot = 330
   VespeneGeyser = 342
+  XelNagaDestructibleBlocker8NE = 1904
+  XelNagaDestructibleBlocker8SW = 1908
   XelNagaTower = 149
 
 
@@ -136,6 +153,8 @@ class Terran(enum.IntEnum):
   FusionCore = 30
   Ghost = 50
   GhostAcademy = 26
+  GhostAlternate = 144
+  GhostNova = 145
   Hellion = 53
   Hellbat = 484
   KD8Charge = 830
@@ -229,6 +248,7 @@ class Zerg(enum.IntEnum):
   Overseer = 129
   OverseerCocoon = 128
   OverseerOversightMode = 1912
+  ParasiticBombDummy = 824
   Queen = 126
   QueenBurrowed = 125
   Ravager = 688
