@@ -24,6 +24,7 @@ import itertools
 from absl import logging
 import math
 import os
+import platform
 import re
 import subprocess
 import threading
@@ -195,7 +196,7 @@ class PastAction(collections.namedtuple("PastAction", [
 
 def _get_desktop_size():
   """Get the desktop size."""
-  if os.name == "posix":
+  if platform.system() == "Linux":
     try:
       xrandr_query = subprocess.check_output(["xrandr", "--query"])
       sizes = re.findall(r"\bconnected primary (\d+)x(\d+)", str(xrandr_query))
