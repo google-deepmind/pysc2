@@ -677,7 +677,8 @@ _FUNCTIONS = [
     Function.ability(208, "Effect_MassRecall_screen", cmd_screen, 3686),
     Function.ability(209, "Effect_MassRecall_Mothership_screen", cmd_screen, 2368, 3686),
     Function.ability(210, "Effect_MassRecall_MothershipCore_screen", cmd_screen, 1974, 3686),
-    Function.ability(529, "Effect_MassRecallNexus_screen", cmd_screen, 3757),
+    Function.ability(529, "Effect_MassRecall_Nexus_screen", cmd_screen, 3757, 3686),
+    Function.ability(548, "Effect_MassRecall_StategicRecall_screen", cmd_screen, 142),  # TODO(b/112894263): 3686
     Function.ability(211, "Effect_MedivacIgniteAfterburners_quick", cmd_quick, 2116),
     Function.ability(212, "Effect_NeuralParasite_screen", cmd_screen, 249),
     Function.ability(213, "Effect_NukeCalldown_screen", cmd_screen, 1622),
