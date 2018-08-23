@@ -191,6 +191,8 @@ class FeatureUnit(enum.IntEnum):
   assigned_harvesters = 23
   ideal_harvesters = 24
   weapon_cooldown = 25
+  order_length = 26  # If zero, the unit is idle.
+  tag = 27  # Unique identifier for a unit (only populated for raw units).
 
 
 class Feature(collections.namedtuple(
@@ -970,7 +972,7 @@ class Features(object):
             [unit_vec(u) for u in ui.production.build_queue],
             [None, UnitLayer])
 
-    def full_unit_vec(u, pos_transform):
+    def full_unit_vec(u, pos_transform, is_raw=False):
       screen_pos = pos_transform.fwd_pt(
           point.Point.build(u.pos))
       screen_radius = pos_transform.fwd_dist(u.radius)
@@ -1006,6 +1008,8 @@ class Features(object):
           u.assigned_harvesters,
           u.ideal_harvesters,
           u.weapon_cooldown,
+          len(u.orders),
+          u.tag if is_raw else 0
       ), dtype=np.int32)
 
     raw = obs.observation.raw_data
@@ -1024,7 +1028,7 @@ class Features(object):
 
     if aif.use_raw_units:
       with sw("raw_units"):
-        raw_units = [full_unit_vec(u, self._world_to_world_tl)
+        raw_units = [full_unit_vec(u, self._world_to_world_tl, is_raw=True)
                      for u in raw.units]
         out["raw_units"] = named_array.NamedNumpyArray(
             raw_units, [None, FeatureUnit], dtype=np.int32)
