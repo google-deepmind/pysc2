@@ -24,6 +24,7 @@ import itertools
 from absl import logging
 import math
 import os
+import platform
 import re
 import subprocess
 import threading
@@ -195,7 +196,7 @@ class PastAction(collections.namedtuple("PastAction", [
 
 def _get_desktop_size():
   """Get the desktop size."""
-  if os.name == "posix":
+  if platform.system() == "Linux":
     try:
       xrandr_query = subprocess.check_output(["xrandr", "--query"])
       sizes = re.findall(r"\bconnected primary (\d+)x(\d+)", str(xrandr_query))
@@ -362,7 +363,7 @@ class RendererHuman(object):
   @sw.decorate
   def init_window(self):
     """Initialize the pygame window and lay out the surfaces."""
-    if os.name == "nt":
+    if platform.system() == "Windows":
       # Enable DPI awareness on Windows to give the correct window size.
       ctypes.windll.user32.SetProcessDPIAware()  # pytype: disable=module-attr
 
