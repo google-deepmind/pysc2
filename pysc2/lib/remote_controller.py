@@ -29,6 +29,7 @@ from pysc2.lib import static_data
 from pysc2.lib import stopwatch
 import websocket
 
+from s2clientprotocol import debug_pb2 as sc_debug
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 flags.DEFINE_bool("sc2_log_actions", False,
@@ -279,6 +280,14 @@ class RemoteController(object):
     """Save a replay, returning the data."""
     res = self._client.send(save_replay=sc_pb.RequestSaveReplay())
     return res.data
+
+  @valid_status(Status.in_game)
+  @sw.decorate
+  def debug(self, debug_commands):
+    """Run a debug command."""
+    if isinstance(debug_commands, sc_debug.DebugCommand):
+      debug_commands = [debug_commands]
+    return self._client.send(debug=sc_pb.RequestDebug(debug=debug_commands))
 
   @skip_status(Status.quit)
   @sw.decorate
