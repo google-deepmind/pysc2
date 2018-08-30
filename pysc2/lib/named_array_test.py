@@ -115,12 +115,14 @@ class NamedArrayTest(parameterized.TestCase):
     self.assertArrayEqual(a[1:3], [3, 6])
     self.assertArrayEqual(a[0:2:], [1, 3])
     self.assertArrayEqual(a[0:2:1], [1, 3])
+    self.assertArrayEqual(a[::2], [1, 6])
+    self.assertArrayEqual(a[::-1], [6, 3, 1])
     self.assertEqual(a[1:3][0], 3)
-    self.assertEqual(a[1:3, 0], 3)
     self.assertEqual(a[1:3].b, 3)
     self.assertEqual(a[1:3].c, 6)
 
     # list slicing
+    self.assertArrayEqual(a[[0, 0]], [1, 1])
     self.assertArrayEqual(a[[0, 1]], [1, 3])
     self.assertArrayEqual(a[[1, 0]], [3, 1])
     self.assertArrayEqual(a[[1, 2]], [3, 6])
@@ -157,13 +159,28 @@ class NamedArrayTest(parameterized.TestCase):
       # Returning an empty slice is not supported, and it's not clear how or
       # even if it should be supported.
       named_array.NamedNumpyArray([], [["a", "b"], None])
+    with self.assertRaises(ValueError):
+      # Scalar arrays are unsupported.
+      named_array.NamedNumpyArray(1, [])
 
   def test_named_array_multi_first(self):
     a = named_array.NamedNumpyArray([[1, 3], [6, 8]], [["a", "b"], None])
     self.assertArrayEqual(a.a, [1, 3])
     self.assertArrayEqual(a[1], [6, 8])
     self.assertArrayEqual(a["b"], [6, 8])
+    self.assertArrayEqual(a[::-1], [[6, 8], [1, 3]])
+    self.assertArrayEqual(a[::-1][::-1], [[1, 3], [6, 8]])
+    self.assertArrayEqual(a[::-1, ::-1], [[8, 6], [3, 1]])
+    self.assertArrayEqual(a[::-1][0], [6, 8])
+    self.assertArrayEqual(a[::-1, 0], [6, 1])
+    self.assertArrayEqual(a[::-1, 1], [8, 3])
+    self.assertArrayEqual(a[::-1].a, [1, 3])
+    self.assertArrayEqual(a[::-1].a[0], 1)
+    self.assertArrayEqual(a[::-1].b, [6, 8])
+    self.assertArrayEqual(a[[0, 0]], [[1, 3], [1, 3]])
+    self.assertArrayEqual(a[[0, 0]].a, [1, 3])
     self.assertEqual(a[0, 1], 3)
+    self.assertEqual(a[(0, 1)], 3)
     self.assertEqual(a["a", 0], 1)
     self.assertEqual(a["b", 0], 6)
     self.assertEqual(a["b", 1], 8)
@@ -181,6 +198,65 @@ class NamedArrayTest(parameterized.TestCase):
     self.assertEqual(a[0].a, 1)
     with self.assertRaises(TypeError):
       a.a  # pylint: disable=pointless-statement
+
+  def test_slicing(self):
+    a = named_array.NamedNumpyArray([1, 2, 3, 4, 5], list("abcde"))
+    self.assertArrayEqual(a[:], [1, 2, 3, 4, 5])
+    self.assertArrayEqual(a[::], [1, 2, 3, 4, 5])
+    self.assertArrayEqual(a[::2], [1, 3, 5])
+    self.assertArrayEqual(a[::-1], [5, 4, 3, 2, 1])
+    self.assertEqual(a[:].a, 1)
+    self.assertEqual(a[::].b, 2)
+    self.assertEqual(a[::2].c, 3)
+    with self.assertRaises(AttributeError):
+      a[::2].d  # pylint: disable=pointless-statement
+    self.assertEqual(a[::-1].e, 5)
+    self.assertArrayEqual(a[a % 2 == 0], [2, 4])
+    self.assertEqual(a[a % 2 == 0].b, 2)
+
+    a = named_array.NamedNumpyArray([[1, 2, 3, 4], [5, 6, 7, 8]],
+                                    [None, list("abcd")])
+    self.assertArrayEqual(a[:], [[1, 2, 3, 4], [5, 6, 7, 8]])
+    self.assertArrayEqual(a[::], [[1, 2, 3, 4], [5, 6, 7, 8]])
+    self.assertArrayEqual(a[:, :], [[1, 2, 3, 4], [5, 6, 7, 8]])
+    self.assertArrayEqual(a[:, ...], [[1, 2, 3, 4], [5, 6, 7, 8]])
+    self.assertArrayEqual(a[..., ::], [[1, 2, 3, 4], [5, 6, 7, 8]])
+    self.assertArrayEqual(a[:, ::2], [[1, 3], [5, 7]])
+
+    self.assertArrayEqual(a[::-1], [[5, 6, 7, 8], [1, 2, 3, 4]])
+    self.assertArrayEqual(a[..., ::-1], [[4, 3, 2, 1], [8, 7, 6, 5]])
+    self.assertArrayEqual(a[:, ::-1], [[4, 3, 2, 1], [8, 7, 6, 5]])
+    self.assertArrayEqual(a[:, ::-2], [[4, 2], [8, 6]])
+    self.assertArrayEqual(a[:, -2::-2], [[3, 1], [7, 5]])
+    self.assertArrayEqual(a[::-1, -2::-2], [[7, 5], [3, 1]])
+    self.assertArrayEqual(a[..., 0, 0], 1)  # weird scalar arrays...
+
+    a = named_array.NamedNumpyArray(
+        [[[[0, 1], [2, 3]], [[4, 5], [6, 7]]],
+         [[[8, 9], [10, 11]], [[12, 13], [14, 15]]]],
+        [["a", "b"], ["c", "d"], ["e", "f"], ["g", "h"]])
+    self.assertEqual(a.a.c.e.g, 0)
+    self.assertEqual(a.b.c.f.g, 10)
+    self.assertEqual(a.b.d.f.h, 15)
+    self.assertArrayEqual(a[0, ..., 0], [[0, 2], [4, 6]])
+    self.assertArrayEqual(a[0, ..., 1], [[1, 3], [5, 7]])
+    self.assertArrayEqual(a[0, 0, ..., 1], [1, 3])
+    self.assertArrayEqual(a[0, ..., 1, 1], [3, 7])
+    self.assertArrayEqual(a[..., 1, 1], [[3, 7], [11, 15]])
+    self.assertArrayEqual(a[1, 0, ...], [[8, 9], [10, 11]])
+
+    self.assertArrayEqual(a["a", ..., "g"], [[0, 2], [4, 6]])
+    self.assertArrayEqual(a["a", ...], [[[0, 1], [2, 3]], [[4, 5], [6, 7]]])
+    self.assertArrayEqual(a[..., "g"], [[[0, 2], [4, 6]], [[8, 10], [12, 14]]])
+    self.assertArrayEqual(a["a", "c"], [[0, 1], [2, 3]])
+    self.assertArrayEqual(a["a", ...].c, [[0, 1], [2, 3]])
+    self.assertArrayEqual(a["a", ..., "g"].c, [0, 2])
+
+    with self.assertRaises(TypeError):
+      a[np.array([[0, 1], [0, 1]])]  # pylint: disable=pointless-statement, expression-not-assigned
+
+    with self.assertRaises(IndexError):
+      a[..., 0, ...]  # pylint: disable=pointless-statement
 
   def test_string(self):
     a = named_array.NamedNumpyArray([1, 3, 6], ["a", "b", "c"], dtype=np.int32)

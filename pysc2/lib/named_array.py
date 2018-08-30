@@ -25,7 +25,9 @@ import numbers
 import re
 
 import enum
+from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy as np
+import six
 
 
 class NamedDict(dict):
@@ -34,6 +36,9 @@ class NamedDict(dict):
   def __init__(self, *args, **kwargs):
     super(NamedDict, self).__init__(*args, **kwargs)
     self.__dict__ = self
+
+
+_NULL_SLICE = slice(None, None, None)
 
 
 # pylint: disable=protected-access
@@ -64,6 +69,9 @@ class NamedNumpyArray(np.ndarray):
 
   def __new__(cls, values, names, *args, **kwargs):
     obj = np.array(values, *args, **kwargs)
+
+    if len(obj.shape) == 0:  # pylint: disable=g-explicit-length-test
+      raise ValueError("Scalar arrays are unsupported.")
 
     if len(obj.shape) == 1:
       if obj.shape[0] == 0 and names and names[0] is None:
@@ -138,31 +146,49 @@ class NamedNumpyArray(np.ndarray):
 
   def __getitem__(self, indices):
     """Get by indexing lookup."""
-    if not isinstance(indices, tuple):
-      indices = (indices,)
-    obj = self
-    for index in indices:
-      index = _get_index(obj, index)
-      obj = super(NamedNumpyArray, obj).__getitem__(index)
-      if isinstance(obj, np.ndarray):  # If this is a view, index the names too.
+    indices = self._indices(indices)
+    obj = super(NamedNumpyArray, self).__getitem__(indices)
+
+    if isinstance(obj, np.ndarray):  # If this is a view, index the names too.
+      if not isinstance(indices, tuple):
+        indices = (indices,)
+      new_names = []
+      dim = 0
+      for i, index in enumerate(indices):
         if isinstance(index, numbers.Integral):
-          obj._index_names = obj._index_names[1:]
-        elif self._index_names[0]:  # Skip index rebuild if there are no names.
+          pass  # Drop this dimension's names.
+        elif index is Ellipsis:
+          # Copy all the dimensions' names through.
+          end = len(self.shape) - len(indices) + i
+          for j in range(dim, end + 1):
+            new_names.append(self._index_names[j])
+          dim = end
+        elif (self._index_names[dim] is None or
+              (isinstance(index, slice) and index == _NULL_SLICE)):
+          # Keep unnamed dimensions or ones where the slice is a no-op.
+          new_names.append(self._index_names[dim])
+        elif isinstance(index, (slice, list, np.ndarray)):
+          if isinstance(index, np.ndarray) and len(index.shape) > 1:
+            raise TypeError("What does it mean to index into a named array by "
+                            "a multidimensional array?")
           # Rebuild the index of names for the various forms of slicing.
-          names = sorted(obj._index_names[0].items(), key=lambda item: item[1])
+          names = sorted(self._index_names[dim].items(),
+                         key=lambda item: item[1])
           names = np.array(names, dtype=object)  # Support full numpy slicing.
-          sliced = {n: i for i, (n, _) in enumerate(names[index])}
-          obj._index_names = [sliced] + obj._index_names[1:]
+          sliced = names[index]  # Actually slice it.
+          sliced = {n: j for j, (n, _) in enumerate(sliced)}  # Reindex.
+          new_names.append(sliced)
+        else:
+          raise TypeError("Unknown index: %s; %s" % (type(index), index))
+        dim += 1
+      obj._index_names = new_names + self._index_names[dim:]
+      if len(obj._index_names) != len(obj.shape):
+        raise IndexError("Names don't match object shape: %s != %s" % (
+            len(obj.shape), len(obj._index_names)))
     return obj
 
   def __setitem__(self, indices, value):
-    if not isinstance(indices, tuple):
-      indices = (indices,)
-    obj = self
-    if len(indices) > 1:
-      obj = obj.__getitem(indices[:-1])
-    index = _get_index(obj, indices[-1])
-    super(NamedNumpyArray, obj).__setitem__(index, value)
+    super(NamedNumpyArray, self).__setitem__(self._indices(indices), value)
 
   def __getslice__(self, i, j):  # deprecated, but still needed...
     # https://docs.python.org/2.0/ref/sequence-methods.html
@@ -202,15 +228,31 @@ class NamedNumpyArray(np.ndarray):
     self._index_names = state[-1]
     super(NamedNumpyArray, self).__setstate__(state[0:-1])  # pytype: disable=attribute-error
 
+  def _indices(self, indices):
+    """Turn all string indices into int indices, preserving ellipsis."""
+    if isinstance(indices, tuple):
+      out = []
+      dim = 0
+      for i, index in enumerate(indices):
+        if index is Ellipsis:
+          out.append(index)
+          dim = len(self.shape) - len(indices) + i
+        else:
+          out.append(self._get_index(dim, index))
+        dim += 1
+      return tuple(out)
+    else:
+      return self._get_index(0, indices)
 
-def _get_index(obj, index):
-  """Turn a string into a real index, otherwise return the index."""
-  if isinstance(index, str):
-    try:
-      return obj._index_names[0][index]
-    except KeyError:
-      raise KeyError("Name '%s' is invalid." % index)
-    except TypeError:
-      raise TypeError("Trying to access an unnamed axis by name: '%s'" % index)
-  else:
-    return index
+  def _get_index(self, dim, index):
+    """Turn a string into a real index, otherwise return the index."""
+    if isinstance(index, six.string_types):
+      try:
+        return self._index_names[dim][index]
+      except KeyError:
+        raise KeyError("Name '%s' is invalid for axis %s." % (index, dim))
+      except TypeError:
+        raise TypeError(
+            "Trying to access an unnamed axis %s by name: '%s'" % (dim, index))
+    else:
+      return index
