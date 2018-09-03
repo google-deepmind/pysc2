@@ -167,7 +167,7 @@ def human():
   controller.create_game(create)
 
   print("-" * 80)
-  print("Join host: play_vs_agent --map %s --host %s --host_port %s "
+  print("Join host: agent_remote --map %s --host %s --host_port %s "
         "--lan_port %s" % (FLAGS.map, FLAGS.host, client_proc.port, ports[0]))
   print("-" * 80)
 
