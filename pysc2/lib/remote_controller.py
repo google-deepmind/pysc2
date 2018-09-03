@@ -257,7 +257,7 @@ class RemoteController(object):
 
   def act(self, action):
     """Send a single action. This is a shortcut for `actions`."""
-    if action:
+    if action and action.ListFields():  # Skip no-ops.
       return self.actions(sc_pb.RequestAction(actions=[action]))
 
   def chat(self, message):
