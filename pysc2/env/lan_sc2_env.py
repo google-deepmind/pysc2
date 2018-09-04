@@ -30,7 +30,9 @@ import socket
 import struct
 import subprocess
 import threading
+import time
 
+from future.builtins import range  # pylint: disable=redefined-builtin
 from pysc2 import run_configs
 from pysc2.env import sc2_env
 from pysc2.lib import run_parallel
@@ -82,8 +84,15 @@ def tcp_client(tcp_addr):
   """Connect to the tcp server, and return the settings."""
   family = socket.AF_INET6 if ":" in tcp_addr.ip else socket.AF_INET
   sock = socket.socket(family, socket.SOCK_STREAM, socket.IPPROTO_TCP)
-  logging.info("Connecting to: %s", tcp_addr)
-  sock.connect(tcp_addr)
+  for i in range(300):
+    logging.info("Connecting to: %s, attempt %d", tcp_addr, i)
+    try:
+      sock.connect(tcp_addr)
+      break
+    except socket.error:
+      time.sleep(1)
+  else:
+    sock.connect(tcp_addr)  # One last try, but don't catch this error.
   logging.info("Connected.")
 
   map_data = read_tcp(sock)
