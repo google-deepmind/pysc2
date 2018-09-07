@@ -353,6 +353,7 @@ class SC2Env(environment.Base):
   def _launch_mp(self, map_inst, interfaces):
     # Reserve a whole bunch of ports for the weird multiplayer implementation.
     self._ports = portspicker.pick_unused_ports(self._num_agents * 2)
+    logging.info("Ports used for multiplayer: %s", self._ports)
 
     # Actually launch the game processes.
     self._sc2_procs = [self._run_config.start(extra_ports=self._ports)
