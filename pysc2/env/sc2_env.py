@@ -29,7 +29,6 @@ from pysc2.lib import actions as actions_lib
 from pysc2.lib import features
 from pysc2.lib import metrics
 from pysc2.lib import portspicker
-from pysc2.lib import protocol
 from pysc2.lib import renderer_human
 from pysc2.lib import run_parallel
 from pysc2.lib import stopwatch
@@ -438,14 +437,12 @@ class SC2Env(environment.Base):
     return self._observe()
 
   @sw.decorate("step_env")
-  def step(self, actions, update_observation=None):
+  def step(self, actions, step_mul=None):
     """Apply actions, step the world forward, and return observations.
 
     Args:
       actions: A list of actions meeting the action spec, one per agent.
-      update_observation: A list of booleans, whether to retrieve a new
-        observation after this step, one per agent. **Note** that if the
-        game ends a new observation will be retrieved regardless.
+      step_mul: If specified, use this rather than the environment's default.
 
     Returns:
       A tuple of TimeStep namedtuples, one per agent.
@@ -460,34 +457,27 @@ class SC2Env(environment.Base):
             self._controllers, self._features, self._obs, actions))
 
     self._state = environment.StepType.MID
-    return self._step(update_observation)
+    return self._step(step_mul)
 
-  def _step(self, update_observation=None):
-    if self._controllers[0].status != protocol.Status.ended:
-      # It's currently possible for the game to enter the 'ended' Status
-      # during the call to act() - although it should only do this on a call
-      # to step(). We skip step when that happens (the episode has completed).
-      with self._metrics.measure_step_time(self._step_mul):
-        self._parallel.run((c.step, self._step_mul) for c in self._controllers)
+  def _step(self, step_mul=None):
+    step_mul_ = step_mul or self._step_mul
+    with self._metrics.measure_step_time(step_mul_):
+      self._parallel.run((c.step, step_mul_) for c in self._controllers)
 
-    return self._observe(update_observation)
+    return self._observe()
 
-  def _observe(self, update_observation=None):
-    if update_observation is None:
-      update_observation = [True] * len(self._controllers)
-
-    self._update_observations(update_observation)
+  def _observe(self):
+    with self._metrics.measure_observation_time():
+      self._obs = self._parallel.run(c.observe for c in self._controllers)
+      self._agent_obs = [f.transform_obs(o)
+                         for f, o in zip(self._features, self._obs)]
 
     # TODO(tewalds): How should we handle more than 2 agents and the case where
     # the episode can end early for some agents?
     outcome = [0] * self._num_agents
     discount = self._discount
     episode_complete = any(o.player_result for o in self._obs)
-    if episode_complete or self._controllers[0].status == protocol.Status.ended:
-      if not all(update_observation):
-        # The episode completed so we send new observations to everyone.
-        self._update_observations([not i for i in update_observation])
-
+    if episode_complete:
       self._state = environment.StepType.LAST
       discount = 0
       for i, o in enumerate(self._obs):
@@ -541,20 +531,6 @@ class SC2Env(environment.Base):
         reward=zero_on_first_step(r * self._score_multiplier),
         discount=zero_on_first_step(discount),
         observation=o) for r, o in zip(reward, self._agent_obs))
-
-  def _update_observations(self, update_observation):
-    with self._metrics.measure_observation_time():
-      # Only retrieve the observation for an agent if it requests us to do so.
-      next_obs = self._parallel.run(
-          c.observe if observe else lambda: None
-          for c, observe in zip(self._controllers, update_observation))
-
-      # If a new observation was retrieved, transform it.
-      # Otherwise keep the previous observation.
-      for index, obs in enumerate(next_obs):
-        if update_observation[index]:
-          self._obs[index] = obs
-          self._agent_obs[index] = self._features[index].transform_obs(obs)
 
   def send_chat_messages(self, messages):
     """Useful for logging messages into the replay."""

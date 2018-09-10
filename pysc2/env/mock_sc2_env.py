@@ -82,9 +82,9 @@ class _TestEnvironment(environment.Base):
     self._episode_steps = 0
     return self.step([None] * self._num_agents)
 
-  def step(self, actions, update_observation=True):
+  def step(self, actions, step_mul=None):
     """Returns `next_observation` modifying its `step_type` if necessary."""
-    del update_observation  # ignored currently
+    del step_mul  # ignored currently
 
     if len(actions) != self._num_agents:
       raise ValueError(
@@ -246,7 +246,8 @@ class SC2TestEnv(_TestEnvironment):
   def _default_observation(self, obs_spec, agent_index):
     """Returns a mock observation from an SC2Env."""
 
-    response_observation = dummy_observation.Builder(obs_spec).build()
+    response_observation = dummy_observation.Builder(
+        obs_spec).game_loop(0).build()
     features_ = self._features[agent_index]
     observation = features_.transform_obs(response_observation)
 
