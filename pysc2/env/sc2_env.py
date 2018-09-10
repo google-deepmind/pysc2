@@ -460,9 +460,12 @@ class SC2Env(environment.Base):
     return self._step(step_mul)
 
   def _step(self, step_mul=None):
-    step_mul_ = step_mul or self._step_mul
-    with self._metrics.measure_step_time(step_mul_):
-      self._parallel.run((c.step, step_mul_) for c in self._controllers)
+    step_mul = step_mul or self._step_mul
+    if step_mul <= 0:
+      raise ValueError("step_mul should be positive, got {}".format(step_mul))
+
+    with self._metrics.measure_step_time(step_mul):
+      self._parallel.run((c.step, step_mul) for c in self._controllers)
 
     return self._observe()
 
@@ -508,8 +511,8 @@ class SC2Env(environment.Base):
       elif cmd == renderer_human.ActionCmd.QUIT:
         raise KeyboardInterrupt("Quit?")
 
-    self._total_steps += self._step_mul
-    self._episode_steps += self._step_mul
+    self._total_steps += self._agent_obs[0].game_loop[0] - self._episode_steps
+    self._episode_steps = self._agent_obs[0].game_loop[0]
     if self._episode_length > 0 and self._episode_steps >= self._episode_length:
       self._state = environment.StepType.LAST
       if self._discount_zero_after_timeout:
