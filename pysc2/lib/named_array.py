@@ -110,7 +110,7 @@ class NamedNumpyArray(np.ndarray):
                              "a namedtuple, or IntEnum.")
         elif isinstance(o, (list, tuple)):
           for n in o:
-            if not isinstance(n, str):
+            if not isinstance(n, six.string_types):
               raise ValueError(
                   "Bad name, must be a list of strings, not %s" % type(n))
         else:

@@ -25,6 +25,7 @@ import subprocess
 import sys
 
 from absl import flags
+import six
 
 from pysc2.lib import sc_process
 from pysc2.run_configs import lib
@@ -75,7 +76,7 @@ class LocalBase(lib.RunConfig):
     if isinstance(version, lib.Version) and not version.data_version:
       # This is for old replays that don't have the embedded data_version.
       version = self._get_version(version.game_version)
-    elif isinstance(version, str):
+    elif isinstance(version, six.string_types):
       version = self._get_version(version)
     elif not version:
       version = self._get_version("latest")

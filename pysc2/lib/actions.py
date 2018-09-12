@@ -1056,7 +1056,7 @@ class FunctionCall(collections.namedtuple(
     args = []
     for arg, arg_type in zip(arguments, func.args):
       if arg_type.values:  # Allow enum values by name or int.
-        if isinstance(arg, str):
+        if isinstance(arg, six.string_types):
           try:
             args.append([arg_type.values[arg]])
           except KeyError:
