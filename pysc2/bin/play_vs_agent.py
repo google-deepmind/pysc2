@@ -234,19 +234,17 @@ def human():
           fps=FLAGS.fps, render_feature_grid=False)
       renderer.run(run_configs.get(), controller, max_episodes=1)
     else:  # Still step forward so the Mac/Windows renderer works.
-      try:
-        while True:
-          frame_start_time = time.time()
-          if not FLAGS.realtime:
-            controller.step()
-          obs = controller.observe()
+      while True:
+        frame_start_time = time.time()
+        if not FLAGS.realtime:
+          controller.step()
+        obs = controller.observe()
 
-          if obs.player_result:
-            break
-          time.sleep(max(0, frame_start_time - time.time() + 1 / FLAGS.fps))
-      except KeyboardInterrupt:
-        pass
-
+        if obs.player_result:
+          break
+        time.sleep(max(0, frame_start_time - time.time() + 1 / FLAGS.fps))
+  except KeyboardInterrupt:
+    pass
   finally:
     if tcp_conn:
       tcp_conn.close()
