@@ -216,6 +216,7 @@ class LanSC2Env(sc2_env.SC2Env):
                discount=1.,
                visualize=False,
                step_mul=None,
+               realtime=False,
                replay_dir=None,
                replay_prefix=None):
     """Create a SC2 Env that connects to a remote instance of the game.
@@ -245,6 +246,13 @@ class LanSC2Env(sc2_env.SC2Env):
           layers. This won't work without access to a window manager.
       step_mul: How many game steps per agent step (action/observation). None
           means use the map default.
+      realtime: Whether to use realtime mode. In this mode the game simulation
+          automatically advances (at 22.4 gameloops per second) rather than
+          being stepped manually. The number of game loops advanced with each
+          call to step() won't necessarily match the step_mul specified. The
+          environment will attempt to honour step_mul, returning observations
+          with that spacing as closely as possible. Game loops will be skipped
+          if they cannot be retrieved and processed quickly enough.
       replay_dir: Directory to save a replay.
       replay_prefix: An optional prefix to use when saving replays.
 
@@ -270,6 +278,8 @@ class LanSC2Env(sc2_env.SC2Env):
     self._num_agents = 1
     self._discount = discount
     self._step_mul = step_mul or 8
+    self._realtime = realtime
+    self._last_step_time = None
     self._save_replay_episodes = 1 if replay_dir else 0
     self._replay_dir = replay_dir
     self._replay_prefix = replay_prefix

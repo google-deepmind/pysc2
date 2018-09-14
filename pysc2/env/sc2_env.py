@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import collections
 from absl import logging
+import time
 
 import enum
 
@@ -29,6 +30,7 @@ from pysc2.lib import actions as actions_lib
 from pysc2.lib import features
 from pysc2.lib import metrics
 from pysc2.lib import portspicker
+from pysc2.lib import protocol
 from pysc2.lib import renderer_human
 from pysc2.lib import run_parallel
 from pysc2.lib import stopwatch
@@ -78,6 +80,10 @@ Agent = collections.namedtuple("Agent", ["race"])
 Bot = collections.namedtuple("Bot", ["race", "difficulty"])
 
 
+REALTIME_GAME_LOOP_SECONDS = 1 / 22.4
+EPSILON = 1e-5
+
+
 class SC2Env(environment.Base):
   """A Starcraft II environment.
 
@@ -99,6 +105,7 @@ class SC2Env(environment.Base):
                discount_zero_after_timeout=False,
                visualize=False,
                step_mul=None,
+               realtime=False,
                save_replay_episodes=0,
                replay_dir=None,
                replay_prefix=None,
@@ -139,6 +146,13 @@ class SC2Env(environment.Base):
           layers. This won't work without access to a window manager.
       step_mul: How many game steps per agent step (action/observation). None
           means use the map default.
+      realtime: Whether to use realtime mode. In this mode the game simulation
+          automatically advances (at 22.4 gameloops per second) rather than
+          being stepped manually. The number of game loops advanced with each
+          call to step() won't necessarily match the step_mul specified. The
+          environment will attempt to honour step_mul, returning observations
+          with that spacing as closely as possible. Game loops will be skipped
+          if they cannot be retrieved and processed quickly enough.
       save_replay_episodes: Save a replay after this many episodes. Default of 0
           means don't save replays.
       replay_dir: Directory to save replays. Required with save_replay_episodes.
@@ -211,6 +225,8 @@ class SC2Env(environment.Base):
 
     self._discount = discount
     self._step_mul = step_mul or map_inst.step_mul
+    self._realtime = realtime
+    self._last_step_time = None
     self._save_replay_episodes = save_replay_episodes
     self._replay_dir = replay_dir
     self._replay_prefix = replay_prefix
@@ -334,7 +350,8 @@ class SC2Env(environment.Base):
     create = sc_pb.RequestCreateGame(
         local_map=sc_pb.LocalMap(
             map_path=map_inst.path, map_data=map_inst.data(self._run_config)),
-        disable_fog=self._disable_fog)
+        disable_fog=self._disable_fog,
+        realtime=self._realtime)
     agent_race = Race.random
     for p in self._players:
       if isinstance(p, Agent):
@@ -369,8 +386,11 @@ class SC2Env(environment.Base):
       c.save_map(map_inst.path, map_inst.data(self._run_config))
 
     # Create the game. Set the first instance as the host.
-    create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
-        map_path=map_inst.path), disable_fog=self._disable_fog)
+    create = sc_pb.RequestCreateGame(
+        local_map=sc_pb.LocalMap(
+            map_path=map_inst.path),
+        disable_fog=self._disable_fog,
+        realtime=self._realtime)
     if self._random_seed is not None:
       create.random_seed = self._random_seed
     for p in self._players:
@@ -437,6 +457,10 @@ class SC2Env(environment.Base):
 
     self._last_score = [0] * self._num_agents
     self._state = environment.StepType.FIRST
+    if self._realtime:
+      self._last_step_time = time.time()
+      self._target_step = 0
+
     return self._observe()
 
   @sw.decorate("step_env")
@@ -467,22 +491,92 @@ class SC2Env(environment.Base):
     if step_mul <= 0:
       raise ValueError("step_mul should be positive, got {}".format(step_mul))
 
-    with self._metrics.measure_step_time(step_mul):
-      self._parallel.run((c.step, step_mul) for c in self._controllers)
+    if not self._realtime:
+      with self._metrics.measure_step_time(step_mul):
+        self._parallel.run((c.step, step_mul)
+                           for c in self._controllers)
+    else:
+      self._target_step = self._episode_steps + step_mul
+      next_step_time = self._last_step_time + (
+          step_mul * REALTIME_GAME_LOOP_SECONDS)
+
+      wait_time = next_step_time - time.time()
+      if wait_time > 0.0:
+        time.sleep(wait_time)
+
+      # Note that we use the targeted next_step_time here, not the actual
+      # time. This is so that we advance our view of the SC2 game clock in
+      # REALTIME_GAME_LOOP_SECONDS increments rather than it slipping with
+      # round trip latencies.
+      self._last_step_time = next_step_time
 
     return self._observe()
 
-  def _observe(self):
+  def _get_observations(self):
     with self._metrics.measure_observation_time():
       self._obs = self._parallel.run(c.observe for c in self._controllers)
       self._agent_obs = [f.transform_obs(o)
                          for f, o in zip(self._features, self._obs)]
+
+  def _observe(self):
+    if not self._realtime:
+      self._get_observations()
+    else:
+      needed_to_wait = False
+      while True:
+        self._get_observations()
+
+        # Check that the game has advanced sufficiently.
+        # If it hasn't, wait for it to.
+        game_loop = self._agent_obs[0].game_loop[0]
+        if game_loop < self._target_step:
+          if not needed_to_wait:
+            needed_to_wait = True
+            logging.info(
+                "Target step is %s, game loop is %s, waiting...",
+                self._target_step,
+                game_loop)
+
+          time.sleep(REALTIME_GAME_LOOP_SECONDS)
+        else:
+          # We're beyond our target now.
+          if needed_to_wait:
+            self._last_step_time = time.time()
+            logging.info("...game loop is now %s. Continuing.", game_loop)
+          break
 
     # TODO(tewalds): How should we handle more than 2 agents and the case where
     # the episode can end early for some agents?
     outcome = [0] * self._num_agents
     discount = self._discount
     episode_complete = any(o.player_result for o in self._obs)
+
+    # In realtime, we don't receive player results reliably, yet we do
+    # sometimes hit 'ended' status. When that happens we terminate the
+    # episode.
+    # TODO(b/115466611): player_results should be returned in realtime mode
+    if self._realtime and self._controllers[0].status == protocol.Status.ended:
+      logging.info("Protocol status is ended. Episode is complete.")
+      episode_complete = True
+
+    if self._realtime and len(self._obs) > 1:
+      # Realtime doesn't seem to give us a player result when one player
+      # gets eliminated. Hence some temporary hackery (which can only work
+      # when we have both agents in this environment)...
+      # TODO(b/115466611): player_results should be returned in realtime mode
+      p1 = self._obs[0].observation.score.score_details
+      p2 = self._obs[1].observation.score.score_details
+      if p1.killed_value_structures > p2.total_value_structures - EPSILON:
+        logging.info("The episode appears to be complete, p1 killed p2.")
+        episode_complete = True
+        outcome[0] = 1.0
+        outcome[1] = -1.0
+      elif p2.killed_value_structures > p1.total_value_structures - EPSILON:
+        logging.info("The episode appears to be complete, p2 killed p1.")
+        episode_complete = True
+        outcome[0] = -1.0
+        outcome[1] = 1.0
+
     if episode_complete:
       self._state = environment.StepType.LAST
       discount = 0

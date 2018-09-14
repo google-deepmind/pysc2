@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import collections
 from absl import logging
+import time
 
 from pysc2 import maps
 from pysc2 import run_configs
@@ -54,6 +55,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
                discount=1.,
                visualize=False,
                step_mul=None,
+               realtime=False,
                replay_dir=None,
                replay_prefix=None):
     """Create a SC2 Env that connects to a remote instance of the game.
@@ -92,6 +94,13 @@ class RemoteSC2Env(sc2_env.SC2Env):
           layers. This won't work without access to a window manager.
       step_mul: How many game steps per agent step (action/observation). None
           means use the map default.
+      realtime: Whether to use realtime mode. In this mode the game simulation
+          automatically advances (at 22.4 gameloops per second) rather than
+          being stepped manually. The number of game loops advanced with each
+          call to step() won't necessarily match the step_mul specified. The
+          environment will attempt to honour step_mul, returning observations
+          with that spacing as closely as possible. Game loops will be skipped
+          if they cannot be retrieved and processed quickly enough.
       replay_dir: Directory to save a replay.
       replay_prefix: An optional prefix to use when saving replays.
 
@@ -115,7 +124,10 @@ class RemoteSC2Env(sc2_env.SC2Env):
     self._num_agents = 1
     self._discount = discount
     self._step_mul = step_mul or (map_inst.step_mul if map_inst else 8)
+    self._realtime = realtime
+    self._last_step_time = None
     self._save_replay_episodes = 1 if replay_dir else 0
+    self._next_replay_save_time = time.time() + 60.0
     self._replay_dir = replay_dir
     self._replay_prefix = replay_prefix
 
@@ -143,6 +155,21 @@ class RemoteSC2Env(sc2_env.SC2Env):
         host, host_port, ports, race, map_inst, save_map, interface)
 
     self._finalize([agent_interface_format], [interface], visualize)
+
+  def step(self, actions, step_mul=None):
+    result = super(RemoteSC2Env, self).step(actions, step_mul)
+
+    current_time = time.time()
+    if self._realtime and current_time > self._next_replay_save_time:
+      # Currently we don't get a player result when a realtime game ends,
+      # which means no replay is saved. As a temporary workaround, save
+      # a replay every minute of the game when playing remote.
+      # TODO(b/115466611): player_results should be returned in realtime mode
+      logging.info("Saving interim replay...")
+      self.save_replay(self._replay_dir, self._replay_prefix)
+      self._next_replay_save_time = current_time + 60.0
+
+    return result
 
   def close(self):
     # Leave the game so that another may be created in the same SC2 process.
