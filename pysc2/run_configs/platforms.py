@@ -63,8 +63,9 @@ class LocalBase(lib.RunConfig):
         data_dir=base_dir, tmp_dir=None, cwd=cwd, env=env)
     self._exec_name = exec_name
 
-  def start(self, version=None, **kwargs):
+  def start(self, version=None, want_rgb=True, **kwargs):
     """Launch the game."""
+    del want_rgb  # Unused
     if not os.path.isdir(self.data_dir):
       raise sc_process.SC2LaunchError(
           "Expected to find StarCraft II installed at '%s'. If it's not "
@@ -183,22 +184,24 @@ class Linux(LocalBase):
     if platform.system() == "Linux":
       return 1
 
-  def start(self, **kwargs):
+  def start(self, want_rgb=True, **kwargs):
     extra_args = kwargs.pop("extra_args", [])
 
-    # Figure out whether the various GL libraries exist since SC2 sometimes
-    # fails if you ask to use a library that doesn't exist.
-    libs = subprocess.check_output(["/sbin/ldconfig", "-p"]).decode()
-    libs = {lib.strip().split()[0] for lib in libs.split("\n") if lib}
-    if "libEGL.so" in libs:  # Prefer hardware rendering.
-      extra_args += ["-eglpath", "libEGL.so"]
-    else:
-      for mesa_lib in self.known_mesa:  # Look for a software renderer.
-        if mesa_lib in libs:
-          extra_args += ["-osmesapath", mesa_lib]
-          break
+    if want_rgb:
+      # Figure out whether the various GL libraries exist since SC2 sometimes
+      # fails if you ask to use a library that doesn't exist.
+      libs = subprocess.check_output(["/sbin/ldconfig", "-p"]).decode()
+      libs = {lib.strip().split()[0] for lib in libs.split("\n") if lib}
+      if "libEGL.so" in libs:  # Prefer hardware rendering.
+        extra_args += ["-eglpath", "libEGL.so"]
       else:
-        logging.info("No GL library found, so RGB rendering will be disabled. "
-                     "For software rendering install libosmesa.")
+        for mesa_lib in self.known_mesa:  # Look for a software renderer.
+          if mesa_lib in libs:
+            extra_args += ["-osmesapath", mesa_lib]
+            break
+        else:
+          logging.info(
+              "No GL library found, so RGB rendering will be disabled. "
+              "For software rendering install libosmesa.")
 
     return super(Linux, self).start(extra_args=extra_args, **kwargs)

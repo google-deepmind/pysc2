@@ -326,7 +326,8 @@ class SC2Env(environment.Base):
     return interface
 
   def _launch_sp(self, map_inst, interface):
-    self._sc2_procs = [self._run_config.start()]
+    self._sc2_procs = [self._run_config.start(
+        want_rgb=interface.HasField("render"))]
     self._controllers = [p.controller for p in self._sc2_procs]
 
     # Create the game.
@@ -355,8 +356,10 @@ class SC2Env(environment.Base):
     logging.info("Ports used for multiplayer: %s", self._ports)
 
     # Actually launch the game processes.
-    self._sc2_procs = [self._run_config.start(extra_ports=self._ports)
-                       for _ in range(self._num_agents)]
+    self._sc2_procs = [
+        self._run_config.start(extra_ports=self._ports,
+                               want_rgb=interface.HasField("render"))
+        for interface in interfaces]
     self._controllers = [p.controller for p in self._sc2_procs]
 
     # Save the maps so they can access it. Don't do it in parallel since SC2
