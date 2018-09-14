@@ -96,13 +96,13 @@ def main(unused_argv):
     controller = proc.controller
     map_inst = maps.get("Simple64")
     create = sc_pb.RequestCreateGame(
-        realtime=False, disable_fog=False,
+        realtime=False, disable_fog=False, random_seed=1,
         local_map=sc_pb.LocalMap(map_path=map_inst.path,
                                  map_data=map_inst.data(run_config)))
     create.player_setup.add(type=sc_pb.Participant)
-    create.player_setup.add(type=sc_pb.Computer, race=sc_common.Random,
+    create.player_setup.add(type=sc_pb.Computer, race=sc_common.Protoss,
                             difficulty=sc_pb.CheatInsane)
-    join = sc_pb.RequestJoinGame(race=sc_common.Random, options=interface)
+    join = sc_pb.RequestJoinGame(race=sc_common.Protoss, options=interface)
     controller.create_game(create)
 
     add("Created game")
