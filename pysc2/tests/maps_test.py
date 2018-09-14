@@ -57,7 +57,7 @@ class MapsTest(parameterized.TestCase, utils.TestCase):
     m = maps.get(map_name)
     run_config = run_configs.get()
 
-    with run_config.start() as controller:
+    with run_config.start(want_rgb=False) as controller:
       logging.info("Loading map: %s", m.name)
       create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
           map_path=m.path, map_data=m.data(run_config)))

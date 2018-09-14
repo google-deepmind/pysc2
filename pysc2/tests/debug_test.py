@@ -35,7 +35,7 @@ class DebugTest(absltest.TestCase):
     run_config = run_configs.get()
     map_inst = maps.get("Simple64")
 
-    with run_config.start() as controller:
+    with run_config.start(want_rgb=False) as controller:
 
       create = sc_pb.RequestCreateGame(
           local_map=sc_pb.LocalMap(

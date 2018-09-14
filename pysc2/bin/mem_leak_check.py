@@ -77,7 +77,7 @@ def main(unused_argv):
 
   start = time.time()
   run_config = run_configs.get()
-  proc = run_config.start()
+  proc = run_config.start(want_rgb=interface.HasField("render"))
   process = psutil.Process(proc.pid)
   episode = 0
 

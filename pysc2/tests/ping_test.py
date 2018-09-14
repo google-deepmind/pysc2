@@ -31,7 +31,7 @@ class TestPing(utils.TestCase):
   def test_ping(self):
     count = 100
 
-    with run_configs.get().start() as controller:
+    with run_configs.get().start(want_rgb=False) as controller:
       with stopwatch.sw("first"):
         controller.ping()
 

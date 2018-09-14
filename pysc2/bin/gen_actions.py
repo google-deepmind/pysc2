@@ -40,7 +40,7 @@ def get_data():
   """Retrieve static data from the game."""
   run_config = run_configs.get()
 
-  with run_config.start() as controller:
+  with run_config.start(want_rgb=False) as controller:
     m = maps.get("Sequencer")  # Arbitrary ladder map.
     create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
         map_path=m.path, map_data=m.data(run_config)))

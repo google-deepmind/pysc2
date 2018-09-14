@@ -31,7 +31,7 @@ class TestProtocolError(utils.TestCase):
   """Verify that we blow up if SC2 thinks we did something wrong."""
 
   def test_error(self):
-    with run_configs.get().start() as controller:
+    with run_configs.get().start(want_rgb=False) as controller:
       with self.assertRaises(remote_controller.RequestError):
         controller.create_game(sc_pb.RequestCreateGame())  # Missing map, etc.
 

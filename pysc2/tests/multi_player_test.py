@@ -59,7 +59,8 @@ class TestMultiplayer(utils.TestCase):
 
     # Actually launch the game processes.
     print_stage("start")
-    sc2_procs = [run_config.start(extra_ports=ports) for _ in range(players)]
+    sc2_procs = [run_config.start(extra_ports=ports, want_rgb=False)
+                 for _ in range(players)]
     controllers = [p.controller for p in sc2_procs]
 
     try:

@@ -325,7 +325,7 @@ class LanSC2Env(sc2_env.SC2Env):
 
     self._sc2_procs = [self._run_config.start(
         extra_ports=extra_ports, host=host, version=settings["game_version"],
-        window_loc=(700, 50))]
+        window_loc=(700, 50), want_rgb=interface.HasField("render"))]
     self._controllers = [p.controller for p in self._sc2_procs]
 
     # Create the join request.

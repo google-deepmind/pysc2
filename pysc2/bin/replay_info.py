@@ -37,7 +37,7 @@ def _replay_index(replay_dir):
   replay_dir = run_config.abs_replay_path(replay_dir)
   print("Checking: ", replay_dir)
 
-  with run_config.start() as controller:
+  with run_config.start(want_rgb=False) as controller:
     print("-" * 60)
     print(",".join((
         "filename",
@@ -98,7 +98,7 @@ def _replay_info(replay_path):
     return
 
   run_config = run_configs.get()
-  with run_config.start() as controller:
+  with run_config.start(want_rgb=False) as controller:
     info = controller.replay_info(run_config.replay_data(replay_path))
   print("-" * 60)
   print(info)

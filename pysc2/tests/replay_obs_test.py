@@ -161,7 +161,8 @@ class GameController(object):
     self._map_inst = maps.get(self._config.map_name)
     self._map_data = self._map_inst.data(run_config)
 
-    self._sc2_proc = run_config.start()
+    self._sc2_proc = run_config.start(
+        want_rgb=self._config.interface.HasField('render'))
     self._controller = self._sc2_proc.controller
 
   def start_replay(self, replay_data):
