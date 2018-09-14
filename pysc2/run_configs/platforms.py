@@ -204,4 +204,5 @@ class Linux(LocalBase):
               "No GL library found, so RGB rendering will be disabled. "
               "For software rendering install libosmesa.")
 
-    return super(Linux, self).start(extra_args=extra_args, **kwargs)
+    return super(Linux, self).start(
+        want_rgb=want_rgb, extra_args=extra_args, **kwargs)
