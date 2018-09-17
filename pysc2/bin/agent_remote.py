@@ -104,6 +104,10 @@ flags.DEFINE_string("map", None, "Name of a map to use to play.")
 
 flags.DEFINE_bool("human", False, "Whether to host a game as a human.")
 
+flags.DEFINE_integer("timeout_seconds", 300,
+                     "Time in seconds for the remote agent to connect to the "
+                     "game before an exception is raised.")
+
 
 def main(unused_argv):
   if FLAGS.human:
@@ -154,7 +158,8 @@ def human():
 
   ports = portspicker.pick_contiguous_unused_ports(4)  # 2 * num_players
   host_proc = run_config.start(extra_ports=ports, host=FLAGS.host,
-                               timeout_seconds=300, window_loc=(50, 50))
+                               timeout_seconds=FLAGS.timeout_seconds,
+                               window_loc=(50, 50))
   client_proc = run_config.start(extra_ports=ports, host=FLAGS.host,
                                  connect=False, window_loc=(700, 50))
 
