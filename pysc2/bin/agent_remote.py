@@ -48,6 +48,7 @@ from __future__ import print_function
 import importlib
 from absl import logging
 import platform
+import sys
 import time
 
 from absl import app
@@ -170,6 +171,7 @@ def human():
   print("Join host: agent_remote --map %s --host %s --host_port %s "
         "--lan_port %s" % (FLAGS.map, FLAGS.host, client_proc.port, ports[0]))
   print("-" * 80)
+  sys.stdout.flush()
 
   join = sc_pb.RequestJoinGame()
   join.shared_port = 0  # unused
