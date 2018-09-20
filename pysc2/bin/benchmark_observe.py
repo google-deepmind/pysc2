@@ -26,60 +26,85 @@ from future.builtins import range  # pylint: disable=redefined-builtin
 
 from pysc2 import maps
 from pysc2 import run_configs
-from pysc2.lib import point_flag
 
 from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
-flags.DEFINE_bool("raw", False, "Enable raw rendering")
-point_flag.DEFINE_point("feature_size", "64", "Resolution for feature layers.")
-point_flag.DEFINE_point("rgb_size", "64", "Resolution for rgb observations.")
+flags.DEFINE_integer("count", 500, "How many observations to run.")
+flags.DEFINE_integer("step_mul", 8, "How many game steps per observation.")
 FLAGS = flags.FLAGS
 
 
-def main(unused_argv):
+def interface_options(score=False, raw=False, features=None, rgb=None):
+  """Get an InterfaceOptions for the config."""
   interface = sc_pb.InterfaceOptions()
-  interface.score = True
-  interface.raw = FLAGS.raw
-  if FLAGS.feature_size:
+  interface.score = score
+  interface.raw = raw
+  if features:
     interface.feature_layer.width = 24
-    FLAGS.feature_size.assign_to(interface.feature_layer.resolution)
-    FLAGS.feature_size.assign_to(interface.feature_layer.minimap_resolution)
-  if FLAGS.rgb_size:
-    FLAGS.rgb_size.assign_to(interface.render.resolution)
-    FLAGS.rgb_size.assign_to(interface.render.minimap_resolution)
+    interface.feature_layer.resolution.x = features
+    interface.feature_layer.resolution.y = features
+    interface.feature_layer.minimap_resolution.x = features
+    interface.feature_layer.minimap_resolution.y = features
+  if rgb:
+    interface.render.resolution.x = rgb
+    interface.render.resolution.y = rgb
+    interface.render.minimap_resolution.x = rgb
+    interface.render.minimap_resolution.y = rgb
+  return interface
 
-  timeline = []
 
+def main(unused_argv):
+  configs = [
+      ("raw", interface_options(raw=True)),
+      ("raw-feat-48", interface_options(raw=True, features=48)),
+      ("feat-32", interface_options(features=32)),
+      ("feat-48", interface_options(features=48)),
+      ("feat-72", interface_options(features=72)),
+      ("feat-96", interface_options(features=96)),
+      ("feat-128", interface_options(features=128)),
+      ("rgb-64", interface_options(rgb=64)),
+      ("rgb-128", interface_options(rgb=128)),
+  ]
+
+  results = []
   try:
-    run_config = run_configs.get()
-    with run_config.start() as controller:
-      map_inst = maps.get("Simple64")
-      create = sc_pb.RequestCreateGame(
-          realtime=False, disable_fog=False, random_seed=1,
-          local_map=sc_pb.LocalMap(map_path=map_inst.path,
-                                   map_data=map_inst.data(run_config)))
-      create.player_setup.add(type=sc_pb.Participant)
-      create.player_setup.add(type=sc_pb.Computer, race=sc_common.Terran,
-                              difficulty=sc_pb.VeryEasy)
-      join = sc_pb.RequestJoinGame(race=sc_common.Random, options=interface)
-      controller.create_game(create)
-      controller.join_game(join)
+    for config, interface in configs:
+      timeline = []
 
-      for _ in range(500):
-        controller.step()
-        start = time.time()
-        obs = controller.observe()
-        timeline.append(time.time() - start)
-        if obs.player_result:
-          break
+      run_config = run_configs.get()
+      with run_config.start() as controller:
+        map_inst = maps.get("Catalyst")
+        create = sc_pb.RequestCreateGame(
+            realtime=False, disable_fog=False, random_seed=1,
+            local_map=sc_pb.LocalMap(map_path=map_inst.path,
+                                     map_data=map_inst.data(run_config)))
+        create.player_setup.add(type=sc_pb.Participant)
+        create.player_setup.add(type=sc_pb.Computer, race=sc_common.Terran,
+                                difficulty=sc_pb.VeryEasy)
+        join = sc_pb.RequestJoinGame(race=sc_common.Random, options=interface)
+        controller.create_game(create)
+        controller.join_game(join)
+
+        for _ in range(FLAGS.count):
+          controller.step(FLAGS.step_mul)
+          start = time.time()
+          obs = controller.observe()
+          timeline.append(time.time() - start)
+          if obs.player_result:
+            break
+
+      results.append((config, timeline))
   except KeyboardInterrupt:
     pass
 
-  print("Timeline:")
-  for t in timeline:
-    print(t * 1000)
+  names, values = zip(*results)
+
+  print("\n\nTimeline:\n")
+  print(",".join(names))
+  for times in zip(*values):
+    print(",".join("%0.2f" % (t * 1000) for t in times))
 
 
 if __name__ == "__main__":
