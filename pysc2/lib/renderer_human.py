@@ -43,7 +43,6 @@ from pysc2.lib import stopwatch
 from pysc2.lib import transform
 
 from pysc2.lib import video_writer
-from s2clientprotocol import data_pb2 as sc_data
 from s2clientprotocol import error_pb2 as sc_err
 from s2clientprotocol import sc2api_pb2 as sc_pb
 from s2clientprotocol import spatial_pb2 as sc_spatial
@@ -95,6 +94,26 @@ class ActionCmd(enum.Enum):
   STEP = 1
   RESTART = 2
   QUIT = 3
+
+
+class _Ability(collections.namedtuple("_Ability", [
+    "ability_id", "name", "footprint_radius", "requires_point", "hotkey"])):
+  """Hold the specifics of available abilities."""
+
+  def __new__(cls, ability, static_data):
+    specific_data = static_data[ability.ability_id]
+    if specific_data.remaps_to_ability_id:
+      general_data = static_data[specific_data.remaps_to_ability_id]
+    else:
+      general_data = specific_data
+    return super(_Ability, cls).__new__(
+        cls,
+        ability_id=general_data.ability_id,
+        name=(general_data.friendly_name or general_data.button_name or
+              general_data.link_name),
+        footprint_radius=general_data.footprint_radius,
+        requires_point=ability.requires_point,
+        hotkey=specific_data.hotkey)
 
 
 class _Surface(object):
@@ -753,7 +772,7 @@ class RendererHuman(object):
           else:
             cmds = self._abilities(lambda cmd: cmd.hotkey == "escape")  # Cancel
             for cmd in cmds:  # There could be multiple cancels.
-              assert cmd.target == sc_data.AbilityData.Target.Value("None")
+              assert not cmd.requires_point
               controller.act(self.unit_action(cmd, None, shift))
         else:
           if not self._queued_action:
@@ -766,7 +785,7 @@ class RendererHuman(object):
               if len(cmds) == 1:
                 cmd = cmds[0]
                 if cmd.hotkey == self._queued_hotkey:
-                  if cmd.target != sc_data.AbilityData.Target.Value("None"):
+                  if cmd.requires_point:
                     self.clear_queued_action()
                     self._queued_action = cmd
                   else:
@@ -784,7 +803,7 @@ class RendererHuman(object):
         elif event.button == MouseButtons.RIGHT:
           if self._queued_action:
             self.clear_queued_action()
-          cmds = self._abilities(lambda cmd: cmd.button_name == "Smart")
+          cmds = self._abilities(lambda cmd: cmd.name == "Smart")
           if cmds:
             controller.act(self.unit_action(cmds[0], mouse_pos, shift))
       elif event.type == pygame.MOUSEBUTTONUP:
@@ -916,11 +935,7 @@ class RendererHuman(object):
     """Return the list of abilities filtered by `fn`."""
     out = {}
     for cmd in self._obs.observation.abilities:
-      ability = self._static_data.abilities[cmd.ability_id]
-      if ability.remaps_to_ability_id:  # Prefer general abilities.
-        hotkey = ability.hotkey
-        ability = self._static_data.abilities[ability.remaps_to_ability_id]
-        ability.hotkey = hotkey  # Keep the specific hotkey
+      ability = _Ability(cmd, self._static_data.abilities)
       if not fn or fn(ability):
         out[ability.ability_id] = ability
     return list(out.values())
@@ -1063,12 +1078,9 @@ class RendererHuman(object):
   @sw.decorate
   def draw_commands(self, surf):
     """Draw the list of available commands."""
-    def name(cmd):
-      return cmd.friendly_name or cmd.button_name or cmd.link_name
-
     past_abilities = {act.ability for act in self._past_actions if act.ability}
     for y, cmd in enumerate(sorted(self._abilities(
-        lambda c: c.button_name != "Smart"), key=name), start=2):
+        lambda c: c.name != "Smart"), key=lambda c: c.name), start=2):
       if self._queued_action and cmd == self._queued_action:
         color = colors.green
       elif self._queued_hotkey and cmd.hotkey.startswith(self._queued_hotkey):
@@ -1079,7 +1091,7 @@ class RendererHuman(object):
         color = colors.yellow
       hotkey = cmd.hotkey[0:3]  # truncate "escape" -> "esc"
       surf.write_screen(self._font_large, color, (0.2, y), hotkey)
-      surf.write_screen(self._font_large, color, (3, y), name(cmd))
+      surf.write_screen(self._font_large, color, (3, y), cmd.name)
 
   @sw.decorate
   def draw_panel(self, surf):
