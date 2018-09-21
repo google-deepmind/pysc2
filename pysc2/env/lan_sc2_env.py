@@ -212,6 +212,7 @@ class LanSC2Env(sc2_env.SC2Env):
                host="127.0.0.1",
                config_port=None,
                race=None,
+               name="<unknown>",
                agent_interface_format=None,
                discount=1.,
                visualize=False,
@@ -239,6 +240,7 @@ class LanSC2Env(sc2_env.SC2Env):
       host: Which ip to use. Either ipv4 or ipv6 localhost.
       config_port: Where to find the config port.
       race: Race for this agent.
+      name: The name of this agent, for saving in the replay.
       agent_interface_format: AgentInterfaceFormat object describing the
           format of communication between the agent and the environment.
       discount: Returned as part of the observation.
@@ -296,11 +298,11 @@ class LanSC2Env(sc2_env.SC2Env):
     interface = self._get_interface(
         agent_interface_format=agent_interface_format, require_raw=visualize)
 
-    self._launch_remote(host, config_port, race, interface)
+    self._launch_remote(host, config_port, race, name, interface)
 
     self._finalize([agent_interface_format], [interface], visualize)
 
-  def _launch_remote(self, host, config_port, race, interface):
+  def _launch_remote(self, host, config_port, race, name, interface):
     """Make sure this stays synced with bin/play_vs_agent.py."""
     self._tcp_conn, settings = tcp_client(Addr(host, config_port))
 
@@ -331,6 +333,7 @@ class LanSC2Env(sc2_env.SC2Env):
     # Create the join request.
     join = sc_pb.RequestJoinGame(options=interface)
     join.race = race
+    join.player_name = name
     join.shared_port = 0  # unused
     join.server_ports.game_port = settings["ports"]["server"]["game"]
     join.server_ports.base_port = settings["ports"]["server"]["base"]

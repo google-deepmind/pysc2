@@ -48,8 +48,8 @@ class TestMultiplayerEnv(parameterized.TestCase, utils.TestCase):
     players = 2
     with sc2_env.SC2Env(
         map_name="Simple64",
-        players=[sc2_env.Agent(sc2_env.Race.random),
-                 sc2_env.Agent(sc2_env.Race.random)],
+        players=[sc2_env.Agent(sc2_env.Race.random, "random"),
+                 sc2_env.Agent(sc2_env.Race.random, "random")],
         step_mul=step_mul,
         game_steps_per_episode=steps * step_mul // 2,
         agent_interface_format=agent_interface_format) as env:

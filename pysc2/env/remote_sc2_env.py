@@ -51,6 +51,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
                host_port=None,
                lan_port=None,
                race=None,
+               name="<unknown>",
                agent_interface_format=None,
                discount=1.,
                visualize=False,
@@ -87,6 +88,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
           or an int specifying base port - equivalent to specifying the
           sequence [lan_port, lan_port+1, lan_port+2, lan_port+3].
       race: Race for this agent.
+      name: The name of this agent, for saving in the replay.
       agent_interface_format: AgentInterfaceFormat object describing the
           format of communication between the agent and the environment.
       discount: Returned as part of the observation.
@@ -152,7 +154,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
       ports = [lan_port + p for p in range(4)]  # 2 * num players *in the game*.
 
     self._connect_remote(
-        host, host_port, ports, race, map_inst, save_map, interface)
+        host, host_port, ports, race, name, map_inst, save_map, interface)
 
     self._finalize([agent_interface_format], [interface], visualize)
 
@@ -184,7 +186,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
 
     super(RemoteSC2Env, self).close()
 
-  def _connect_remote(self, host, host_port, lan_ports, race, map_inst,
+  def _connect_remote(self, host, host_port, lan_ports, race, name, map_inst,
                       save_map, interface):
     """Make sure this stays synced with bin/agent_remote.py."""
     # Connect!
@@ -199,6 +201,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
     # Create the join request.
     join = sc_pb.RequestJoinGame(options=interface)
     join.race = race
+    join.player_name = name
     join.shared_port = 0  # unused
     join.server_ports.game_port = lan_ports.pop(0)
     join.server_ports.base_port = lan_ports.pop(0)

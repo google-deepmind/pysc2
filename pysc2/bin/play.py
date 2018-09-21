@@ -18,6 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import getpass
 import json
 import platform
 import sys
@@ -58,6 +59,8 @@ flags.DEFINE_string("video", None, "Path to render a video of observations.")
 flags.DEFINE_integer("max_game_steps", 0, "Total game steps to run.")
 flags.DEFINE_integer("max_episode_steps", 0, "Total game steps per episode.")
 
+flags.DEFINE_string("user_name", getpass.getuser(),
+                    "Name of the human player for replays.")
 flags.DEFINE_enum("user_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
                   "User's race.")
 flags.DEFINE_enum("bot_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
@@ -131,8 +134,9 @@ def main(unused_argv):
     create.player_setup.add(type=sc_pb.Computer,
                             race=sc2_env.Race[FLAGS.bot_race],
                             difficulty=sc2_env.Difficulty[FLAGS.difficulty])
-    join = sc_pb.RequestJoinGame(race=sc2_env.Race[FLAGS.user_race],
-                                 options=interface)
+    join = sc_pb.RequestJoinGame(
+        options=interface, race=sc2_env.Race[FLAGS.user_race],
+        player_name=FLAGS.user_name)
     version = None
   else:
     replay_data = run_config.replay_data(FLAGS.replay)

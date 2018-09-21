@@ -76,7 +76,12 @@ AgentInterfaceFormat = features.AgentInterfaceFormat  # pylint: disable=invalid-
 parse_agent_interface_format = features.parse_agent_interface_format
 
 
-Agent = collections.namedtuple("Agent", ["race"])
+class Agent(collections.namedtuple("Agent", ["race", "name"])):
+
+  def __new__(cls, race, name=None):
+    return super(Agent, cls).__new__(cls, race, name or "<unknown>")
+
+
 Bot = collections.namedtuple("Bot", ["race", "difficulty"])
 
 
@@ -352,11 +357,11 @@ class SC2Env(environment.Base):
             map_path=map_inst.path, map_data=map_inst.data(self._run_config)),
         disable_fog=self._disable_fog,
         realtime=self._realtime)
-    agent_race = Race.random
+    agent = Agent(Race.random)
     for p in self._players:
       if isinstance(p, Agent):
         create.player_setup.add(type=sc_pb.Participant)
-        agent_race = p.race
+        agent = p
       else:
         create.player_setup.add(type=sc_pb.Computer, race=p.race,
                                 difficulty=p.difficulty)
@@ -364,7 +369,8 @@ class SC2Env(environment.Base):
       create.random_seed = self._random_seed
     self._controllers[0].create_game(create)
 
-    join = sc_pb.RequestJoinGame(race=agent_race, options=interface)
+    join = sc_pb.RequestJoinGame(
+        options=interface, race=agent.race, player_name=agent.name)
     self._controllers[0].join_game(join)
 
   def _launch_mp(self, map_inst, interfaces):
@@ -415,6 +421,7 @@ class SC2Env(environment.Base):
                               base_port=ports.pop(0))
 
       join.race = p.race
+      join.player_name = p.name
       join_reqs.append(join)
 
     # Join the game. This must be run in parallel because Join is a blocking

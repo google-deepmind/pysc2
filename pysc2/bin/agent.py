@@ -57,10 +57,14 @@ flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
 
 flags.DEFINE_string("agent", "pysc2.agents.random_agent.RandomAgent",
                     "Which agent to run, as a python path to an Agent class.")
+flags.DEFINE_string("agent_name", None,
+                    "Name of the agent in replays. Defaults to the class name.")
 flags.DEFINE_enum("agent_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
                   "Agent 1's race.")
 
 flags.DEFINE_string("agent2", "Bot", "Second agent, either Bot or agent class.")
+flags.DEFINE_string("agent2_name", None,
+                    "Name of the agent in replays. Defaults to the class name.")
 flags.DEFINE_enum("agent2_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
                   "Agent 2's race.")
 flags.DEFINE_enum("difficulty", "very_easy", sc2_env.Difficulty._member_names_,  # pylint: disable=protected-access
@@ -112,7 +116,8 @@ def main(unused_argv):
   agent_module, agent_name = FLAGS.agent.rsplit(".", 1)
   agent_cls = getattr(importlib.import_module(agent_module), agent_name)
   agent_classes.append(agent_cls)
-  players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent_race]))
+  players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent_race],
+                               FLAGS.agent_name or agent_name))
 
   if map_inst.players >= 2:
     if FLAGS.agent2 == "Bot":
@@ -122,7 +127,8 @@ def main(unused_argv):
       agent_module, agent_name = FLAGS.agent2.rsplit(".", 1)
       agent_cls = getattr(importlib.import_module(agent_module), agent_name)
       agent_classes.append(agent_cls)
-      players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent2_race]))
+      players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent2_race],
+                                   FLAGS.agent2_name or agent_name))
 
   threads = []
   for _ in range(FLAGS.parallel - 1):

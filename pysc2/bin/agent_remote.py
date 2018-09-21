@@ -45,6 +45,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import getpass
 import importlib
 from absl import logging
 import platform
@@ -72,6 +73,8 @@ flags.DEFINE_bool("realtime", False, "Whether to run in realtime mode.")
 
 flags.DEFINE_string("agent", "pysc2.agents.random_agent.RandomAgent",
                     "Which agent to run, as a python path to an Agent class.")
+flags.DEFINE_string("agent_name", None,
+                    "Name of the agent in replays. Defaults to the class name.")
 flags.DEFINE_enum("agent_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
                   "Agent's race.")
 
@@ -93,6 +96,8 @@ flags.DEFINE_enum("action_space", "FEATURES",
 flags.DEFINE_bool("use_feature_units", False,
                   "Whether to include feature units.")
 
+flags.DEFINE_string("user_name", getpass.getuser(),
+                    "Name of the human player for replays.")
 flags.DEFINE_enum("user_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
                   "User's race.")
 
@@ -127,6 +132,7 @@ def agent():
       host=FLAGS.host,
       host_port=FLAGS.host_port,
       lan_port=FLAGS.lan_port,
+      name=FLAGS.agent_name or agent_name,
       race=sc2_env.Race[FLAGS.agent_race],
       step_mul=FLAGS.step_mul,
       agent_interface_format=sc2_env.parse_agent_interface_format(
@@ -185,6 +191,7 @@ def human():
   join.client_ports.add(game_port=ports.pop(0), base_port=ports.pop(0))
 
   join.race = sc2_env.Race[FLAGS.user_race]
+  join.player_name = FLAGS.user_name
   if FLAGS.render:
     join.options.raw = True
     join.options.score = True
