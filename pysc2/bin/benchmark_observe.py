@@ -74,7 +74,8 @@ def main(unused_argv):
       timeline = []
 
       run_config = run_configs.get()
-      with run_config.start() as controller:
+      with run_config.start(
+          want_rgb=interface.HasField("render")) as controller:
         map_inst = maps.get("Catalyst")
         create = sc_pb.RequestCreateGame(
             realtime=False, disable_fog=False, random_seed=1,
@@ -83,7 +84,7 @@ def main(unused_argv):
         create.player_setup.add(type=sc_pb.Participant)
         create.player_setup.add(type=sc_pb.Computer, race=sc_common.Terran,
                                 difficulty=sc_pb.VeryEasy)
-        join = sc_pb.RequestJoinGame(race=sc_common.Random, options=interface)
+        join = sc_pb.RequestJoinGame(race=sc_common.Protoss, options=interface)
         controller.create_game(create)
         controller.join_game(join)
 
