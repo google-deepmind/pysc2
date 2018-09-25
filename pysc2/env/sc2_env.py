@@ -626,6 +626,8 @@ class SC2Env(environment.Base):
       if (self._save_replay_episodes > 0 and
           self._episode_count % self._save_replay_episodes == 0):
         self.save_replay(self._replay_dir, self._replay_prefix)
+      if self._episode_steps >= 524000:
+        logging.info("Likely ended due to SC2's max step count of 2^19=524288.")
       logging.info(("Episode %s finished after %s game steps. "
                     "Outcome: %s, reward: %s, score: %s"),
                    self._episode_count, self._episode_steps, outcome, reward,
