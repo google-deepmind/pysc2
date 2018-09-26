@@ -133,8 +133,12 @@ class StarcraftProtocol(object):
       The Response corresponding to your request.
     """
     assert len(kwargs) == 1, "Must make a single request."
-    res = self.send_req(sc_pb.Request(**kwargs))
-    return getattr(res, list(kwargs.keys())[0])
+    name = list(kwargs.keys())[0]
+    try:
+      res = self.send_req(sc_pb.Request(**kwargs))
+    except ConnectionError as e:
+      raise ConnectionError("Error during %s: %s" % (name, e))
+    return getattr(res, name)
 
   def _log_packet(self, packet):
     max_lines = FLAGS.sc2_verbose_protocol
