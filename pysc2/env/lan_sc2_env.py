@@ -292,7 +292,6 @@ class LanSC2Env(sc2_env.SC2Env):
     self._ensure_available_actions = False
     self._discount_zero_after_timeout = False
 
-    self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
 
     interface = self._get_interface(
@@ -325,9 +324,10 @@ class LanSC2Env(sc2_env.SC2Env):
         settings["ports"]["client"]["base"],
     ]
 
-    self._sc2_procs = [self._run_config.start(
-        extra_ports=extra_ports, host=host, version=settings["game_version"],
-        window_loc=(700, 50), want_rgb=interface.HasField("render"))]
+    run_config = run_configs.get(version=settings["game_version"])
+    self._sc2_procs = [run_config.start(
+        extra_ports=extra_ports, host=host, window_loc=(700, 50),
+        want_rgb=interface.HasField("render"))]
     self._controllers = [p.controller for p in self._sc2_procs]
 
     # Create the join request.

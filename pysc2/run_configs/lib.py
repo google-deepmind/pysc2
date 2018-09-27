@@ -82,13 +82,15 @@ VERSIONS = version_dict([
 class RunConfig(object):
   """Base class for different run configs."""
 
-  def __init__(self, replay_dir, data_dir, tmp_dir, cwd=None, env=None):
+  def __init__(self, replay_dir, data_dir, tmp_dir, version,
+               cwd=None, env=None):
     """Initialize the runconfig with the various directories needed.
 
     Args:
       replay_dir: Where to find replays. Might not be accessible to SC2.
       data_dir: Where SC2 should find the data and battle.net cache.
       tmp_dir: The temporary directory. None is system default.
+      version: The game version to run, a string.
       cwd: Where to set the current working directory.
       env: What to pass as the environment variables.
     """
@@ -97,6 +99,7 @@ class RunConfig(object):
     self.tmp_dir = tmp_dir
     self.cwd = cwd
     self.env = env
+    self.version = self._get_version(version)
 
   def map_data(self, map_name):
     """Return the map data for a map by name or path."""
@@ -174,16 +177,26 @@ class RunConfig(object):
     """None means this isn't valid. Run the one with the max priority."""
     return None
 
-  def get_versions(self):
+  def get_versions(self, containing=None):
     """Return a dict of all versions that can be run."""
+    if containing is not None and containing not in VERSIONS:
+      raise ValueError("Unknown game version: %s. Known versions: %s." % (
+          containing, sorted(VERSIONS.keys())))
     return VERSIONS
 
   def _get_version(self, game_version):
-    versions = self.get_versions()
+    """Get the full details for the specified game version."""
+    if isinstance(game_version, Version):
+      if not game_version.game_version:
+        raise ValueError(
+            "Version '%r' supplied without a game version." % (game_version,))
+      if (game_version.data_version and
+          game_version.binary and
+          game_version.build_version):
+        return game_version
+      # Some fields might be missing from serialized versions. Look them up.
+      game_version = game_version.game_version
     if game_version.count(".") == 1:
       game_version += ".0"
-    if game_version not in versions:
-      raise ValueError("Unknown game version: %s. Known versions: %s" % (
-          game_version, sorted(versions.keys())))
+    versions = self.get_versions(containing=game_version)
     return versions[game_version]
-

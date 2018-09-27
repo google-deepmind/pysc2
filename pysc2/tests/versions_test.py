@@ -45,8 +45,8 @@ class TestVersions(absltest.TestCase):
       try:
         self.assertEqual(game_version, version.game_version)
         log_center("starting version check: %s", game_version)
-        with run_config.start(version=game_version,
-                              want_rgb=False) as controller:
+        run_config = run_configs.get(version=game_version)
+        with run_config.start(want_rgb=False) as controller:
           ping = controller.ping()
           logging.info("expected: %s", version)
           logging.info("actual: %s", ", ".join(str(ping).strip().split("\n")))
@@ -69,8 +69,8 @@ class TestVersions(absltest.TestCase):
     for game_version in sorted(run_config.get_versions().keys()):
       try:
         log_center("starting create game: %s", game_version)
-        with run_config.start(version=game_version,
-                              want_rgb=False) as controller:
+        run_config = run_configs.get(version=game_version)
+        with run_config.start(want_rgb=False) as controller:
           interface = sc_pb.InterfaceOptions()
           interface.raw = True
           interface.score = True

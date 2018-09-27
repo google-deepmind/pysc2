@@ -25,7 +25,6 @@ import subprocess
 import sys
 
 from absl import flags
-import six
 
 from pysc2.lib import sc_process
 from pysc2.run_configs import lib
@@ -55,15 +54,18 @@ def _read_execute_info(path, parents):
 class LocalBase(lib.RunConfig):
   """Base run config for public installs."""
 
-  def __init__(self, base_dir, exec_name, cwd=None, env=None):
+  def __init__(self, base_dir, exec_name, version, cwd=None, env=None):
     base_dir = os.path.expanduser(base_dir)
+    version = version or FLAGS.sc2_version or "latest"
     cwd = cwd and os.path.join(base_dir, cwd)
     super(LocalBase, self).__init__(
         replay_dir=os.path.join(base_dir, "Replays"),
-        data_dir=base_dir, tmp_dir=None, cwd=cwd, env=env)
+        data_dir=base_dir, tmp_dir=None, version=version, cwd=cwd, env=env)
+    if FLAGS.sc2_dev_build:
+      self.version = self.version._replace(build_version=0)
     self._exec_name = exec_name
 
-  def start(self, version=None, want_rgb=True, **kwargs):
+  def start(self, want_rgb=True, **kwargs):
     """Launch the game."""
     del want_rgb  # Unused
     if not os.path.isdir(self.data_dir):
@@ -72,31 +74,20 @@ class LocalBase(lib.RunConfig):
           "installed, do that and run it once so auto-detection works. If "
           "auto-detection failed repeatedly, then set the SC2PATH environment "
           "variable with the correct location." % self.data_dir)
-
-    version = version or FLAGS.sc2_version
-    if isinstance(version, lib.Version) and not version.data_version:
-      # This is for old replays that don't have the embedded data_version.
-      version = self._get_version(version.game_version)
-    elif isinstance(version, six.string_types):
-      version = self._get_version(version)
-    elif not version:
-      version = self._get_version("latest")
-    if version.build_version < lib.VERSIONS["3.16.1"].build_version:
+    if self.version.build_version < lib.VERSIONS["3.16.1"].build_version:
       raise sc_process.SC2LaunchError(
           "SC2 Binaries older than 3.16.1 don't support the api.")
-    if FLAGS.sc2_dev_build:
-      version = version._replace(build_version=0)
     exec_path = os.path.join(
-        self.data_dir, "Versions/Base%05d" % version.build_version,
+        self.data_dir, "Versions/Base%05d" % self.version.build_version,
         self._exec_name)
 
     if not os.path.exists(exec_path):
       raise sc_process.SC2LaunchError("No SC2 binary found at: %s" % exec_path)
 
     return sc_process.StarcraftProcess(
-        self, exec_path=exec_path, version=version, **kwargs)
+        self, exec_path=exec_path, version=self.version, **kwargs)
 
-  def get_versions(self):
+  def get_versions(self, containing=None):
     versions_dir = os.path.join(self.data_dir, "Versions")
     version_prefix = "Base"
     versions_found = sorted(int(v[len(version_prefix):])
@@ -112,17 +103,22 @@ class LocalBase(lib.RunConfig):
     # versions newer than what are known by pysc2, and so is the default.
     known_versions.append(
         lib.Version("latest", max(versions_found), None, None))
-    return lib.version_dict(known_versions)
+    ret = lib.version_dict(known_versions)
+    if containing is not None and containing not in ret:
+      raise ValueError("Unknown game version: %s. Known versions: %s." % (
+          containing, sorted(ret.keys())))
+    return ret
 
 
 class Windows(LocalBase):
   """Run on Windows."""
 
-  def __init__(self):
+  def __init__(self, version=None):
     exec_path = (os.environ.get("SC2PATH") or
                  _read_execute_info(os.path.expanduser("~/Documents"), 3) or
                  "C:/Program Files (x86)/StarCraft II")
-    super(Windows, self).__init__(exec_path, "SC2_x64.exe", "Support64")
+    super(Windows, self).__init__(exec_path, "SC2_x64.exe",
+                                  version=version, cwd="Support64")
 
   @classmethod
   def priority(cls):
@@ -133,11 +129,11 @@ class Windows(LocalBase):
 class Cygwin(LocalBase):
   """Run on Cygwin. This runs the windows binary within a cygwin terminal."""
 
-  def __init__(self):
-    super(Cygwin, self).__init__(
-        os.environ.get("SC2PATH",
-                       "/cygdrive/c/Program Files (x86)/StarCraft II"),
-        "SC2_x64.exe", "Support64")
+  def __init__(self, version=None):
+    exec_path = os.environ.get(
+        "SC2PATH", "/cygdrive/c/Program Files (x86)/StarCraft II")
+    super(Cygwin, self).__init__(exec_path, "SC2_x64.exe",
+                                 version=version, cwd="Support64")
 
   @classmethod
   def priority(cls):
@@ -148,12 +144,13 @@ class Cygwin(LocalBase):
 class MacOS(LocalBase):
   """Run on MacOS."""
 
-  def __init__(self):
+  def __init__(self, version=None):
     exec_path = (os.environ.get("SC2PATH") or
                  _read_execute_info(os.path.expanduser(
                      "~/Library/Application Support/Blizzard"), 6) or
                  "/Applications/StarCraft II")
-    super(MacOS, self).__init__(exec_path, "SC2.app/Contents/MacOS/SC2")
+    super(MacOS, self).__init__(exec_path, "SC2.app/Contents/MacOS/SC2",
+                                version=version)
 
   @classmethod
   def priority(cls):
@@ -170,14 +167,14 @@ class Linux(LocalBase):
       "libOSMesa.so.6",  # Ubuntu 14.04
   ]
 
-  def __init__(self):
+  def __init__(self, version=None):
     base_dir = os.environ.get("SC2PATH", "~/StarCraftII")
     base_dir = os.path.expanduser(base_dir)
     env = copy.deepcopy(os.environ)
     env["LD_LIBRARY_PATH"] = ":".join(filter(None, [
         os.environ.get("LD_LIBRARY_PATH"),
         os.path.join(base_dir, "Libs/")]))
-    super(Linux, self).__init__(base_dir, "SC2_x64", env=env)
+    super(Linux, self).__init__(base_dir, "SC2_x64", version=version, env=env)
 
   @classmethod
   def priority(cls):

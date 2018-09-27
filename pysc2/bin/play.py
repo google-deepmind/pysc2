@@ -146,9 +146,9 @@ def main(unused_argv):
         disable_fog=FLAGS.disable_fog,
         observed_player_id=FLAGS.observed_player)
     version = get_replay_version(replay_data)
+    run_config = run_configs.get(version=version)  # Replace the run config.
 
-  with run_config.start(version=version,
-                        full_screen=FLAGS.full_screen) as controller:
+  with run_config.start(full_screen=FLAGS.full_screen) as controller:
     if FLAGS.map:
       controller.create_game(create)
       controller.join_game(join)
