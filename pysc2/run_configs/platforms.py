@@ -63,6 +63,9 @@ class LocalBase(lib.RunConfig):
         data_dir=base_dir, tmp_dir=None, version=version, cwd=cwd, env=env)
     if FLAGS.sc2_dev_build:
       self.version = self.version._replace(build_version=0)
+    elif self.version.build_version < lib.VERSIONS["3.16.1"].build_version:
+      raise sc_process.SC2LaunchError(
+          "SC2 Binaries older than 3.16.1 don't support the api.")
     self._exec_name = exec_name
 
   def start(self, want_rgb=True, **kwargs):
@@ -74,9 +77,6 @@ class LocalBase(lib.RunConfig):
           "installed, do that and run it once so auto-detection works. If "
           "auto-detection failed repeatedly, then set the SC2PATH environment "
           "variable with the correct location." % self.data_dir)
-    if self.version.build_version < lib.VERSIONS["3.16.1"].build_version:
-      raise sc_process.SC2LaunchError(
-          "SC2 Binaries older than 3.16.1 don't support the api.")
     exec_path = os.path.join(
         self.data_dir, "Versions/Base%05d" % self.version.build_version,
         self._exec_name)
