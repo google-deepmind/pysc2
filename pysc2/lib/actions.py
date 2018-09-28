@@ -410,8 +410,9 @@ class Functions(object):
   def __init__(self, functions):
     functions = sorted(functions, key=lambda f: f.id)
     # Convert each int id to the equivalent IntEnum.
-    functions = [f._replace(id=_Functions(f.id))
-                 for f in functions]
+    functions = [
+        f._replace(id=_Functions(f.id)) if f.id < len(_FUNCTIONS) else f
+        for f in functions]
 
     self._func_list = functions
     self._func_dict = {f.name: f for f in functions}

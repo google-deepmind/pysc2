@@ -823,6 +823,7 @@ class Features(object):
 
     if aif.use_raw_units:
       obs_spec["raw_units"] = (0, len(FeatureUnit))
+      obs_spec["unit_tags"] = (0,)
 
     if aif.use_unit_counts:
       obs_spec["unit_counts"] = (0, len(UnitCounts))
@@ -1032,6 +1033,7 @@ class Features(object):
                      for u in raw.units]
         out["raw_units"] = named_array.NamedNumpyArray(
             raw_units, [None, FeatureUnit], dtype=np.int32)
+        out["unit_tags"] = np.array([u.tag for u in raw.units], dtype=np.uint64)
 
     if aif.use_unit_counts:
       with sw("unit_counts"):
@@ -1095,6 +1097,10 @@ class Features(object):
     Raises:
       ValueError: if the action doesn't pass validation.
     """
+    # Ignore sc_pb.Action's to make the env more flexible, eg raw actions.
+    if isinstance(func_call, sc_pb.Action):
+      return func_call
+
     func_id = func_call.function
     try:
       func = actions.FUNCTIONS[func_id]
