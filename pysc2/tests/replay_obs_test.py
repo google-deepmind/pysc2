@@ -110,7 +110,7 @@ class Config(object):
         1937: identity_function('Train_SCV_quick', ['now']),
         2400: select(avg_point, units.Terran.Barracks),
         2700: identity_function('Train_Marine_quick', ['now']),
-        3300: select(any_point, units.Terran.Marine),
+        3300: identity_function('select_army', ['select']),
     }
     self.num_observations = max(self.actions.keys()) + 2
     self.player_id = 1
