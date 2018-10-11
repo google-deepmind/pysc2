@@ -32,6 +32,9 @@ from pysc2.lib import remote_controller
 from pysc2.lib import stopwatch
 
 flags.DEFINE_bool("sc2_verbose", False, "Enable SC2 verbose logging.")
+flags.DEFINE_integer("sc2_port", None,
+                     "If set, connect to the instance on "
+                     "localhost:sc2_port instead of launching one.")
 FLAGS = flags.FLAGS
 
 sw = stopwatch.sw
@@ -78,7 +81,7 @@ class StarcraftProcess(object):
     self._check_exists(exec_path)
     self._tmp_dir = tempfile.mkdtemp(prefix="sc-", dir=run_config.tmp_dir)
     self._host = host or "127.0.0.1"
-    self._port = port or portpicker.pick_unused_port()
+    self._port = FLAGS.sc2_port or port or portpicker.pick_unused_port()
     self._version = version
 
     args = [
@@ -110,7 +113,8 @@ class StarcraftProcess(object):
     logging.info("Launching SC2: %s", " ".join(args))
     try:
       with sw("startup"):
-        self._proc = self._launch(run_config, args, **kwargs)
+        if not FLAGS.sc2_port:
+          self._proc = self._launch(run_config, args, **kwargs)
         if connect:
           self._controller = remote_controller.RemoteController(
               self._host, self._port, self, timeout_seconds=timeout_seconds)
@@ -127,7 +131,8 @@ class StarcraftProcess(object):
       self._controller = None
     self._shutdown()
     if hasattr(self, "_port") and self._port:
-      portpicker.return_port(self._port)
+      if not FLAGS.sc2_port:
+        portpicker.return_port(self._port)
       self._port = None
     if hasattr(self, "_tmp_dir") and os.path.exists(self._tmp_dir):
       shutil.rmtree(self._tmp_dir)
@@ -184,6 +189,8 @@ class StarcraftProcess(object):
 
   @property
   def running(self):
+    if FLAGS.sc2_port:
+      return True
     # poll returns None if it's running, otherwise the exit code.
     return self._proc and (self._proc.poll() is None)
 
