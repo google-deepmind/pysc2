@@ -200,11 +200,11 @@ class SC2Env(environment.Base):
     self._map_name = map_name
 
     if not players:
-      players = list()
-      players.append(Agent(Race.random))
+      players = [Agent(Race.random)]
 
-      if not map_inst.players or map_inst.players >= 2:
-        players.append(Bot(Race.random, Difficulty.very_easy))
+    if len(players) == 1 and (not map_inst.players or map_inst.players >= 2):
+      # Make sure 2p+ maps have an opponent.
+      players.append(Bot(Race.random, Difficulty.very_easy))
 
     for p in players:
       if not isinstance(p, (Agent, Bot)):
