@@ -193,6 +193,7 @@ class FeatureUnit(enum.IntEnum):
   weapon_cooldown = 25
   order_length = 26  # If zero, the unit is idle.
   tag = 27  # Unique identifier for a unit (only populated for raw units).
+  addon_unit_type = 28
 
 
 class Feature(collections.namedtuple(
@@ -976,6 +977,12 @@ class Features(object):
       screen_pos = pos_transform.fwd_pt(
           point.Point.build(u.pos))
       screen_radius = pos_transform.fwd_dist(u.radius)
+      add_on_unit_type = 0
+      if u.add_on_tag > 0:
+        for raw_unit in raw_units:
+          if raw_unit.tag == u.add_on_tag:
+            add_on_unit_type = raw_unit.unit_type
+            break
       return np.array((
           # Match unit_vec order
           u.unit_type,
@@ -1009,7 +1016,8 @@ class Features(object):
           u.ideal_harvesters,
           u.weapon_cooldown,
           len(u.orders),
-          u.tag if is_raw else 0
+          u.tag if is_raw else 0,
+          add_on_unit_type
       ), dtype=np.int32)
 
     raw = obs.observation.raw_data
