@@ -345,7 +345,7 @@ always = lambda _: True
 
 class Function(collections.namedtuple(
     "Function", ["id", "name", "ability_id", "general_id", "function_type",
-                 "args", "avail_fn"])):
+                 "args", "avail_fn", "raw"])):
   """Represents a function action.
 
   Attributes:
@@ -359,6 +359,7 @@ class Function(collections.namedtuple(
     args: A list of the types of args passed to function_type.
     avail_fn: For non-abilities, this function returns whether the function is
         valid.
+    raw: Whether the function is raw or not.
   """
   __slots__ = ()
 
@@ -366,19 +367,19 @@ class Function(collections.namedtuple(
   def ui_func(cls, id_, name, function_type, avail_fn=always):
     """Define a function representing a ui action."""
     return cls(id_, name, 0, 0, function_type, FUNCTION_TYPES[function_type],
-               avail_fn)
+               avail_fn, False)
 
   @classmethod
   def ability(cls, id_, name, function_type, ability_id, general_id=0):
     """Define a function represented as a game ability."""
     assert function_type in ABILITY_FUNCTIONS
     return cls(id_, name, ability_id, general_id, function_type,
-               FUNCTION_TYPES[function_type], None)
+               FUNCTION_TYPES[function_type], None, False)
 
   @classmethod
   def spec(cls, id_, name, args):
     """Create a Function to be used in ValidActions."""
-    return cls(id_, name, None, None, None, args, None)
+    return cls(id_, name, None, None, None, args, None, False)
 
   def __hash__(self):  # So it can go in a set().
     return self.id
@@ -388,7 +389,7 @@ class Function(collections.namedtuple(
 
   def __call__(self, *args):
     """A convenient way to create a FunctionCall from this Function."""
-    return FunctionCall.init_with_validation(self.id, args)
+    return FunctionCall.init_with_validation(self.id, args, raw=self.raw)
 
   def __reduce__(self):
     return self.__class__, tuple(self)
@@ -407,7 +408,7 @@ class Functions(object):
   build something similar.
   """
 
-  def __init__(self, functions):
+  def __init__(self, functions, raw=False):
     functions = sorted(functions, key=lambda f: f.id)
     # Convert each int id to the equivalent IntEnum.
     functions = [
@@ -1037,7 +1038,7 @@ class FunctionCall(collections.namedtuple(
   __slots__ = ()
 
   @classmethod
-  def init_with_validation(cls, function, arguments):
+  def init_with_validation(cls, function, arguments, raw=False):
     """Return a `FunctionCall` given some validation for the function and args.
 
     Args:
@@ -1045,6 +1046,7 @@ class FunctionCall(collections.namedtuple(
       arguments: An iterable of function arguments. Arguments that are enum
           types can be passed by name. Arguments that only take one value (ie
           not a point) don't need to be wrapped in a list.
+      raw: Whether this is a raw function call.
 
     Returns:
       A new `FunctionCall` instance.
@@ -1078,7 +1080,7 @@ class FunctionCall(collections.namedtuple(
     return cls(func.id, args)
 
   @classmethod
-  def all_arguments(cls, function, arguments):
+  def all_arguments(cls, function, arguments, raw=False):
     """Helper function for creating `FunctionCall`s with `Arguments`.
 
     Args:
@@ -1087,6 +1089,7 @@ class FunctionCall(collections.namedtuple(
         be an `Arguments` object, a `dict`, or an iterable. If a `dict` or an
         iterable is provided, the values will be unpacked into an `Arguments`
         object.
+      raw: Whether this is a raw function call.
 
     Returns:
       A new `FunctionCall` instance.

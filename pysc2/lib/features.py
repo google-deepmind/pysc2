@@ -192,7 +192,9 @@ class FeatureUnit(enum.IntEnum):
   ideal_harvesters = 24
   weapon_cooldown = 25
   order_length = 26  # If zero, the unit is idle.
-  tag = 27  # Unique identifier for a unit (only populated for raw units).
+  order_id_0 = 27  # Currently unused.
+  order_id_1 = 28  # Currently unused.
+  tag = 29  # Unique identifier for a unit (only populated for raw units).
 
 
 class Feature(collections.namedtuple(
@@ -477,6 +479,7 @@ class AgentInterfaceFormat(object):
       else:
         action_space = actions.ActionSpace.RGB
 
+
     self._feature_dimensions = feature_dimensions
     self._rgb_dimensions = rgb_dimensions
     self._action_space = action_space
@@ -594,7 +597,7 @@ def parse_agent_interface_format(
       use_feature_units=use_feature_units,
       use_raw_units=use_raw_units,
       use_unit_counts=use_unit_counts,
-      use_camera_position=use_camera_position
+      use_camera_position=use_camera_position,
   )
 
 
@@ -823,7 +826,7 @@ class Features(object):
 
     if aif.use_raw_units:
       obs_spec["raw_units"] = (0, len(FeatureUnit))
-      obs_spec["unit_tags"] = (0,)
+      obs_spec["upgrades"] = (0,)
 
     if aif.use_unit_counts:
       obs_spec["unit_counts"] = (0, len(UnitCounts))
@@ -974,10 +977,11 @@ class Features(object):
             [None, UnitLayer])
 
     def full_unit_vec(u, pos_transform, is_raw=False):
+      """Compute unit features."""
       screen_pos = pos_transform.fwd_pt(
           point.Point.build(u.pos))
       screen_radius = pos_transform.fwd_dist(u.radius)
-      return np.array((
+      features = np.array((
           # Match unit_vec order
           u.unit_type,
           u.alliance,  # Self = 1, Ally = 2, Neutral = 3, Enemy = 4
@@ -1010,8 +1014,11 @@ class Features(object):
           u.ideal_harvesters,
           u.weapon_cooldown,
           len(u.orders),
+          0,  # Placeholder.
+          0,  # Placeholder.
           u.tag if is_raw else 0
-      ), dtype=np.int32)
+      ), dtype=np.int64)
+      return features
 
     raw = obs.observation.raw_data
 
@@ -1025,15 +1032,19 @@ class Features(object):
             feature_units.append(
                 full_unit_vec(u, self._world_to_feature_screen_px))
         out["feature_units"] = named_array.NamedNumpyArray(
-            feature_units, [None, FeatureUnit], dtype=np.int32)
+            feature_units, [None, FeatureUnit], dtype=np.int64)
 
     if aif.use_raw_units:
       with sw("raw_units"):
-        raw_units = [full_unit_vec(u, self._world_to_world_tl, is_raw=True)
+        raw_units = [full_unit_vec(u, self._world_to_minimap_px, is_raw=True)
                      for u in raw.units]
         out["raw_units"] = named_array.NamedNumpyArray(
-            raw_units, [None, FeatureUnit], dtype=np.int32)
-        out["unit_tags"] = np.array([u.tag for u in raw.units], dtype=np.uint64)
+            raw_units, [None, FeatureUnit], dtype=np.int64)
+        if raw_units:
+          self._raw_tags = out["raw_units"][:, -1]
+        else:
+          self._raw_tags = np.array([])
+        out["upgrades"] = np.array(raw.player.upgrade_ids, dtype=np.int32)
 
     if aif.use_unit_counts:
       with sw("unit_counts"):
@@ -1134,7 +1145,7 @@ class Features(object):
                 func, func_call.arguments))
 
       for s, a in zip(sizes, arg):
-        if not 0 <= a < s:
+        if not np.all(0 <= a) and np.all(a < s):
           raise ValueError("Argument is out of range for %s, got: %s" % (
               func, func_call.arguments))
 
@@ -1148,6 +1159,7 @@ class Features(object):
     kwargs["action_space"] = aif.action_space
     if func.ability_id:
       kwargs["ability_id"] = func.ability_id
+
     actions.FUNCTIONS[func_id].function_type(**kwargs)
     return sc2_action
 
