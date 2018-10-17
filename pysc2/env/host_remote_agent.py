@@ -20,6 +20,8 @@ from __future__ import print_function
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.lib import portspicker
+from pysc2.lib import protocol
+from pysc2.lib import remote_controller
 
 from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
@@ -74,6 +76,8 @@ class VsAgent(object):
     Args:
       map_name: The map to use.
     """
+    self._reconnect()
+
     map_inst = maps.get(map_name)
     map_data = map_inst.data(self._run_config)
     if map_name not in self._saved_maps:
@@ -92,6 +96,18 @@ class VsAgent(object):
 
     # Create the game.
     self._controllers[0].create_game(create)
+    self._disconnect()
+
+  def _disconnect(self):
+    for c in self._controllers:
+      c.close()
+    self._controllers = []
+
+  def _reconnect(self, **kwargs):
+    if not self._controllers:
+      self._controllers = [
+          remote_controller.RemoteController(p.host, p.port, p, **kwargs)
+          for p in self._processes]
 
   @property
   def hosts(self):
@@ -110,8 +126,12 @@ class VsAgent(object):
 
   def close(self):
     """Shutdown and free all resources."""
-    for controller in self._controllers:
-      controller.quit()
+    try:
+      self._reconnect(timeout_seconds=1)
+      for controller in self._controllers:
+        controller.quit()
+    except (remote_controller.ConnectError, protocol.ConnectionError):
+      pass
     self._controllers = []
 
     for process in self._processes:
@@ -169,6 +189,7 @@ class VsBot(object):
       bot_race: The race for the bot.
       bot_first: Whether the bot should be player 1 (else is player 2).
     """
+    self._reconnect()
     self._controller.ping()
 
     # Form the create game message.
@@ -194,6 +215,16 @@ class VsBot(object):
 
     # Create the game.
     self._controller.create_game(create)
+    self._disconnect()
+
+  def _disconnect(self):
+    self._controller.close()
+    self._controller = None
+
+  def _reconnect(self, **kwargs):
+    if not self._controller:
+      self._controller = remote_controller.RemoteController(
+          self._process.host, self._process.port, self._process, **kwargs)
 
   @property
   def host(self):
@@ -207,9 +238,12 @@ class VsBot(object):
 
   def close(self):
     """Shutdown and free all resources."""
-    if self._controller is not None:
-      self._controller.quit()
-      self._controller = None
     if self._process is not None:
+      try:
+        self._reconnect(timeout_seconds=1)
+        self._controller.quit()
+      except (remote_controller.ConnectError, protocol.ConnectionError):
+        pass
+      self._controller = None
       self._process.close()
       self._process = None
