@@ -87,6 +87,7 @@ Bot = collections.namedtuple("Bot", ["race", "difficulty"])
 
 REALTIME_GAME_LOOP_SECONDS = 1 / 22.4
 EPSILON = 1e-5
+MAX_STEP_COUNT = 524000  # The game fails above 2^19=524288 steps.
 
 
 class SC2Env(environment.Base):
@@ -252,6 +253,8 @@ class SC2Env(environment.Base):
     self._episode_length = game_steps_per_episode
     if self._episode_length is None:
       self._episode_length = map_inst.game_steps_per_episode
+    if self._episode_length == 0 or self._episode_length > MAX_STEP_COUNT:
+      self._episode_length = MAX_STEP_COUNT
 
     self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
@@ -617,17 +620,17 @@ class SC2Env(environment.Base):
 
     self._total_steps += self._agent_obs[0].game_loop[0] - self._episode_steps
     self._episode_steps = self._agent_obs[0].game_loop[0]
-    if self._episode_length > 0 and self._episode_steps >= self._episode_length:
+    if self._episode_steps >= self._episode_length:
       self._state = environment.StepType.LAST
       if self._discount_zero_after_timeout:
         discount = 0.0
+      if self._episode_steps >= MAX_STEP_COUNT:
+        logging.info("Cut short to avoid SC2's max step count of 2^19=524288.")
 
     if self._state == environment.StepType.LAST:
       if (self._save_replay_episodes > 0 and
           self._episode_count % self._save_replay_episodes == 0):
         self.save_replay(self._replay_dir, self._replay_prefix)
-      if self._episode_steps >= 524000:
-        logging.info("Likely ended due to SC2's max step count of 2^19=524288.")
       logging.info(("Episode %s finished after %s game steps. "
                     "Outcome: %s, reward: %s, score: %s"),
                    self._episode_count, self._episode_steps, outcome, reward,
