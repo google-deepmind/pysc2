@@ -109,6 +109,11 @@ class VsAgent(object):
           remote_controller.RemoteController(p.host, p.port, p, **kwargs)
           for p in self._processes]
 
+  def save_replay(self, replay_dir, replay_name):
+    self._reconnect()
+    return self._run_config.save_replay(
+        self._controllers[0].save_replay(), replay_dir, replay_name)
+
   @property
   def hosts(self):
     """The hosts that the remote agents should connect to."""
@@ -225,6 +230,11 @@ class VsBot(object):
     if not self._controller:
       self._controller = remote_controller.RemoteController(
           self._process.host, self._process.port, self._process, **kwargs)
+
+  def save_replay(self, replay_dir, replay_name):
+    self._reconnect()
+    return self._run_config.save_replay(
+        self._controller.save_replay(), replay_dir, replay_name)
 
   @property
   def host(self):
