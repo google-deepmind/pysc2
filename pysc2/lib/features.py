@@ -409,6 +409,7 @@ class AgentInterfaceFormat(object):
       self,
       feature_dimensions=None,
       rgb_dimensions=None,
+      raw_resolution=None,
       action_space=None,
       camera_width_world_units=None,
       use_feature_units=False,
@@ -423,6 +424,8 @@ class AgentInterfaceFormat(object):
           rgb_dimensions (or both) must be set.
       rgb_dimensions: RGB `Dimension`. Either this or feature_dimensions
           (or both) must be set.
+      raw_resolution: Raw features resolution. Discretize the `raw_units`
+          observation's x,y to this resolution.
       action_space: If you pass both feature and rgb sizes, then you must also
           specify which you want to use for your actions as an ActionSpace enum.
       camera_width_world_units: The width of your screen in world units. If your
@@ -479,6 +482,13 @@ class AgentInterfaceFormat(object):
       else:
         action_space = actions.ActionSpace.RGB
 
+    if not raw_resolution:
+      # Usually AgentInterface is called by the environment using
+      # features_from_game_info, in which case a more reasonable default is set.
+      raw_resolution = point.Point(1, 1)
+    else:
+      raw_resolution = _to_point(raw_resolution)
+
 
     self._feature_dimensions = feature_dimensions
     self._rgb_dimensions = rgb_dimensions
@@ -486,6 +496,7 @@ class AgentInterfaceFormat(object):
     self._camera_width_world_units = camera_width_world_units or 24
     self._use_feature_units = use_feature_units
     self._use_raw_units = use_raw_units
+    self._raw_resolution = raw_resolution
     self._use_unit_counts = use_unit_counts
     self._use_camera_position = use_camera_position
     self._hide_specific_actions = hide_specific_actions
@@ -520,6 +531,10 @@ class AgentInterfaceFormat(object):
     return self._use_raw_units
 
   @property
+  def raw_resolution(self):
+    return self._raw_resolution
+
+  @property
   def use_unit_counts(self):
     return self._use_unit_counts
 
@@ -545,6 +560,7 @@ def parse_agent_interface_format(
     camera_width_world_units=None,
     use_feature_units=False,
     use_raw_units=False,
+    raw_resolution=None,
     use_unit_counts=False,
     use_camera_position=False):
   """Creates an AgentInterfaceFormat object from keyword args.
@@ -566,6 +582,7 @@ def parse_agent_interface_format(
     camera_width_world_units: An int.
     use_feature_units: A boolean, defaults to False.
     use_raw_units: A boolean, defaults to False.
+    raw_resolution: An int, defaults to None.
     use_unit_counts: A boolean, defaults to False.
     use_camera_position: A boolean, defaults to False.
 
@@ -592,6 +609,7 @@ def parse_agent_interface_format(
   return AgentInterfaceFormat(
       feature_dimensions=feature_dimensions,
       rgb_dimensions=rgb_dimensions,
+      raw_resolution=raw_resolution,
       action_space=(action_space and actions.ActionSpace[action_space.upper()]),
       camera_width_world_units=camera_width_world_units,
       use_feature_units=use_feature_units,
@@ -605,6 +623,7 @@ def features_from_game_info(
     game_info,
     use_feature_units=False,
     use_raw_units=False,
+    raw_resolution=None,
     action_space=None,
     hide_specific_actions=True,
     use_unit_counts=False,
@@ -618,6 +637,8 @@ def features_from_game_info(
         differs from feature_units because it includes units outside the
         screen and hidden units, and because unit positions are given in
         terms of world units instead of screen units.
+    raw_resolution: The resolution which we wish to discretize raw units
+        x/y coordinates to. The default will utilize the map size.
     action_space: If you pass both feature and rgb sizes, then you must also
         specify which you want to use for your actions as an ActionSpace enum.
     hide_specific_actions: [bool] Some actions (eg cancel) have many
@@ -658,11 +679,14 @@ def features_from_game_info(
 
   map_size = game_info.start_raw.map_size
   camera_width_world_units = game_info.options.feature_layer.width
+  if not raw_resolution:
+    raw_resolution = (map_size.x, map_size.y)
 
   return Features(
       agent_interface_format=AgentInterfaceFormat(
           feature_dimensions=feature_dimensions,
           rgb_dimensions=rgb_dimensions,
+          raw_resolution=raw_resolution,
           use_feature_units=use_feature_units,
           use_raw_units=use_raw_units,
           use_unit_counts=use_unit_counts,
@@ -728,13 +752,15 @@ class Features(object):
       self.init_camera(
           aif.feature_dimensions,
           map_size,
-          aif.camera_width_world_units)
+          aif.camera_width_world_units,
+          aif.raw_resolution)
 
     self._valid_functions = _init_valid_functions(
         aif.action_dimensions)
 
   def init_camera(
-      self, feature_dimensions, map_size, camera_width_world_units):
+      self, feature_dimensions, map_size, camera_width_world_units,
+      raw_resolution):
     """Initialize the camera (especially for feature_units).
 
     This is called in the constructor and may be called repeatedly after
@@ -745,6 +771,7 @@ class Features(object):
       feature_dimensions: See the documentation in `AgentInterfaceFormat`.
       map_size: The size of the map in world units.
       camera_width_world_units: See the documentation in `AgentInterfaceFormat`.
+      raw_resolution: See the documentation in `AgentInterfaceFormat`.
 
     Raises:
       ValueError: If map_size or camera_width_world_units are falsey (which

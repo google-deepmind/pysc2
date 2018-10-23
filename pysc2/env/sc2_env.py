@@ -298,6 +298,7 @@ class SC2Env(environment.Base):
             game_info=g,
             use_feature_units=agent_interface_format.use_feature_units,
             use_raw_units=agent_interface_format.use_raw_units,
+            raw_resolution=agent_interface_format.raw_resolution,
             use_unit_counts=agent_interface_format.use_unit_counts,
             use_camera_position=agent_interface_format.use_camera_position,
             action_space=agent_interface_format.action_space,
