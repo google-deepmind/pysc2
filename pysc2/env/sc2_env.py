@@ -30,7 +30,6 @@ from pysc2.lib import actions as actions_lib
 from pysc2.lib import features
 from pysc2.lib import metrics
 from pysc2.lib import portspicker
-from pysc2.lib import protocol
 from pysc2.lib import renderer_human
 from pysc2.lib import run_parallel
 from pysc2.lib import stopwatch
@@ -86,7 +85,6 @@ Bot = collections.namedtuple("Bot", ["race", "difficulty"])
 
 
 REALTIME_GAME_LOOP_SECONDS = 1 / 22.4
-EPSILON = 1e-5
 MAX_STEP_COUNT = 524000  # The game fails above 2^19=524288 steps.
 
 
@@ -537,6 +535,11 @@ class SC2Env(environment.Base):
       while True:
         self._get_observations()
 
+        # Player results don't persist from observation to observation,
+        # hence we need to check here so that we don't miss them.
+        if any(o.player_result for o in self._obs):
+          break
+
         # Check that the game has advanced sufficiently.
         # If it hasn't, wait for it to.
         game_loop = self._agent_obs[0].game_loop[0]
@@ -561,32 +564,6 @@ class SC2Env(environment.Base):
     outcome = [0] * self._num_agents
     discount = self._discount
     episode_complete = any(o.player_result for o in self._obs)
-
-    # In realtime, we don't receive player results reliably, yet we do
-    # sometimes hit 'ended' status. When that happens we terminate the
-    # episode.
-    # TODO(b/115466611): player_results should be returned in realtime mode
-    if self._realtime and self._controllers[0].status == protocol.Status.ended:
-      logging.info("Protocol status is ended. Episode is complete.")
-      episode_complete = True
-
-    if self._realtime and len(self._obs) > 1:
-      # Realtime doesn't seem to give us a player result when one player
-      # gets eliminated. Hence some temporary hackery (which can only work
-      # when we have both agents in this environment)...
-      # TODO(b/115466611): player_results should be returned in realtime mode
-      p1 = self._obs[0].observation.score.score_details
-      p2 = self._obs[1].observation.score.score_details
-      if p1.killed_value_structures > p2.total_value_structures - EPSILON:
-        logging.info("The episode appears to be complete, p1 killed p2.")
-        episode_complete = True
-        outcome[0] = 1.0
-        outcome[1] = -1.0
-      elif p2.killed_value_structures > p1.total_value_structures - EPSILON:
-        logging.info("The episode appears to be complete, p2 killed p1.")
-        episode_complete = True
-        outcome[0] = -1.0
-        outcome[1] = 1.0
 
     if episode_complete:
       self._state = environment.StepType.LAST
