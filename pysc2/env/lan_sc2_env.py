@@ -291,7 +291,6 @@ class LanSC2Env(sc2_env.SC2Env):
     self._episode_length = sc2_env.MAX_STEP_COUNT
     self._ensure_available_actions = False
     self._discount_zero_after_timeout = False
-
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
 
     interface = self._get_interface(
@@ -324,8 +323,8 @@ class LanSC2Env(sc2_env.SC2Env):
         settings["ports"]["client"]["base"],
     ]
 
-    run_config = run_configs.get(version=settings["game_version"])
-    self._sc2_procs = [run_config.start(
+    self._run_config = run_configs.get(version=settings["game_version"])
+    self._sc2_procs = [self._run_config.start(
         extra_ports=extra_ports, host=host, window_loc=(700, 50),
         want_rgb=interface.HasField("render"))]
     self._controllers = [p.controller for p in self._sc2_procs]
@@ -355,4 +354,5 @@ class LanSC2Env(sc2_env.SC2Env):
     if hasattr(self, "_udp_sock") and self._udp_sock:
       self._udp_sock.close()
       self._udp_sock = None
+    self._run_config = None
     super(LanSC2Env, self).close()

@@ -126,6 +126,7 @@ def agent():
       config_port=FLAGS.config_port,
       race=sc2_env.Race[FLAGS.agent_race],
       step_mul=FLAGS.step_mul,
+      realtime=FLAGS.realtime,
       agent_interface_format=sc2_env.parse_agent_interface_format(
           feature_screen=FLAGS.feature_screen_size,
           feature_minimap=FLAGS.feature_minimap_size,
