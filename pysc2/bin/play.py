@@ -54,6 +54,8 @@ point_flag.DEFINE_point("rgb_screen_size", "256,192",
                         "Resolution for rendered screen.")
 point_flag.DEFINE_point("rgb_minimap_size", "128",
                         "Resolution for rendered minimap.")
+point_flag.DEFINE_point("window_size", "640,480",
+                        "Screen size if not full screen.")
 flags.DEFINE_string("video", None, "Path to render a video of observations.")
 
 flags.DEFINE_integer("max_game_steps", 0, "Total game steps to run.")
@@ -148,7 +150,8 @@ def main(unused_argv):
     version = get_replay_version(replay_data)
 
   with run_config.start(version=version,
-                        full_screen=FLAGS.full_screen) as controller:
+                        full_screen=FLAGS.full_screen,
+                        window_size=FLAGS.window_size) as controller:
     if FLAGS.map:
       controller.create_game(create)
       controller.join_game(join)
