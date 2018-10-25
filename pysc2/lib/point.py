@@ -176,7 +176,8 @@ class Rect(collections.namedtuple("Rect", ["t", "l", "b", "r"])):
     if len(args) == 4:
       if args[0] > args[2] or args[1] > args[3]:
         raise TypeError("Rect requires: t <= b and l <= r")
-      return super(Rect, cls).__new__(cls, *args)
+      # TODO(b/117657518): Remove the disable once the pytype bug is fixed.
+      return super(Rect, cls).__new__(cls, *args)  # pytype: disable=missing-parameter
     raise TypeError(
         "Unexpected arguments to Rect. Takes 1 or 2 Points, or 4 coords.")
 
