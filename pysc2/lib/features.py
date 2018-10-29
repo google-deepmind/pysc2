@@ -482,11 +482,7 @@ class AgentInterfaceFormat(object):
       else:
         action_space = actions.ActionSpace.RGB
 
-    if not raw_resolution:
-      # Usually AgentInterface is called by the environment using
-      # features_from_game_info, in which case a more reasonable default is set.
-      raw_resolution = point.Point(1, 1)
-    else:
+    if raw_resolution:
       raw_resolution = _to_point(raw_resolution)
 
 
@@ -533,6 +529,10 @@ class AgentInterfaceFormat(object):
   @property
   def raw_resolution(self):
     return self._raw_resolution
+
+  @raw_resolution.setter
+  def raw_resolution(self, value):
+    self._raw_resolution = value
 
   @property
   def use_unit_counts(self):
@@ -679,8 +679,6 @@ def features_from_game_info(
 
   map_size = game_info.start_raw.map_size
   camera_width_world_units = game_info.options.feature_layer.width
-  if not raw_resolution:
-    raw_resolution = (map_size.x, map_size.y)
 
   return Features(
       agent_interface_format=AgentInterfaceFormat(
@@ -745,6 +743,8 @@ class Features(object):
 
     self._agent_interface_format = agent_interface_format
     aif = self._agent_interface_format
+    if not aif.raw_resolution and map_size:
+      aif.raw_resolution = point.Point.build(map_size)
 
     if (aif.use_feature_units
         or aif.use_camera_position
