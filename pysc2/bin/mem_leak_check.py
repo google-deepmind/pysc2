@@ -82,7 +82,8 @@ def main(unused_argv):
   episode = 0
 
   def add(s):
-    cpu = process.cpu_times().user
+    cpu_times = process.cpu_times()
+    cpu = cpu_times.user + cpu_times.system
     mem = process.memory_info().rss / 2 ** 20  # In Mb
     step = Timestep(episode, time.time() - start, cpu, mem, s)
     print(step)
