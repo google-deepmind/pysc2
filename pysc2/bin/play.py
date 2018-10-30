@@ -115,7 +115,7 @@ def main(unused_argv):
     FLAGS.feature_screen_size.assign_to(interface.feature_layer.resolution)
     FLAGS.feature_minimap_size.assign_to(
         interface.feature_layer.minimap_resolution)
-  if FLAGS.rgb_screen_size and FLAGS.rgb_minimap_size:
+  if FLAGS.render and FLAGS.rgb_screen_size and FLAGS.rgb_minimap_size:
     FLAGS.rgb_screen_size.assign_to(interface.render.resolution)
     FLAGS.rgb_minimap_size.assign_to(interface.render.minimap_resolution)
 
@@ -148,7 +148,9 @@ def main(unused_argv):
     version = get_replay_version(replay_data)
     run_config = run_configs.get(version=version)  # Replace the run config.
 
-  with run_config.start(full_screen=FLAGS.full_screen) as controller:
+  with run_config.start(
+      full_screen=FLAGS.full_screen,
+      want_rgb=interface.HasField("render")) as controller:
     if FLAGS.map:
       controller.create_game(create)
       controller.join_game(join)
