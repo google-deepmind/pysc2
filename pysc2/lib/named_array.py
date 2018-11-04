@@ -212,7 +212,7 @@ class NamedNumpyArray(np.ndarray):
 
     # "NamedNumpyArray([1, 3, 6], dtype=int32)" ->
     # ["NamedNumpyArray", "[1, 3, 6]", ", dtype=int32"]
-    matches = re.findall(r"^(\w+)\(([\d\., \n\[\]]*)(, \w+=.+)?\)$",
+    matches = re.findall(r"^(\w+)\(([\d\., \n\[\]]*)(,? \w+=.+)?\)$",
                          np.array_repr(self))[0]
     return "%s(%s, %s%s)" % (
         matches[0], matches[1], names, matches[2])
