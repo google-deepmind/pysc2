@@ -522,10 +522,16 @@ class SC2Env(environment.Base):
     return self._observe()
 
   def _get_observations(self):
+    # Transform in the thread so it runs while waiting for other observations.
+    def parallel_observe(c, f):
+      obs = c.observe()
+      agent_obs = f.transform_obs(obs)
+      return obs, agent_obs
+
     with self._metrics.measure_observation_time():
-      self._obs = self._parallel.run(c.observe for c in self._controllers)
-      self._agent_obs = [f.transform_obs(o)
-                         for f, o in zip(self._features, self._obs)]
+      self._obs, self._agent_obs = zip(*self._parallel.run(
+          (parallel_observe, c, f)
+          for c, f in zip(self._controllers, self._features)))
 
   def _observe(self):
     if not self._realtime:
