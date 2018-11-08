@@ -70,7 +70,7 @@ def tcp_server(tcp_addr, settings):
   sock.listen(1)
   logging.info("Waiting for connection on %s", tcp_addr)
   conn, addr = sock.accept()
-  logging.info("Accepted connection from %s", Addr(*addr))
+  logging.info("Accepted connection from %s", Addr(*addr[:2]))
 
   # Send map_data independently for py2/3 and json encoding reasons.
   write_tcp(conn, settings["map_data"])
