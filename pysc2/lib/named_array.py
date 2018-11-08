@@ -117,7 +117,9 @@ class NamedNumpyArray(np.ndarray):
           raise ValueError("Bad names. Must be None, a list of strings, "
                            "a namedtuple, or IntEnum.")
         if obj.shape[i] != len(o):
-          raise ValueError("Names in dimension %s is the wrong length" % i)
+          raise ValueError(
+              "Wrong number of names in dimension %s. Got %s, expected %s." % (
+                  i, len(o), obj.shape[i]))
         index_names.append({n: j for j, n in enumerate(o)})
     if only_none:
       raise ValueError("No names given. Use a normal numpy.ndarray instead.")
