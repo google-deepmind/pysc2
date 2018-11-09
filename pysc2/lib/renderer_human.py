@@ -37,6 +37,7 @@ import pygame
 import queue
 from pysc2.lib import colors
 from pysc2.lib import features
+from pysc2.lib import memoize
 from pysc2.lib import point
 from pysc2.lib import remote_controller
 from pysc2.lib import stopwatch
@@ -213,6 +214,7 @@ class PastAction(collections.namedtuple("PastAction", [
   """Holds a past action for drawing over time."""
 
 
+@memoize.memoize
 def _get_desktop_size():
   """Get the desktop size."""
   if platform.system() == "Linux":
@@ -297,7 +299,6 @@ class RendererHuman(object):
     self._render_rgb = None
     self._render_feature_grid = render_feature_grid
     self._window = None
-    self._desktop_size = None
     self._window_scale = 0.75
     self._obs_queue = queue.Queue()
     self._render_thread = threading.Thread(target=self.render_thread,
@@ -388,9 +389,6 @@ class RendererHuman(object):
 
     pygame.init()
 
-    if self._desktop_size is None:
-      self._desktop_size = _get_desktop_size()
-
     if self._render_rgb and self._rgb_screen_px:
       main_screen_px = self._rgb_screen_px
     else:
@@ -412,7 +410,7 @@ class RendererHuman(object):
       window_size_ratio += point.Point(features_aspect_ratio.x, 0)
 
     window_size_px = window_size_ratio.scale_max_size(
-        self._desktop_size * self._window_scale).ceil()
+        _get_desktop_size() * self._window_scale).ceil()
 
     # Create the actual window surface. This should only be blitted to from one
     # of the sub-surfaces defined below.
