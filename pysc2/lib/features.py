@@ -1068,7 +1068,7 @@ class Features(object):
         out["raw_units"] = named_array.NamedNumpyArray(
             raw_units, [None, FeatureUnit], dtype=np.int64)
         if raw_units:
-          self._raw_tags = out["raw_units"][:, -1]
+          self._raw_tags = out["raw_units"][:, FeatureUnit.tag]
         else:
           self._raw_tags = np.array([])
         out["upgrades"] = np.array(raw.player.upgrade_ids, dtype=np.int32)
