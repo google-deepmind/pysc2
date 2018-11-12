@@ -19,22 +19,19 @@ from __future__ import division
 from __future__ import print_function
 
 import getpass
-import json
 import platform
 import sys
 import time
 
 from absl import app
 from absl import flags
-import mpyq
-import six
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.env import sc2_env
 from pysc2.lib import point_flag
 from pysc2.lib import renderer_human
+from pysc2.lib import replay
 from pysc2.lib import stopwatch
-from pysc2.run_configs import lib as run_configs_lib
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
@@ -147,7 +144,7 @@ def main(unused_argv):
         options=interface,
         disable_fog=FLAGS.disable_fog,
         observed_player_id=FLAGS.observed_player)
-    version = get_replay_version(replay_data)
+    version = replay.get_replay_version(replay_data)
     run_config = run_configs.get(version=version)  # Replace the run config.
 
   with run_config.start(
@@ -200,19 +197,6 @@ def main(unused_argv):
 
   if FLAGS.profile:
     print(stopwatch.sw)
-
-
-def get_replay_version(replay_data):
-  replay_io = six.BytesIO()
-  replay_io.write(replay_data)
-  replay_io.seek(0)
-  archive = mpyq.MPQArchive(replay_io).extract()
-  metadata = json.loads(archive[b"replay.gamemetadata.json"].decode("utf-8"))
-  return run_configs_lib.Version(
-      game_version=".".join(metadata["GameVersion"].split(".")[:-1]),
-      build_version=int(metadata["BaseBuild"][4:]),
-      data_version=metadata.get("DataVersion"),  # Only in replays version 4.1+.
-      binary=None)
 
 
 def entry_point():  # Needed so setup.py scripts work.
