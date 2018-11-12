@@ -1008,7 +1008,7 @@ class Features(object):
       screen_pos = pos_transform.fwd_pt(
           point.Point.build(u.pos))
       screen_radius = pos_transform.fwd_dist(u.radius)
-      features = np.array((
+      features = [
           # Match unit_vec order
           u.unit_type,
           u.alliance,  # Self = 1, Ally = 2, Neutral = 3, Enemy = 4
@@ -1044,7 +1044,7 @@ class Features(object):
           0,  # Placeholder.
           0,  # Placeholder.
           u.tag if is_raw else 0
-      ), dtype=np.int64)
+      ]
       return features
 
     raw = obs.observation.raw_data
