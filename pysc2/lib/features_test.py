@@ -389,8 +389,8 @@ class FeaturesTest(absltest.TestCase):
 
   def testAllVersionsOfAnAbilityHaveTheSameGeneral(self):
     for ability_id, funcs in six.iteritems(actions.ABILITY_IDS):
-      self.assertEqual(len({f.general_id for f in funcs}), 1,
-                       "Multiple generals for %s" % ability_id)
+      self.assertLen({f.general_id for f in funcs}, 1,
+                     "Multiple generals for %s" % ability_id)
 
   def testValidFunctionsAreConsistent(self):
     feats = features.Features(features.AgentInterfaceFormat(
@@ -401,7 +401,7 @@ class FeaturesTest(absltest.TestCase):
       func = actions.FUNCTIONS[func_def.id]
       self.assertEqual(func_def.id, func.id)
       self.assertEqual(func_def.name, func.name)
-      self.assertEqual(len(func_def.args), len(func.args))
+      self.assertEqual(len(func_def.args), len(func.args))  # pylint: disable=g-generic-assert
 
   def gen_random_function_call(self, action_spec, func_id):
     args = [[numpy.random.randint(0, size) for size in arg.sizes]
@@ -450,7 +450,7 @@ class FeaturesTest(absltest.TestCase):
                               point.Point(*a[2]).floor())
 
           self.assertEqual(func_call.function, func_call2.function)
-          self.assertEqual(len(func_call.arguments), len(func_call2.arguments))
+          self.assertEqual(len(func_call.arguments), len(func_call2.arguments))  # pylint: disable=g-generic-assert
           self.assertEqual(func_call.arguments[0], func_call2.arguments[0])
           self.assertEqual(rect(func_call.arguments),
                            rect(func_call2.arguments))
