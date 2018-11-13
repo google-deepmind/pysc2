@@ -887,26 +887,31 @@ class Features(object):
     aif = self._agent_interface_format
 
     if aif.feature_dimensions:
-      out["feature_screen"] = named_array.NamedNumpyArray(
-          np.stack(or_zeros(f.unpack(obs.observation),
-                            aif.feature_dimensions.screen)
-                   for f in SCREEN_FEATURES),
-          names=[ScreenFeatures, None, None])
-      out["feature_minimap"] = named_array.NamedNumpyArray(
-          np.stack(or_zeros(f.unpack(obs.observation),
-                            aif.feature_dimensions.minimap)
-                   for f in MINIMAP_FEATURES),
-          names=[MinimapFeatures, None, None])
+      with sw("feature_screen"):
+        out["feature_screen"] = named_array.NamedNumpyArray(
+            np.stack(or_zeros(f.unpack(obs.observation),
+                              aif.feature_dimensions.screen)
+                     for f in SCREEN_FEATURES),
+            names=[ScreenFeatures, None, None])
+      with sw("feature_minimap"):
+        out["feature_minimap"] = named_array.NamedNumpyArray(
+            np.stack(or_zeros(f.unpack(obs.observation),
+                              aif.feature_dimensions.minimap)
+                     for f in MINIMAP_FEATURES),
+            names=[MinimapFeatures, None, None])
 
     if aif.rgb_dimensions:
-      out["rgb_screen"] = Feature.unpack_rgb_image(
-          obs.observation.render_data.map).astype(np.int32)
-      out["rgb_minimap"] = Feature.unpack_rgb_image(
-          obs.observation.render_data.minimap).astype(np.int32)
+      with sw("rgb_screen"):
+        out["rgb_screen"] = Feature.unpack_rgb_image(
+            obs.observation.render_data.map).astype(np.int32)
+      with sw("rgb_minimap"):
+        out["rgb_minimap"] = Feature.unpack_rgb_image(
+            obs.observation.render_data.minimap).astype(np.int32)
 
-    out["last_actions"] = np.array(
-        [self.reverse_action(a).function for a in obs.actions],
-        dtype=np.int32)
+    with sw("last_actions"):
+      out["last_actions"] = np.array(
+          [self.reverse_action(a).function for a in obs.actions],
+          dtype=np.int32)
 
     out["action_result"] = np.array([o.result for o in obs.action_errors],
                                     dtype=np.int32)
@@ -915,36 +920,37 @@ class Features(object):
 
     out["game_loop"] = np.array([obs.observation.game_loop], dtype=np.int32)
 
-    score_details = obs.observation.score.score_details
-    out["score_cumulative"] = named_array.NamedNumpyArray([
-        obs.observation.score.score,
-        score_details.idle_production_time,
-        score_details.idle_worker_time,
-        score_details.total_value_units,
-        score_details.total_value_structures,
-        score_details.killed_value_units,
-        score_details.killed_value_structures,
-        score_details.collected_minerals,
-        score_details.collected_vespene,
-        score_details.collection_rate_minerals,
-        score_details.collection_rate_vespene,
-        score_details.spent_minerals,
-        score_details.spent_vespene,
-    ], names=ScoreCumulative, dtype=np.int32)
+    with sw("score"):
+      score_details = obs.observation.score.score_details
+      out["score_cumulative"] = named_array.NamedNumpyArray([
+          obs.observation.score.score,
+          score_details.idle_production_time,
+          score_details.idle_worker_time,
+          score_details.total_value_units,
+          score_details.total_value_structures,
+          score_details.killed_value_units,
+          score_details.killed_value_structures,
+          score_details.collected_minerals,
+          score_details.collected_vespene,
+          score_details.collection_rate_minerals,
+          score_details.collection_rate_vespene,
+          score_details.spent_minerals,
+          score_details.spent_vespene,
+      ], names=ScoreCumulative, dtype=np.int32)
 
-    def get_score_details(key, details, categories):
-      row = getattr(details, key.name)
-      return [getattr(row, category.name) for category in categories]
+      def get_score_details(key, details, categories):
+        row = getattr(details, key.name)
+        return [getattr(row, category.name) for category in categories]
 
-    out["score_by_category"] = named_array.NamedNumpyArray([
-        get_score_details(key, score_details, ScoreCategories)
-        for key in ScoreByCategory
-    ], names=[ScoreByCategory, ScoreCategories], dtype=np.int32)
+      out["score_by_category"] = named_array.NamedNumpyArray([
+          get_score_details(key, score_details, ScoreCategories)
+          for key in ScoreByCategory
+      ], names=[ScoreByCategory, ScoreCategories], dtype=np.int32)
 
-    out["score_by_vital"] = named_array.NamedNumpyArray([
-        get_score_details(key, score_details, ScoreVitals)
-        for key in ScoreByVital
-    ], names=[ScoreByVital, ScoreVitals], dtype=np.int32)
+      out["score_by_vital"] = named_array.NamedNumpyArray([
+          get_score_details(key, score_details, ScoreVitals)
+          for key in ScoreByVital
+      ], names=[ScoreByVital, ScoreVitals], dtype=np.int32)
 
     player = obs.observation.player_common
     out["player"] = named_array.NamedNumpyArray([
@@ -1053,20 +1059,20 @@ class Features(object):
       with sw("feature_units"):
         # Update the camera location so we can calculate world to screen pos
         self._update_camera(point.Point.build(raw.player.camera))
-        feature_units = []
-        for u in raw.units:
-          if u.is_on_screen and u.display_type != sc_raw.Hidden:
-            feature_units.append(
-                full_unit_vec(u, self._world_to_feature_screen_px))
+        feature_units = [full_unit_vec(u, self._world_to_feature_screen_px)
+                         for u in raw.units
+                         if u.is_on_screen and u.display_type != sc_raw.Hidden]
         out["feature_units"] = named_array.NamedNumpyArray(
             feature_units, [None, FeatureUnit], dtype=np.int64)
 
     if aif.use_raw_units:
       with sw("raw_units"):
-        raw_units = [full_unit_vec(u, self._world_to_minimap_px, is_raw=True)
-                     for u in raw.units]
-        out["raw_units"] = named_array.NamedNumpyArray(
-            raw_units, [None, FeatureUnit], dtype=np.int64)
+        with sw("to_list"):
+          raw_units = [full_unit_vec(u, self._world_to_minimap_px, is_raw=True)
+                       for u in raw.units]
+        with sw("to_numpy"):
+          out["raw_units"] = named_array.NamedNumpyArray(
+              raw_units, [None, FeatureUnit], dtype=np.int64)
         if raw_units:
           self._raw_tags = out["raw_units"][:, FeatureUnit.tag]
         else:
