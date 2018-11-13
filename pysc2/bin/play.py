@@ -82,8 +82,10 @@ flags.DEFINE_string("replay", None, "Name of a replay to show.")
 
 def main(unused_argv):
   """Run SC2 to play a game or a replay."""
-  stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
-  stopwatch.sw.trace = FLAGS.trace
+  if FLAGS.trace:
+    stopwatch.sw.trace()
+  elif FLAGS.profile:
+    stopwatch.sw.enable()
 
   if (FLAGS.map and FLAGS.replay) or (not FLAGS.map and not FLAGS.replay):
     sys.exit("Must supply either a map or replay.")

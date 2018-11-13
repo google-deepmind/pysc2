@@ -108,8 +108,10 @@ def run_thread(agent_classes, players, map_name, visualize):
 
 def main(unused_argv):
   """Run an agent."""
-  stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
-  stopwatch.sw.trace = FLAGS.trace
+  if FLAGS.trace:
+    stopwatch.sw.trace()
+  elif FLAGS.profile:
+    stopwatch.sw.enable()
 
   map_inst = maps.get(FLAGS.map)
 

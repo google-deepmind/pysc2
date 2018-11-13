@@ -127,19 +127,17 @@ class StopwatchTest(absltest.TestCase):
 
     sw = stopwatch.StopWatch()
     for _ in range(10):
-      sw.enabled = True
-      sw.trace = False
+      sw.enable()
       with sw("enabled"):
         run()
 
-      sw.enabled = True
-      sw.trace = True
+      sw.trace()
       with sw("trace"):
         run()
 
-      sw.enabled = True  # To catch "disabled".
+      sw.enable()  # To catch "disabled".
       with sw("disabled"):
-        sw.enabled = False
+        sw.disable()
         run()
 
     # No asserts. Succeed but print the timings.

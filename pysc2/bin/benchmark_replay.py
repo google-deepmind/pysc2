@@ -52,7 +52,7 @@ def main(argv):
   if len(argv) > 1:
     raise app.UsageError("Too many command-line arguments.")
 
-  stopwatch.sw.enabled = True
+  stopwatch.sw.enable()
 
   interface = sc_pb.InterfaceOptions()
   interface.raw = FLAGS.use_feature_units or FLAGS.use_raw_units
