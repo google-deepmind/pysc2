@@ -30,6 +30,7 @@ from pysc2 import run_configs
 from pysc2.lib import actions
 from pysc2.lib import features
 from pysc2.lib import point
+from pysc2.lib import renderer_ascii
 from pysc2.lib import units
 from pysc2.tests import utils
 
@@ -37,18 +38,6 @@ from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 _EMPTY = 0
-printable_unit_types = {
-    _EMPTY: '.',
-    units.Neutral.MineralField: 'm',
-    units.Neutral.MineralField750: 'm',
-    units.Neutral.SpacePlatformGeyser: 'G',
-    units.Neutral.VespeneGeyser: 'G',
-    units.Terran.Barracks: 'B',
-    units.Terran.CommandCenter: 'C',
-    units.Terran.SCV: 's',
-    units.Terran.Marine: 'M',
-    units.Terran.SupplyDepot: 'D',
-}
 
 
 def identity_function(name, args):
@@ -114,30 +103,6 @@ class Config(object):
     }
     self.num_observations = max(self.actions.keys()) + 2
     self.player_id = 1
-
-
-def _obs_string(obs):
-  unit_type = obs.feature_screen.unit_type
-  selected = obs.feature_screen.selected
-  max_y, max_x = unit_type.shape
-  out = ''
-  for y in range(max_y):
-    started = False
-    for x in range(max_x):
-      s = selected[y, x]
-      u = unit_type[y, x]
-      if started and not s:
-        out += ')'
-      elif not started and s:
-        out += '('
-      else:
-        out += ' '
-      out += printable_unit_types.get(u, str(u))
-      started = s
-    if started:
-      out += ')'
-    out += '\n'
-  return out
 
 
 class GameController(object):
@@ -241,7 +206,7 @@ class ReplayObsTest(utils.TestCase):
         func = config.actions[o.game_loop](obs)
 
         print((' loop: %s ' % o.game_loop).center(80, '-'))
-        print(_obs_string(obs))
+        print(renderer_ascii.obs_string(obs))
         scv_y, scv_x = (units.Terran.SCV == unit_type).nonzero()
         print('scv locations: ', sorted(list(zip(scv_x, scv_y))))
         print('available actions: ', list(sorted(obs.available_actions)))
