@@ -544,8 +544,10 @@ class FeaturesTest(absltest.TestCase):
         rgb_dimensions=features.Dimensions(screen=(128, 132), minimap=(74, 77)),
         action_space=actions.ActionSpace.FEATURES))
     obs_spec = feats.observation_spec()
-    self.assertEqual(obs_spec["feature_screen"], (17, 80, 84))
-    self.assertEqual(obs_spec["feature_minimap"], (7, 67, 64))
+    self.assertEqual(obs_spec["feature_screen"],  # pylint: disable=g-generic-assert
+                     (len(features.SCREEN_FEATURES), 80, 84))
+    self.assertEqual(obs_spec["feature_minimap"],  # pylint: disable=g-generic-assert
+                     (len(features.MINIMAP_FEATURES), 67, 64))
     self.assertEqual(obs_spec["rgb_screen"], (132, 128, 3))
     self.assertEqual(obs_spec["rgb_minimap"], (77, 74, 3))
 

@@ -195,6 +195,7 @@ class FeatureUnit(enum.IntEnum):
   order_id_0 = 27  # Currently unused.
   order_id_1 = 28  # Currently unused.
   tag = 29  # Unique identifier for a unit (only populated for raw units).
+  hallucination = 30
 
 
 class Feature(collections.namedtuple(
@@ -265,7 +266,8 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
     "height_map", "visibility_map", "creep", "power", "player_id",
     "player_relative", "unit_type", "selected", "unit_hit_points",
     "unit_hit_points_ratio", "unit_energy", "unit_energy_ratio", "unit_shields",
-    "unit_shields_ratio", "unit_density", "unit_density_aa", "effects"])):
+    "unit_shields_ratio", "unit_density", "unit_density_aa", "effects",
+    "hallucinations"])):
   """The set of screen feature layers."""
   __slots__ = ()
 
@@ -327,6 +329,7 @@ SCREEN_FEATURES = ScreenFeatures(
     unit_density=(16, FeatureType.SCALAR, colors.hot, True),
     unit_density_aa=(256, FeatureType.SCALAR, colors.hot, False),
     effects=(16, FeatureType.CATEGORICAL, colors.effects, False),
+    hallucinations=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE, False),
 )
 
 MINIMAP_FEATURES = MinimapFeatures(
@@ -1049,7 +1052,8 @@ class Features(object):
           len(u.orders),
           0,  # Placeholder.
           0,  # Placeholder.
-          u.tag if is_raw else 0
+          u.tag if is_raw else 0,
+          u.is_hallucination,
       ]
       return features
 
