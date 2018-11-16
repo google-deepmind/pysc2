@@ -86,6 +86,7 @@ Bot = collections.namedtuple("Bot", ["race", "difficulty"])
 
 REALTIME_GAME_LOOP_SECONDS = 1 / 22.4
 MAX_STEP_COUNT = 524000  # The game fails above 2^19=524288 steps.
+NUM_ACTION_DELAY_BUCKETS = 10
 
 
 class SC2Env(environment.Base):
@@ -443,6 +444,22 @@ class SC2Env(environment.Base):
     """Look at Features for full specs."""
     return tuple(f.action_spec() for f in self._features)
 
+  def action_delays(self):
+    """In realtime we track the delay observation -> action executed.
+
+    Returns:
+      A list per agent of action delays, where action delays are a list where
+      the index in the list corresponds to the delay in game loops, the value
+      at that index the count over the course of an episode.
+
+    Raises:
+      ValueError: If called when not in realtime mode.
+    """
+    if not self._realtime:
+      raise ValueError("This method is only supported in realtime mode")
+
+    return self._action_delays
+
   def _restart(self):
     if len(self._controllers) == 1:
       self._controllers[0].restart()
@@ -469,6 +486,8 @@ class SC2Env(environment.Base):
     if self._realtime:
       self._last_step_time = time.time()
       self._target_step = 0
+      self._last_act_game_loop = [None] * self._num_agents
+      self._action_delays = [[0] * NUM_ACTION_DELAY_BUCKETS] * self._num_agents
 
     return self._observe()
 
@@ -493,6 +512,13 @@ class SC2Env(environment.Base):
             self._controllers, self._features, self._obs, actions))
 
     self._state = environment.StepType.MID
+
+    if self._realtime:
+      for i, (action, obs) in enumerate(zip(actions, self._obs)):
+        if (action.function != actions_lib.FUNCTIONS.no_op.id and
+            self._last_act_game_loop[i] is None):
+          self._last_act_game_loop[i] = obs.observation.game_loop
+
     return self._step(step_mul)
 
   def _step(self, step_mul=None):
@@ -533,6 +559,27 @@ class SC2Env(environment.Base):
       self._obs, self._agent_obs = zip(*self._parallel.run(
           (parallel_observe, c, f)
           for c, f in zip(self._controllers, self._features)))
+
+    if self._realtime:
+      # Track delays on executed actions.
+      for i, obs in enumerate(self._obs):
+        for action in obs.actions:
+          if action.HasField("game_loop") and (
+              self._last_act_game_loop[i] is not None):
+
+            delay = action.game_loop - self._last_act_game_loop[i]
+
+            # Delay zero is impossible (in that an action cannot possibly
+            # execute on the same game loop as the observation which was used
+            # to generate it), but we can see a delay of zero in this logic -
+            # when another action is issued before an in-flight action is
+            # executed. It is non-trivial to link issued to executed actions,
+            # hence we simply ignore zero delays here.
+            if delay:
+              num_slots = len(self._action_delays[i])
+              delay = min(delay, num_slots - 1)  # Cap to num buckets.
+              self._action_delays[i][delay] += 1
+              self._last_act_game_loop[i] = None
 
   def _observe(self):
     if not self._realtime:
