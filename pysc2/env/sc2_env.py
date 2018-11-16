@@ -511,7 +511,8 @@ class SC2Env(environment.Base):
 
       wait_time = next_step_time - time.time()
       if wait_time > 0.0:
-        time.sleep(wait_time)
+        with sw("wait_on_step_mul"):
+          time.sleep(wait_time)
 
       # Note that we use the targeted next_step_time here, not the actual
       # time. This is so that we advance our view of the SC2 game clock in
@@ -557,7 +558,8 @@ class SC2Env(environment.Base):
                 self._target_step,
                 game_loop)
 
-          time.sleep(REALTIME_GAME_LOOP_SECONDS)
+          with sw("wait_on_game_loop"):
+            time.sleep(REALTIME_GAME_LOOP_SECONDS)
         else:
           # We're beyond our target now.
           if needed_to_wait:
