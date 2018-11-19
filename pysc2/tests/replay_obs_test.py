@@ -205,8 +205,7 @@ class ReplayObsTest(utils.TestCase):
       if o.game_loop in config.actions:
         func = config.actions[o.game_loop](obs)
 
-        print((' loop: %s ' % o.game_loop).center(80, '-'))
-        print(renderer_ascii.obs_string(obs))
+        print(renderer_ascii.screen(obs))
         scv_y, scv_x = (units.Terran.SCV == unit_type).nonzero()
         print('scv locations: ', sorted(list(zip(scv_x, scv_y))))
         print('available actions: ', list(sorted(obs.available_actions)))

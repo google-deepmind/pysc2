@@ -56,16 +56,24 @@ def get_printable_unit_types():
 
 _printable_unit_types = get_printable_unit_types()
 
-VISIBILITY = "#%."
+VISIBILITY = "#+."  # Fogged, seen, visible.
+PLAYER_RELATIVE = ".SANE"  # self, allied, neutral, enemy.
 
 
-def obs_string(obs):
-  """Give a crude ascii rendering of the feature_screen."""
+def _summary(obs, view, width):
+  s = " %s: p%s; step: %s; money: %s, %s; food: %s/%s " % (
+      view, obs.player.player_id, obs.game_loop[0], obs.player.minerals,
+      obs.player.vespene, obs.player.food_used, obs.player.food_cap)
+  return s.center(max(len(s) + 6, width), "-")
+
+
+def screen(obs):
+  """Give a crude ascii rendering of feature_screen."""
   unit_type = obs.feature_screen.unit_type
   selected = obs.feature_screen.selected
   visibility = obs.feature_screen.visibility_map
   max_y, max_x = unit_type.shape
-  out = ""
+  out = _summary(obs, "screen", max_y * 2) + "\n"
   for y in range(max_y):
     started = False
     for x in range(max_x):
@@ -80,6 +88,36 @@ def obs_string(obs):
         out += " "
       if u:
         out += _printable_unit_types.get(u, str(u))
+      else:
+        out += VISIBILITY[v]
+      started = s
+    if started:
+      out += ")"
+    out += "\n"
+  return out
+
+
+def minimap(obs):
+  """Give a crude ascii rendering of feature_minimap."""
+  player = obs.feature_minimap.player_relative
+  selected = obs.feature_minimap.selected
+  visibility = obs.feature_minimap.visibility_map
+  max_y, max_x = visibility.shape
+  out = _summary(obs, "minimap", max_y * 2) + "\n"
+  for y in range(max_y):
+    started = False
+    for x in range(max_x):
+      s = selected[y, x]
+      p = player[y, x]
+      v = visibility[y, x]
+      if started and not s:
+        out += ")"
+      elif not started and s:
+        out += "("
+      else:
+        out += " "
+      if v:
+        out += PLAYER_RELATIVE[p]
       else:
         out += VISIBILITY[v]
       started = s
