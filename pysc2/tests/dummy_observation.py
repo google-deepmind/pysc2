@@ -319,7 +319,9 @@ class Builder(object):
         obs.ui_data.production.build_queue.add(**unit.as_dict())
 
     if self._feature_units:
-      for feature_unit in self._feature_units:
-        obs.raw_data.units.add(**feature_unit.as_dict())
+      for tag, feature_unit in enumerate(self._feature_units, 1):
+        args = dict(tag=tag)
+        args.update(feature_unit.as_dict())
+        obs.raw_data.units.add(**args)
 
     return response_observation
