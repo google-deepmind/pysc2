@@ -288,7 +288,7 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
 
 class MinimapFeatures(collections.namedtuple("MinimapFeatures", [
     "height_map", "visibility_map", "creep", "camera", "player_id",
-    "player_relative", "selected"])):
+    "player_relative", "selected", "alerts"])):
   """The set of minimap feature layers."""
   __slots__ = ()
 
@@ -341,6 +341,7 @@ MINIMAP_FEATURES = MinimapFeatures(
     player_relative=(5, FeatureType.CATEGORICAL,
                      colors.PLAYER_RELATIVE_PALETTE),
     selected=(2, FeatureType.CATEGORICAL, colors.winter),
+    alerts=(2, FeatureType.CATEGORICAL, colors.winter),
 )
 
 

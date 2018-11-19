@@ -48,6 +48,12 @@ class TestRender(utils.TestCase):
     interface.render.minimap_resolution.x = 128
     interface.render.minimap_resolution.y = 128
 
+    def or_zeros(layer, size):
+      if layer is not None:
+        return layer.astype(np.int32, copy=False)
+      else:
+        return np.zeros((size.y, size.x), dtype=np.int32)
+
     run_config = run_configs.get()
     with run_config.start() as controller:
       map_inst = maps.get("Simple64")
@@ -74,8 +80,12 @@ class TestRender(utils.TestCase):
         obs = observation.observation
         rgb_screen = features.Feature.unpack_rgb_image(obs.render_data.map)
         rgb_minimap = features.Feature.unpack_rgb_image(obs.render_data.minimap)
-        fl_screen = np.stack(f.unpack(obs) for f in features.SCREEN_FEATURES)
-        fl_minimap = np.stack(f.unpack(obs) for f in features.MINIMAP_FEATURES)
+        fl_screen = np.stack(
+            or_zeros(f.unpack(obs), interface.feature_layer.resolution)
+            for f in features.SCREEN_FEATURES)
+        fl_minimap = np.stack(
+            or_zeros(f.unpack(obs), interface.feature_layer.minimap_resolution)
+            for f in features.MINIMAP_FEATURES)
 
         # Right shapes.
         self.assertEqual(rgb_screen.shape, (256, 256, 3))
