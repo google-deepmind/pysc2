@@ -196,6 +196,8 @@ class FeatureUnit(enum.IntEnum):
   order_id_1 = 28  # Currently unused.
   tag = 29  # Unique identifier for a unit (only populated for raw units).
   hallucination = 30
+  buff_id_0 = 31
+  buff_id_1 = 32
 
 
 class Feature(collections.namedtuple(
@@ -1055,6 +1057,8 @@ class Features(object):
           0,  # Placeholder.
           u.tag if is_raw else 0,
           u.is_hallucination,
+          u.buff_ids[0] if len(u.buff_ids) >= 1 else 0,
+          u.buff_ids[1] if len(u.buff_ids) >= 2 else 0,
       ]
       return features
 
