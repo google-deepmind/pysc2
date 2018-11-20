@@ -62,17 +62,40 @@ def generate_py_units(data):
       print("  %s = %s" % (unit.name, unit.unit_id))
     print("\n")
 
+  print(" units.py ".center(60, "-"))
   print_race("Neutral", sc_common.NoRace)
   print_race("Protoss", sc_common.Protoss)
   print_race("Terran", sc_common.Terran)
   print_race("Zerg", sc_common.Zerg)
 
 
+def generate_py_buffs(data):
+  """Generate the list of buffs in buffs.py."""
+  print(" buffs.py ".center(60, "-"))
+  print("class Buffs(enum.IntEnum):")
+  print('  """The list of buffs, as returned from RequestData."""')
+  for buff in sorted(data.buffs, key=lambda a: a.name):
+    if buff.name and buff.buff_id in static_data.BUFFS:
+      print("  %s = %s" % (buff.name, buff.buff_id))
+  print("\n")
+
+
+def generate_py_upgrades(data):
+  """Generate the list of upgrades in upgrades.py."""
+  print(" upgrades.py ".center(60, "-"))
+  print("class Upgrades(enum.IntEnum):")
+  print('  """The list of upgrades, as returned from RequestData."""')
+  for upgrade in sorted(data.upgrades, key=lambda a: a.name):
+    if upgrade.name and upgrade.upgrade_id in static_data.UPGRADES:
+      print("  %s = %s" % (upgrade.name, upgrade.upgrade_id))
+  print("\n")
+
+
 def main(unused_argv):
   data = get_data()
-  print("-" * 60)
-
   generate_py_units(data)
+  generate_py_buffs(data)
+  generate_py_upgrades(data)
 
 
 if __name__ == "__main__":

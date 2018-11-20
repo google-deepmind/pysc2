@@ -79,6 +79,9 @@ class ReplayStats(object):
     self.made_abilities = collections.defaultdict(int)
     self.valid_actions = collections.defaultdict(int)
     self.made_actions = collections.defaultdict(int)
+    self.buffs = collections.defaultdict(int)
+    self.upgrades = collections.defaultdict(int)
+    self.effects = collections.defaultdict(int)
     self.crashing_replays = set()
     self.invalid_replays = set()
 
@@ -101,6 +104,9 @@ class ReplayStats(object):
     merge_dict(self.made_abilities, other.made_abilities)
     merge_dict(self.valid_actions, other.valid_actions)
     merge_dict(self.made_actions, other.made_actions)
+    merge_dict(self.buffs, other.buffs)
+    merge_dict(self.upgrades, other.upgrades)
+    merge_dict(self.effects, other.effects)
     self.crashing_replays |= other.crashing_replays
     self.invalid_replays |= other.invalid_replays
 
@@ -119,6 +125,9 @@ class ReplayStats(object):
         "Made abilities: %s\n%s" % len_sorted_dict(self.made_abilities),
         "Valid actions: %s\n%s" % len_sorted_dict(self.valid_actions),
         "Made actions: %s\n%s" % len_sorted_dict(self.made_actions),
+        "Buffs: %s\n%s" % len_sorted_dict(self.buffs),
+        "Upgrades: %s\n%s" % len_sorted_dict(self.upgrades),
+        "Effects: %s\n%s" % len_sorted_dict(self.effects),
         "Crashing replays: %s\n%s" % len_sorted_list(self.crashing_replays),
         "Invalid replays: %s\n%s" % len_sorted_list(self.invalid_replays),
     ))
@@ -281,6 +290,14 @@ class ReplayProcessor(multiprocessing.Process):
 
       for u in obs.observation.raw_data.units:
         self.stats.replay_stats.unit_ids[u.unit_type] += 1
+        for b in u.buff_ids:
+          self.stats.replay_stats.buffs[b] += 1
+
+      for u in obs.observation.raw_data.player.upgrade_ids:
+        self.stats.replay_stats.upgrades[u] += 1
+
+      for e in obs.observation.raw_data.effects:
+        self.stats.replay_stats.effects[e.effect_id] += 1
 
       for ability_id in feat.available_actions(obs.observation):
         self.stats.replay_stats.valid_actions[ability_id] += 1

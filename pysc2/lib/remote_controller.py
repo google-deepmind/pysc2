@@ -222,10 +222,12 @@ class RemoteController(object):
 
   @valid_status(Status.in_game, Status.in_replay)
   @sw.decorate
-  def data_raw(self):
+  def data_raw(self, ability_id=True, unit_type_id=True, upgrade_id=True,
+               buff_id=True, effect_id=True):
     """Get the raw static data for the current game. Prefer `data` instead."""
     return self._client.send(data=sc_pb.RequestData(
-        ability_id=True, unit_type_id=True))
+        ability_id=ability_id, unit_type_id=unit_type_id, upgrade_id=upgrade_id,
+        buff_id=buff_id, effect_id=effect_id))
 
   def data(self):
     """Get the static data for the current game."""
