@@ -411,8 +411,10 @@ class SC2Env(environment.Base):
     self._controllers[0].create_game(create)
 
     # Create the join requests.
-    agent_players = (p for p in self._players if isinstance(p, Agent))
+    agent_players = [p for p in self._players if isinstance(p, Agent)]
     join_reqs = []
+    name_counts = collections.Counter(p.name for p in agent_players)
+    name_index = collections.defaultdict(lambda: 1)
     for agent_index, p in enumerate(agent_players):
       ports = self._ports[:]
       join = sc_pb.RequestJoinGame(options=interfaces[agent_index])
@@ -424,7 +426,11 @@ class SC2Env(environment.Base):
                               base_port=ports.pop(0))
 
       join.race = p.race
-      join.player_name = p.name
+      if name_counts[p.name] == 1:
+        join.player_name = p.name
+      else:
+        join.player_name = "({}) {}".format(name_index[p.name], p.name)
+        name_index[p.name] += 1
       join_reqs.append(join)
 
     # Join the game. This must be run in parallel because Join is a blocking
