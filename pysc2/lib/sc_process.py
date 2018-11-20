@@ -31,7 +31,8 @@ import portpicker
 from pysc2.lib import remote_controller
 from pysc2.lib import stopwatch
 
-flags.DEFINE_bool("sc2_verbose", False, "Enable SC2 verbose logging.")
+flags.DEFINE_bool(
+    "sc2_verbose", False, "Enable SC2 verbose logging.", allow_hide_cpp=True)
 flags.DEFINE_integer("sc2_port", None,
                      "If set, connect to the instance on "
                      "localhost:sc2_port instead of launching one.")
