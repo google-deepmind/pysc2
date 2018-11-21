@@ -331,6 +331,7 @@ class SC2Env(environment.Base):
              agent_interface_format.use_unit_counts or
              agent_interface_format.use_raw_units or
              require_raw),
+        show_cloaked=agent_interface_format.show_cloaked,
         score=True)
 
     if agent_interface_format.feature_dimensions:

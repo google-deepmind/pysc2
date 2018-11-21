@@ -269,7 +269,7 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
     "player_relative", "unit_type", "selected", "unit_hit_points",
     "unit_hit_points_ratio", "unit_energy", "unit_energy_ratio", "unit_shields",
     "unit_shields_ratio", "unit_density", "unit_density_aa", "effects",
-    "hallucinations"])):
+    "hallucinations", "cloaked", "blip"])):
   """The set of screen feature layers."""
   __slots__ = ()
 
@@ -332,6 +332,8 @@ SCREEN_FEATURES = ScreenFeatures(
     unit_density_aa=(256, FeatureType.SCALAR, colors.hot, False),
     effects=(16, FeatureType.CATEGORICAL, colors.effects, False),
     hallucinations=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE, False),
+    cloaked=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE, False),
+    blip=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE, False),
 )
 
 MINIMAP_FEATURES = MinimapFeatures(
@@ -422,6 +424,7 @@ class AgentInterfaceFormat(object):
       use_raw_units=False,
       use_unit_counts=False,
       use_camera_position=False,
+      show_cloaked=False,
       hide_specific_actions=True):
     """Initializer.
 
@@ -448,6 +451,7 @@ class AgentInterfaceFormat(object):
           default since it gives information outside the visible area.
       use_camera_position: Whether to include the camera's position (in world
           units) in the observations.
+      show_cloaked: Whether to show limited information for cloaked units.
       hide_specific_actions: [bool] Some actions (eg cancel) have many
           specific versions (cancel this building, cancel that spell) and can
           be represented in a more general form. If a specific action is
@@ -501,6 +505,7 @@ class AgentInterfaceFormat(object):
     self._raw_resolution = raw_resolution
     self._use_unit_counts = use_unit_counts
     self._use_camera_position = use_camera_position
+    self._show_cloaked = show_cloaked
     self._hide_specific_actions = hide_specific_actions
 
     if action_space == actions.ActionSpace.FEATURES:
@@ -549,6 +554,10 @@ class AgentInterfaceFormat(object):
     return self._use_camera_position
 
   @property
+  def show_cloaked(self):
+    return self._show_cloaked
+
+  @property
   def hide_specific_actions(self):
     return self._hide_specific_actions
 
@@ -568,6 +577,7 @@ def parse_agent_interface_format(
     use_raw_units=False,
     raw_resolution=None,
     use_unit_counts=False,
+    show_cloaked=False,
     use_camera_position=False):
   """Creates an AgentInterfaceFormat object from keyword args.
 
@@ -590,6 +600,7 @@ def parse_agent_interface_format(
     use_raw_units: A boolean, defaults to False.
     raw_resolution: An int, defaults to None.
     use_unit_counts: A boolean, defaults to False.
+    show_cloaked: A boolean, defaults to False.
     use_camera_position: A boolean, defaults to False.
 
   Returns:
@@ -621,6 +632,7 @@ def parse_agent_interface_format(
       use_feature_units=use_feature_units,
       use_raw_units=use_raw_units,
       use_unit_counts=use_unit_counts,
+      show_cloaked=show_cloaked,
       use_camera_position=use_camera_position,
   )
 
@@ -633,6 +645,7 @@ def features_from_game_info(
     action_space=None,
     hide_specific_actions=True,
     use_unit_counts=False,
+    show_cloaked=False,
     use_camera_position=False):
   """Construct a Features object using data extracted from game info.
 
@@ -659,6 +672,7 @@ def features_from_game_info(
         only the general actions.
     use_unit_counts: Whether to include unit_counts observation. Disabled by
         default since it gives information outside the visible area.
+    show_cloaked: Whether to show limited information for cloaked units.
     use_camera_position: Whether to include the camera's position (in world
         units) in the observations.
 
@@ -697,6 +711,7 @@ def features_from_game_info(
           use_camera_position=use_camera_position,
           camera_width_world_units=camera_width_world_units,
           action_space=action_space,
+          show_cloaked=show_cloaked,
           hide_specific_actions=hide_specific_actions),
       map_size=map_size)
 
@@ -1069,8 +1084,7 @@ class Features(object):
         # Update the camera location so we can calculate world to screen pos
         self._update_camera(point.Point.build(raw.player.camera))
         feature_units = [full_unit_vec(u, self._world_to_feature_screen_px)
-                         for u in raw.units
-                         if u.is_on_screen and u.display_type != sc_raw.Hidden]
+                         for u in raw.units if u.is_on_screen]
         out["feature_units"] = named_array.NamedNumpyArray(
             feature_units, [None, FeatureUnit], dtype=np.int64)
 
