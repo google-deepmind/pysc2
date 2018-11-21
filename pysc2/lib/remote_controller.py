@@ -299,7 +299,7 @@ class RemoteController(object):
     """Shut down the SC2 process."""
     try:
       # Don't expect a response.
-      self._client.write(sc_pb.Request(quit=sc_pb.RequestQuit()))
+      self._client.write(sc_pb.Request(quit=sc_pb.RequestQuit(), id=999999999))
     except protocol.ConnectionError:
       pass  # It's likely already (shutting) down, so continue as if it worked.
     finally:

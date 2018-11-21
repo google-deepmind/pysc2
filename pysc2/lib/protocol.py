@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import contextlib
+import itertools
 from absl import logging
 import os
 import socket
@@ -53,7 +54,7 @@ class ConnectionError(Exception):
   pass
 
 
-class ProtocolError(Exception):
+class ProtocolError(Exception):  # pylint: disable=g-bad-exception-name
   """SC2 responded with an error message likely due to a bad request or bug."""
   pass
 
@@ -79,6 +80,7 @@ class StarcraftProtocol(object):
     self._status = Status.launched
     self._sock = sock
     self._port = sock.sock.getpeername()[1]
+    self._count = itertools.count(1)
 
   @property
   def status(self):
@@ -138,13 +140,20 @@ class StarcraftProtocol(object):
 
     Returns:
       The Response corresponding to your request.
+    Raises:
+      ConnectionError: if it gets a different response.
     """
     assert len(kwargs) == 1, "Must make a single request."
     name = list(kwargs.keys())[0]
+    req = sc_pb.Request(**kwargs)
+    req.id = next(self._count)
     try:
-      res = self.send_req(sc_pb.Request(**kwargs))
+      res = self.send_req(req)
     except ConnectionError as e:
       raise ConnectionError("Error during %s: %s" % (name, e))
+    if res.HasField("id") and res.id != req.id:
+      raise ConnectionError(
+          "Error during %s: Got a response with a different id" % name)
     return getattr(res, name)
 
   def _packet_str(self, packet):
