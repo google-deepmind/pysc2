@@ -204,11 +204,20 @@ SELECTED_PALETTE = numpy.array([black, green * 0.7])
 
 def unit_type(scale=None):
   """Returns a palette that maps unit types to rgb colors."""
+  return categorical(static_data.UNIT_TYPES, scale)
+
+
+def buffs(scale=None):
+  """Returns a palette that maps buffs to rgb colors."""
+  return categorical(static_data.BUFFS, scale)
+
+
+def categorical(options, scale=None):
   # Can specify a scale to match the api or to accept unknown unit types.
-  palette_size = scale or max(static_data.UNIT_TYPES) + 1
+  palette_size = scale or max(options) + 1
   palette = shuffled_hue(palette_size)
-  assert len(static_data.UNIT_TYPES) <= len(distinct_colors)
-  for i, v in enumerate(static_data.UNIT_TYPES):
+  assert len(options) <= len(distinct_colors)
+  for i, v in enumerate(options):
     palette[v] = distinct_colors[i]
   return palette
 

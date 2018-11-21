@@ -61,6 +61,7 @@ class Visibility(enum.IntEnum):
 class Effects(enum.IntEnum):
   """Values for the `effects` feature layer."""
   # pylint: disable=invalid-name
+  none = 0
   PsiStorm = 1
   GuardianShield = 2
   TemporalFieldGrowing = 3
@@ -200,6 +201,16 @@ class FeatureUnit(enum.IntEnum):
   buff_id_1 = 32
 
 
+class EffectPos(enum.IntEnum):
+  """Positions of the active effects."""
+  effect = 0
+  alliance = 1
+  owner = 2
+  radius = 3
+  x = 4
+  y = 5
+
+
 class Feature(collections.namedtuple(
     "Feature", ["index", "name", "layer_set", "full_name", "scale", "type",
                 "palette", "clip"])):
@@ -269,7 +280,7 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
     "player_relative", "unit_type", "selected", "unit_hit_points",
     "unit_hit_points_ratio", "unit_energy", "unit_energy_ratio", "unit_shields",
     "unit_shields_ratio", "unit_density", "unit_density_aa", "effects",
-    "hallucinations", "cloaked", "blip"])):
+    "hallucinations", "cloaked", "blip", "buffs"])):
   """The set of screen feature layers."""
   __slots__ = ()
 
@@ -334,6 +345,8 @@ SCREEN_FEATURES = ScreenFeatures(
     hallucinations=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE, False),
     cloaked=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE, False),
     blip=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE, False),
+    buffs=(max(static_data.BUFFS) + 1, FeatureType.CATEGORICAL,
+           colors.buffs, False),
 )
 
 MINIMAP_FEATURES = MinimapFeatures(
@@ -871,9 +884,11 @@ class Features(object):
                                  3)
     if aif.use_feature_units:
       obs_spec["feature_units"] = (0, len(FeatureUnit))  # pytype: disable=wrong-arg-types
+      obs_spec["feature_effects"] = (0, len(EffectPos))
 
     if aif.use_raw_units:
       obs_spec["raw_units"] = (0, len(FeatureUnit))
+      obs_spec["raw_effects"] = (0, len(EffectPos))
       obs_spec["upgrades"] = (0,)
 
     if aif.use_unit_counts:
@@ -1088,6 +1103,25 @@ class Features(object):
         out["feature_units"] = named_array.NamedNumpyArray(
             feature_units, [None, FeatureUnit], dtype=np.int64)
 
+        feature_effects = []
+        feature_screen_size = aif.feature_dimensions.screen
+        for effect in raw.effects:
+          for pos in effect.pos:
+            screen_pos = self._world_to_feature_screen_px.fwd_pt(
+                point.Point.build(pos))
+            if (0 <= screen_pos.x < feature_screen_size.x and
+                0 <= screen_pos.y < feature_screen_size.y):
+              feature_effects.append([
+                  effect.effect_id,
+                  effect.alliance,
+                  effect.owner,
+                  effect.radius,
+                  screen_pos.x,
+                  screen_pos.y,
+              ])
+        out["feature_effects"] = named_array.NamedNumpyArray(
+            feature_effects, [None, EffectPos], dtype=np.int32)
+
     if aif.use_raw_units:
       with sw("raw_units"):
         with sw("to_list"):
@@ -1101,6 +1135,21 @@ class Features(object):
         else:
           self._raw_tags = np.array([])
         out["upgrades"] = np.array(raw.player.upgrade_ids, dtype=np.int32)
+
+        raw_effects = []
+        for effect in raw.effects:
+          for pos in effect.pos:
+            raw_pos = self._world_to_minimap_px.fwd_pt(point.Point.build(pos))
+            raw_effects.append([
+                effect.effect_id,
+                effect.alliance,
+                effect.owner,
+                effect.radius,
+                raw_pos.x,
+                raw_pos.y,
+            ])
+        out["raw_effects"] = named_array.NamedNumpyArray(
+            raw_effects, [None, EffectPos], dtype=np.int32)
 
     if aif.use_unit_counts:
       with sw("unit_counts"):
