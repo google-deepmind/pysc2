@@ -199,6 +199,7 @@ class FeatureUnit(enum.IntEnum):
   hallucination = 30
   buff_id_0 = 31
   buff_id_1 = 32
+  addon_unit_type = 33
 
 
 class EffectPos(enum.IntEnum):
@@ -1045,6 +1046,13 @@ class Features(object):
             [unit_vec(u) for u in ui.production.build_queue],
             [None, UnitLayer])
 
+    tag_types = {}  # Only populate the cache if it's needed.
+    def get_addon_type(tag):
+      if not tag_types:
+        for u in raw.units:
+          tag_types[u.tag] = u.unit_type
+      return tag_types.get(tag, 0)
+
     def full_unit_vec(u, pos_transform, is_raw=False):
       """Compute unit features."""
       screen_pos = pos_transform.fwd_pt(
@@ -1089,6 +1097,7 @@ class Features(object):
           u.is_hallucination,
           u.buff_ids[0] if len(u.buff_ids) >= 1 else 0,
           u.buff_ids[1] if len(u.buff_ids) >= 2 else 0,
+          get_addon_type(u.add_on_tag) if u.add_on_tag else 0,
       ]
       return features
 
