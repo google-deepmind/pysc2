@@ -284,6 +284,12 @@ class NamedArrayTest(parameterized.TestCase):
     self.assertIn("49", str(a))
     self.assertIn("49", repr(a))
 
+  def test_long_string(self):
+    a = named_array.NamedNumpyArray([0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                    [str(i) for i in range(13)], dtype=np.int32)
+    self.assertEqual(repr(a), ("NamedNumpyArray([ 0,  0,  0, 50,  0,  0,  0,  0,  0,  0,  0,  0,  0], "
+                               "['0', '1', '2', '3', '4', '...', '8', '9', '10', '11', '12'] dtype=int32)"))
+
   def test_pickle(self):
     arr = named_array.NamedNumpyArray([1, 3, 6], ["a", "b", "c"])
     pickled = pickle.loads(pickle.dumps(arr))
