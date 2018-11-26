@@ -29,7 +29,7 @@ from pysc2.lib import run_parallel
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
-class RestartException(Exception):
+class RestartError(Exception):
   pass
 
 
@@ -199,4 +199,4 @@ class RemoteSC2Env(sc2_env.SC2Env):
   def _restart(self):
     # Can't restart since it's not clear how you'd coordinate that with the
     # other players.
-    raise RestartException("Can't restart")
+    raise RestartError("Can't restart")

@@ -196,7 +196,7 @@ def forward_ports(remote_host, local_host, local_listen_ports,
                           stdin=subprocess.PIPE, close_fds=(os.name == "posix"))
 
 
-class RestartException(Exception):
+class RestartError(Exception):
   pass
 
 
@@ -345,7 +345,7 @@ class LanSC2Env(sc2_env.SC2Env):
   def _restart(self):
     # Can't restart since it's not clear how you'd coordinate that with the
     # other players.
-    raise RestartException("Can't restart")
+    raise RestartError("Can't restart")
 
   def close(self):
     if hasattr(self, "_tcp_conn") and self._tcp_conn:

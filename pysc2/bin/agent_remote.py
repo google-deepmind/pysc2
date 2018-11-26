@@ -147,7 +147,7 @@ def agent():
     logging.info("Connected, starting run_loop.")
     try:
       run_loop.run_loop(agents, env)
-    except remote_sc2_env.RestartException:
+    except remote_sc2_env.RestartError:
       pass
   logging.info("Done.")
 
