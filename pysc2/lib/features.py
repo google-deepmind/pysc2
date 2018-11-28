@@ -890,7 +890,8 @@ class Features(object):
     if aif.use_raw_units:
       obs_spec["raw_units"] = (0, len(FeatureUnit))
       obs_spec["raw_effects"] = (0, len(EffectPos))
-      obs_spec["upgrades"] = (0,)
+
+    obs_spec["upgrades"] = (0,)
 
     if aif.use_unit_counts:
       obs_spec["unit_counts"] = (0, len(UnitCounts))
@@ -1143,7 +1144,6 @@ class Features(object):
           self._raw_tags = out["raw_units"][:, FeatureUnit.tag]
         else:
           self._raw_tags = np.array([])
-        out["upgrades"] = np.array(raw.player.upgrade_ids, dtype=np.int32)
 
         raw_effects = []
         for effect in raw.effects:
@@ -1159,6 +1159,8 @@ class Features(object):
             ])
         out["raw_effects"] = named_array.NamedNumpyArray(
             raw_effects, [None, EffectPos], dtype=np.int32)
+
+    out["upgrades"] = np.array(raw.player.upgrade_ids, dtype=np.int32)
 
     if aif.use_unit_counts:
       with sw("unit_counts"):
