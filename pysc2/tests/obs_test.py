@@ -341,7 +341,7 @@ class ObsTest(absltest.TestCase):
     self.assertLess(archon.pos.z, observer.pos.z)  # The observer flies.
     self.assertGreater(archon.radius, observer.radius)
 
-    # Move them towards the center, make sure they move and rotate.
+    # Move them towards the center, make sure they move.
     self.raw_unit_command(0, 16, (archon.tag, observer.tag), (50, 45))
 
     self.step(40)
@@ -353,8 +353,6 @@ class ObsTest(absltest.TestCase):
     self.assertGreater(archon2.pos.x, 40)
     self.assertLess(observer2.pos.x, 60)
     self.assertLess(archon2.pos.z, observer2.pos.z)
-    self.assertNotEqual(archon.facing, archon2.facing)
-    self.assertNotEqual(observer.facing, observer2.facing)
 
   @setup()
   def test_fog(self):
