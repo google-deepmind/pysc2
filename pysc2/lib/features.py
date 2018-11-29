@@ -200,6 +200,7 @@ class FeatureUnit(enum.IntEnum):
   buff_id_0 = 31
   buff_id_1 = 32
   addon_unit_type = 33
+  active = 34
 
 
 class EffectPos(enum.IntEnum):
@@ -281,7 +282,7 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
     "player_relative", "unit_type", "selected", "unit_hit_points",
     "unit_hit_points_ratio", "unit_energy", "unit_energy_ratio", "unit_shields",
     "unit_shields_ratio", "unit_density", "unit_density_aa", "effects",
-    "hallucinations", "cloaked", "blip", "buffs"])):
+    "hallucinations", "cloaked", "blip", "buffs", "active"])):
   """The set of screen feature layers."""
   __slots__ = ()
 
@@ -348,6 +349,7 @@ SCREEN_FEATURES = ScreenFeatures(
     blip=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE, False),
     buffs=(max(static_data.BUFFS) + 1, FeatureType.CATEGORICAL,
            colors.buffs, False),
+    active=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE, False),
 )
 
 MINIMAP_FEATURES = MinimapFeatures(
@@ -1099,6 +1101,7 @@ class Features(object):
           u.buff_ids[0] if len(u.buff_ids) >= 1 else 0,
           u.buff_ids[1] if len(u.buff_ids) >= 2 else 0,
           get_addon_type(u.add_on_tag) if u.add_on_tag else 0,
+          u.is_active,
       ]
       return features
 

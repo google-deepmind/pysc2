@@ -23,6 +23,7 @@ import functools
 from absl.testing import absltest
 
 from pysc2.env import sc2_env
+from pysc2.lib import actions
 from pysc2.lib import buffs
 from pysc2.lib import features
 from pysc2.lib import point
@@ -117,6 +118,8 @@ class ObsTest(absltest.TestCase):
 
   def raw_unit_command(self, player, ability_id, unit_tags, pos=None,
                        target=None):
+    if isinstance(ability_id, str):
+      ability_id = actions.FUNCTIONS[ability_id].ability_id
     action = sc_pb.Action()
     cmd = action.action_raw.unit_command
     cmd.ability_id = ability_id
@@ -144,6 +147,8 @@ class ObsTest(absltest.TestCase):
   def create_unit(self, unit_type, owner, pos, quantity=1):
     if isinstance(pos, tuple):
       pos = sc_common.Point2D(x=pos[0], y=pos[1])
+    elif isinstance(pos, sc_common.Point):
+      pos = sc_common.Point2D(x=pos.x, y=pos.y)
     return self.debug(create_unit=sc_debug.DebugCreateUnit(
         unit_type=unit_type, owner=owner, pos=pos, quantity=quantity))
 
@@ -169,6 +174,7 @@ class ObsTest(absltest.TestCase):
 
   def assert_unit(self, unit, **kwargs):
     self.assertTrue(unit)
+    self.assertIsInstance(unit, sc_raw.Unit)
     for k, v in sorted(kwargs.items()):
       if k == "pos":
         self.assert_point(unit.pos, v)
@@ -197,7 +203,7 @@ class ObsTest(absltest.TestCase):
     obs = self.observe()
 
     # Create a hallucinated archon.
-    self.raw_unit_command(0, 146, tag)  # Hallucinate Archon
+    self.raw_unit_command(0, "Hallucination_Archon_quick", tag)
 
     self.step()
     obs = self.observe()
@@ -342,7 +348,8 @@ class ObsTest(absltest.TestCase):
     self.assertGreater(archon.radius, observer.radius)
 
     # Move them towards the center, make sure they move.
-    self.raw_unit_command(0, 16, (archon.tag, observer.tag), (50, 45))
+    self.raw_unit_command(0, "Move_screen", (archon.tag, observer.tag),
+                          (50, 45))
 
     self.step(40)
     obs2 = self.observe()
@@ -421,7 +428,7 @@ class ObsTest(absltest.TestCase):
     self.step()
     obs = self.observe()
 
-    self.raw_unit_command(0, 76, sentry.tag)  # Guardian Shield
+    self.raw_unit_command(0, "Effect_GuardianShield_quick", sentry.tag)
 
     self.step(16)
     obs = self.observe()
@@ -483,8 +490,8 @@ class ObsTest(absltest.TestCase):
     self.assertEqual(e.owner, 1)
     self.assertGreater(e.radius, 3)
 
-    # Graviton Beam
-    self.raw_unit_command(1, 173, pheonix.tag, target=stalker.tag)
+    self.raw_unit_command(1, "Effect_GravitonBeam_screen", pheonix.tag,
+                          target=stalker.tag)
 
     self.step(32)
     obs = self.observe()
@@ -501,6 +508,73 @@ class ObsTest(absltest.TestCase):
                      get_unit(obs[0], tag=pheonix.tag).buff_ids)
     self.assertNotIn(buffs.Buffs.GravitonBeam,
                      get_unit(obs[1], tag=pheonix.tag).buff_ids)
+
+  @setup()
+  def test_active(self):
+    obs = self.observe()
+
+    # P1 can see P2.
+    self.create_unit(unit_type=units.Protoss.Observer, owner=1,
+                     pos=get_unit(obs[1], unit_type=units.Protoss.Nexus).pos)
+
+    self.step(32)  # Make sure visibility updates.
+    obs = self.observe()
+
+    for i, o in enumerate(obs):
+      # Probes are active gathering
+      for u in get_units(o, unit_type=units.Protoss.Probe).values():
+        self.assert_unit(u, display_type=sc_raw.Visible, is_active=True)
+
+      # Own Nexus is idle
+      nexus = get_unit(o, unit_type=units.Protoss.Nexus, owner=i+1)
+      self.assert_unit(nexus, display_type=sc_raw.Visible, is_active=False)
+      self.assertEmpty(nexus.orders)
+
+      # Give it an action.
+      self.raw_unit_command(i, "Train_Probe_quick", nexus.tag)
+
+    # P1 can tell P2's Nexus is idle.
+    nexus = get_unit(obs[0], unit_type=units.Protoss.Nexus, owner=2)
+    self.assert_unit(nexus, display_type=sc_raw.Visible, is_active=False)
+
+    # Observer is idle.
+    self.assert_unit(get_unit(obs[0], unit_type=units.Protoss.Observer),
+                     display_type=sc_raw.Visible, is_active=False)
+    self.assert_unit(get_unit(obs[1], unit_type=units.Protoss.Observer),
+                     display_type=sc_raw.Hidden, is_active=False)
+
+    self.step(32)
+    obs = self.observe()
+
+    # All Nexus are now active
+    nexus0 = get_unit(obs[0], unit_type=units.Protoss.Nexus, owner=1)  # own
+    nexus1 = get_unit(obs[0], unit_type=units.Protoss.Nexus, owner=2)  # other
+    nexus2 = get_unit(obs[1], unit_type=units.Protoss.Nexus)
+    self.assert_unit(nexus0, display_type=sc_raw.Visible, is_active=True)
+    self.assert_unit(nexus1, display_type=sc_raw.Visible, is_active=True)
+    self.assert_unit(nexus2, display_type=sc_raw.Visible, is_active=True)
+    self.assertLen(nexus0.orders, 1)
+    self.assertLen(nexus2.orders, 1)
+    self.assertEmpty(nexus1.orders, 0)  # Can't see opponent's orders
+
+    # Go back to a snapshot
+    self.kill_unit(get_unit(obs[0], unit_type=units.Protoss.Observer).tag)
+
+    self.step(100)  # Make sure visibility updates.
+    obs = self.observe()
+
+    self.assertIsNone(get_unit(obs[0], unit_type=units.Protoss.Observer))
+
+    # Own Nexus is now active, snapshot isn't.
+    nexus0 = get_unit(obs[0], unit_type=units.Protoss.Nexus, owner=1)  # own
+    nexus1 = get_unit(obs[0], unit_type=units.Protoss.Nexus, owner=2)  # other
+    nexus2 = get_unit(obs[1], unit_type=units.Protoss.Nexus)
+    self.assert_unit(nexus0, display_type=sc_raw.Visible, is_active=True)
+    self.assert_unit(nexus1, display_type=sc_raw.Snapshot, is_active=False)
+    self.assert_unit(nexus2, display_type=sc_raw.Visible, is_active=True)
+    self.assertLen(nexus0.orders, 1)
+    self.assertLen(nexus2.orders, 1)
+    self.assertEmpty(nexus1.orders, 0)  # Can't see opponent's orders
 
 
 if __name__ == "__main__":
