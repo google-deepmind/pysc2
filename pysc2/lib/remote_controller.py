@@ -235,9 +235,10 @@ class RemoteController(object):
 
   @valid_status(Status.in_game, Status.in_replay, Status.ended)
   @sw.decorate
-  def observe(self, disable_fog=False):
+  def observe(self, disable_fog=False, target_game_loop=0):
     """Get a current observation."""
     return self._client.send(observation=sc_pb.RequestObservation(
+        game_loop=target_game_loop,
         disable_fog=disable_fog))
 
   @valid_status(Status.in_game, Status.in_replay)

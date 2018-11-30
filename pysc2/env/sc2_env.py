@@ -492,11 +492,10 @@ class SC2Env(environment.Base):
     self._state = environment.StepType.FIRST
     if self._realtime:
       self._last_step_time = time.time()
-      self._target_step = 0
       self._last_act_game_loop = [None] * self._num_agents
       self._action_delays = [[0] * NUM_ACTION_DELAY_BUCKETS] * self._num_agents
 
-    return self._observe()
+    return self._observe(target_game_loop=0)
 
   @sw.decorate("step_env")
   def step(self, actions, step_mul=None):
@@ -537,28 +536,13 @@ class SC2Env(environment.Base):
       with self._metrics.measure_step_time(step_mul):
         self._parallel.run((c.step, step_mul)
                            for c in self._controllers)
-    else:
-      self._target_step = self._episode_steps + step_mul
-      next_step_time = self._last_step_time + (
-          step_mul * REALTIME_GAME_LOOP_SECONDS)
 
-      wait_time = next_step_time - time.time()
-      if wait_time > 0.0:
-        with sw("wait_on_step_mul"):
-          time.sleep(wait_time)
+    return self._observe(target_game_loop=self._episode_steps + step_mul)
 
-      # Note that we use the targeted next_step_time here, not the actual
-      # time. This is so that we advance our view of the SC2 game clock in
-      # REALTIME_GAME_LOOP_SECONDS increments rather than it slipping with
-      # round trip latencies.
-      self._last_step_time = next_step_time
-
-    return self._observe()
-
-  def _get_observations(self):
+  def _get_observations(self, target_game_loop):
     # Transform in the thread so it runs while waiting for other observations.
     def parallel_observe(c, f):
-      obs = c.observe()
+      obs = c.observe(target_game_loop=target_game_loop)
       agent_obs = f.transform_obs(obs)
       return obs, agent_obs
 
@@ -566,6 +550,14 @@ class SC2Env(environment.Base):
       self._obs, self._agent_obs = zip(*self._parallel.run(
           (parallel_observe, c, f)
           for c, f in zip(self._controllers, self._features)))
+
+    game_loop = self._agent_obs[0].game_loop[0]
+    if game_loop < target_game_loop:
+      raise ValueError("The game didn't advance to the expected game loop")
+    elif game_loop > target_game_loop:
+      logging.warn(
+          "We got a later observation than we asked for, %d rather than %d.",
+          game_loop, target_game_loop)
 
     if self._realtime:
       # Track delays on executed actions.
@@ -588,38 +580,8 @@ class SC2Env(environment.Base):
               self._action_delays[i][delay] += 1
               self._last_act_game_loop[i] = None
 
-  def _observe(self):
-    if not self._realtime:
-      self._get_observations()
-    else:
-      needed_to_wait = False
-      while True:
-        self._get_observations()
-
-        # Player results don't persist from observation to observation,
-        # hence we need to check here so that we don't miss them.
-        if any(o.player_result for o in self._obs):
-          break
-
-        # Check that the game has advanced sufficiently.
-        # If it hasn't, wait for it to.
-        game_loop = self._agent_obs[0].game_loop[0]
-        if game_loop < self._target_step:
-          if not needed_to_wait:
-            needed_to_wait = True
-            logging.info(
-                "Target step is %s, game loop is %s, waiting...",
-                self._target_step,
-                game_loop)
-
-          with sw("wait_on_game_loop"):
-            time.sleep(REALTIME_GAME_LOOP_SECONDS)
-        else:
-          # We're beyond our target now.
-          if needed_to_wait:
-            self._last_step_time = time.time()
-            logging.info("...game loop is now %s. Continuing.", game_loop)
-          break
+  def _observe(self, target_game_loop):
+    self._get_observations(target_game_loop)
 
     # TODO(tewalds): How should we handle more than 2 agents and the case where
     # the episode can end early for some agents?
