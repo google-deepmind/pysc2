@@ -178,6 +178,10 @@ class RemoteController(object):
   def close(self):
     self._client.close()
 
+  @property
+  def status_ended(self):
+    return self.status == protocol.Status.ended
+
   @valid_status(Status.launched, Status.ended, Status.in_game, Status.in_replay)
   @decorate_check_error(sc_pb.ResponseCreateGame.Error)
   @sw.decorate
@@ -242,6 +246,7 @@ class RemoteController(object):
         disable_fog=disable_fog))
 
   @valid_status(Status.in_game, Status.in_replay)
+  @catch_game_end
   @sw.decorate
   def step(self, count=1):
     """Step the engine forward by one (or more) step."""

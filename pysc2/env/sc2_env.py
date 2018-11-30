@@ -82,7 +82,8 @@ class Agent(collections.namedtuple("Agent", ["race", "name"])):
 
 
 Bot = collections.namedtuple("Bot", ["race", "difficulty"])
-
+_DelayedAction = collections.namedtuple(
+    "DelayedAction", ["game_loop", "action"])
 
 REALTIME_GAME_LOOP_SECONDS = 1 / 22.4
 MAX_STEP_COUNT = 524000  # The game fails above 2^19=524288 steps.
@@ -268,6 +269,12 @@ class SC2Env(environment.Base):
       raise ValueError(
           "The number of entries in agent_interface_format should "
           "correspond 1-1 with the number of agents.")
+
+    if not realtime:
+      self._action_delay_fns = [aif.action_delay_fn
+                                for aif in agent_interface_format]
+      self._delayed_actions = [collections.deque()
+                               for _ in agent_interface_format]
 
     interfaces = []
     for i, interface_format in enumerate(agent_interface_format):
@@ -512,10 +519,13 @@ class SC2Env(environment.Base):
       return self.reset()
 
     skip = not self._ensure_available_actions
-    self._parallel.run(
-        (c.act, f.transform_action(o.observation, a, skip_available=skip))
-        for c, f, o, a in zip(
-            self._controllers, self._features, self._obs, actions))
+    actions = [f.transform_action(o.observation, a, skip_available=skip)
+               for f, o, a in zip(self._features, self._obs, actions)]
+
+    if not self._realtime:
+      actions = self._apply_action_delays(actions)
+
+    self._parallel.run((c.act, a) for c, a in zip(self._controllers, actions))
 
     self._state = environment.StepType.MID
 
@@ -533,11 +543,73 @@ class SC2Env(environment.Base):
       raise ValueError("step_mul should be positive, got {}".format(step_mul))
 
     if not self._realtime:
-      with self._metrics.measure_step_time(step_mul):
-        self._parallel.run((c.step, step_mul)
-                           for c in self._controllers)
+      # Send any delayed actions that were scheduled up to the target game loop.
+      target_game_loop = self._episode_steps + step_mul
+      current_game_loop = self._send_delayed_actions(
+          up_to_game_loop=target_game_loop,
+          current_game_loop=self._episode_steps)
+
+      # Step to the target game loop.
+      self._step_to(
+          game_loop=target_game_loop,
+          current_game_loop=current_game_loop)
 
     return self._observe(target_game_loop=self._episode_steps + step_mul)
+
+  def _apply_action_delays(self, actions):
+    """Apply action delays to the requested actions, if configured to."""
+    actions_now = []
+    for action, delay_fn, delayed_actions in zip(
+        actions, self._action_delay_fns, self._delayed_actions):
+      delay = delay_fn() if delay_fn else 1
+      if delay > 1 and action.ListFields():  # Skip no-ops.
+        game_loop = self._episode_steps + delay - 1
+
+        # Randomized delays mean that 2 delay actions can be reversed.
+        # Make sure that doesn't happen.
+        if delayed_actions:
+          game_loop = max(game_loop, delayed_actions[-1].game_loop)
+
+        delayed_actions.append(_DelayedAction(game_loop, action))
+        actions_now.append(None)  # Don't send an action this frame.
+      else:
+        actions_now.append(action)
+
+    return actions_now
+
+  def _send_delayed_actions(self, up_to_game_loop, current_game_loop):
+    """Send any delayed actions scheduled for up to the specified game loop."""
+    while True:
+      if not any(self._delayed_actions):  # No queued actions
+        return current_game_loop
+
+      act_game_loop = min(d[0].game_loop for d in self._delayed_actions if d)
+      if act_game_loop > up_to_game_loop:
+        return current_game_loop
+
+      self._step_to(act_game_loop, current_game_loop)
+      current_game_loop = act_game_loop
+      if self._controllers[0].status_ended:
+        # We haven't observed and may have hit game end.
+        return current_game_loop
+
+      actions = []
+      for d in self._delayed_actions:
+        if d and d[0].game_loop == current_game_loop:
+          delayed_action = d.popleft()
+          actions.append(delayed_action.action)
+        else:
+          actions.append(None)
+      self._parallel.run((c.act, a) for c, a in zip(self._controllers, actions))
+
+  def _step_to(self, game_loop, current_game_loop):
+    step_mul = game_loop - current_game_loop
+    if step_mul < 0:
+      raise ValueError("We should never need to step backwards")
+    if step_mul > 0:
+      with self._metrics.measure_step_time(step_mul):
+        if not self._controllers[0].status_ended:  # May already have ended.
+          self._parallel.run((c.step, step_mul) for c in self._controllers)
 
   def _get_observations(self, target_game_loop):
     # Transform in the thread so it runs while waiting for other observations.

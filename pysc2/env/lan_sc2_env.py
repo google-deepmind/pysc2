@@ -292,6 +292,7 @@ class LanSC2Env(sc2_env.SC2Env):
     self._ensure_available_actions = False
     self._discount_zero_after_timeout = False
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
+    self._action_delay_fns = [None]
 
     interface = self._get_interface(
         agent_interface_format=agent_interface_format, require_raw=visualize)

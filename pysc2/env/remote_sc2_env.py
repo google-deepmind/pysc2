@@ -140,6 +140,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
     self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
     self._in_game = False
+    self._action_delay_fns = [None]
 
     interface = self._get_interface(
         agent_interface_format=agent_interface_format, require_raw=visualize)

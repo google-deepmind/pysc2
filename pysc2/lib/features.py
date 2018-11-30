@@ -19,6 +19,7 @@ from __future__ import print_function
 
 import collections
 from absl import logging
+import random
 
 import enum
 import numpy as np
@@ -35,6 +36,8 @@ from s2clientprotocol import raw_pb2 as sc_raw
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 sw = stopwatch.sw
+
+EPSILON = 1e-5
 
 
 class FeatureType(enum.Enum):
@@ -441,7 +444,8 @@ class AgentInterfaceFormat(object):
       use_unit_counts=False,
       use_camera_position=False,
       show_cloaked=False,
-      hide_specific_actions=True):
+      hide_specific_actions=True,
+      action_delay_fn=None):
     """Initializer.
 
     Args:
@@ -478,6 +482,10 @@ class AgentInterfaceFormat(object):
           as the general action. This simplifies the action space, though can
           lead to some actions in replays not being exactly representable using
           only the general actions.
+      action_delay_fn: A callable which when invoked returns a delay in game
+          loops to apply to a requested action. Defaults to None, meaning no
+          delays are added (actions will be executed on the next game loop,
+          hence with the minimum delay of 1).
 
     Raises:
       ValueError: if the parameters are inconsistent.
@@ -523,6 +531,7 @@ class AgentInterfaceFormat(object):
     self._use_camera_position = use_camera_position
     self._show_cloaked = show_cloaked
     self._hide_specific_actions = hide_specific_actions
+    self._action_delay_fn = action_delay_fn
 
     if action_space == actions.ActionSpace.FEATURES:
       self._action_dimensions = feature_dimensions
@@ -578,6 +587,10 @@ class AgentInterfaceFormat(object):
     return self._hide_specific_actions
 
   @property
+  def action_delay_fn(self):
+    return self._action_delay_fn
+
+  @property
   def action_dimensions(self):
     return self._action_dimensions
 
@@ -594,7 +607,8 @@ def parse_agent_interface_format(
     raw_resolution=None,
     use_unit_counts=False,
     show_cloaked=False,
-    use_camera_position=False):
+    use_camera_position=False,
+    action_delays=None):
   """Creates an AgentInterfaceFormat object from keyword args.
 
   Convenient when using dictionaries or command-line arguments for config.
@@ -618,6 +632,12 @@ def parse_agent_interface_format(
     use_unit_counts: A boolean, defaults to False.
     show_cloaked: A boolean, defaults to False.
     use_camera_position: A boolean, defaults to False.
+    action_delays: List of relative frequencies for each of [1, 2, 3, ...]
+      game loop delays on executed actions. Only used when the environment
+      is non-realtime. Intended to simulate the delays which can be
+      experienced when playing in realtime. Note that 1 is the minimum
+      possible delay; as actions can only ever be executed on a subsequent
+      game loop.
 
   Returns:
     An `AgentInterfaceFormat` object.
@@ -639,6 +659,22 @@ def parse_agent_interface_format(
   else:
     rgb_dimensions = None
 
+  def _action_delay_fn(delays):
+    """Delay frequencies per game loop delay -> fn returning game loop delay."""
+    if not delays:
+      return None
+    else:
+      total = sum(delays)
+      cumulative_sum = np.cumsum([delay / total for delay in delays])
+      def fn():
+        sample = random.uniform(0, 1) - EPSILON
+        for i, cumulative in enumerate(cumulative_sum):
+          if sample <= cumulative:
+            return i + 1
+        raise ValueError("Failed to sample action delay??")
+
+      return fn
+
   return AgentInterfaceFormat(
       feature_dimensions=feature_dimensions,
       rgb_dimensions=rgb_dimensions,
@@ -650,6 +686,7 @@ def parse_agent_interface_format(
       use_unit_counts=use_unit_counts,
       show_cloaked=show_cloaked,
       use_camera_position=use_camera_position,
+      action_delay_fn=_action_delay_fn(action_delays),
   )
 
 
