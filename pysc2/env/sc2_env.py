@@ -552,7 +552,8 @@ class SC2Env(environment.Base):
           for c, f in zip(self._controllers, self._features)))
 
     game_loop = self._agent_obs[0].game_loop[0]
-    if game_loop < target_game_loop:
+    if (game_loop < target_game_loop and
+        not any(o.player_result for o in self._obs)):
       raise ValueError("The game didn't advance to the expected game loop")
     elif game_loop > target_game_loop:
       logging.warn(
