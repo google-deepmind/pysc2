@@ -531,8 +531,7 @@ class SC2Env(environment.Base):
 
     if self._realtime:
       for i, (action, obs) in enumerate(zip(actions, self._obs)):
-        if (action.function != actions_lib.FUNCTIONS.no_op.id and
-            self._last_act_game_loop[i] is None):
+        if action.ListFields() and self._last_act_game_loop[i] is None:
           self._last_act_game_loop[i] = obs.observation.game_loop
 
     return self._step(step_mul)
