@@ -183,9 +183,8 @@ class StarcraftProtocol(object):
         response_str = self._sock.recv()
     if not response_str:
       raise ProtocolError("Got an empty response from SC2.")
-    response = sc_pb.Response()
     with sw("parse_response"):
-      response.ParseFromString(response_str)
+      response = sc_pb.Response.FromString(response_str)
     return response
 
   def _write(self, request):
