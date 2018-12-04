@@ -270,11 +270,8 @@ class SC2Env(environment.Base):
           "The number of entries in agent_interface_format should "
           "correspond 1-1 with the number of agents.")
 
-    if not realtime:
-      self._action_delay_fns = [aif.action_delay_fn
-                                for aif in agent_interface_format]
-      self._delayed_actions = [collections.deque()
-                               for _ in agent_interface_format]
+    self._action_delay_fns = [aif.action_delay_fn
+                              for aif in agent_interface_format]
 
     interfaces = []
     for i, interface_format in enumerate(agent_interface_format):
@@ -298,6 +295,9 @@ class SC2Env(environment.Base):
         logging.warning(
             "Actual interface options don't match requested options:\n"
             "Requested:\n%s\n\nActual:\n%s", interface, g.options)
+
+    self._delayed_actions = [collections.deque()
+                             for _ in self._action_delay_fns]
 
     self._features = [
         features.features_from_game_info(
@@ -541,22 +541,21 @@ class SC2Env(environment.Base):
     if step_mul <= 0:
       raise ValueError("step_mul should be positive, got {}".format(step_mul))
 
+    target_game_loop = self._episode_steps + step_mul
     if not self._realtime:
       # Send any delayed actions that were scheduled up to the target game loop.
-      target_game_loop = self._episode_steps + step_mul
       current_game_loop = self._send_delayed_actions(
           up_to_game_loop=target_game_loop,
           current_game_loop=self._episode_steps)
 
-      # Step to the target game loop.
-      self._step_to(
-          game_loop=target_game_loop,
-          current_game_loop=current_game_loop)
+      self._step_to(game_loop=target_game_loop,
+                    current_game_loop=current_game_loop)
 
-    return self._observe(target_game_loop=self._episode_steps + step_mul)
+    return self._observe(target_game_loop=target_game_loop)
 
   def _apply_action_delays(self, actions):
     """Apply action delays to the requested actions, if configured to."""
+    assert not self._realtime
     actions_now = []
     for action, delay_fn, delayed_actions in zip(
         actions, self._action_delay_fns, self._delayed_actions):
@@ -578,6 +577,7 @@ class SC2Env(environment.Base):
 
   def _send_delayed_actions(self, up_to_game_loop, current_game_loop):
     """Send any delayed actions scheduled for up to the specified game loop."""
+    assert not self._realtime
     while True:
       if not any(self._delayed_actions):  # No queued actions
         return current_game_loop
