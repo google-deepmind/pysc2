@@ -412,11 +412,6 @@ class Dimensions(object):
     self._screen = _to_point(screen)
     self._minimap = _to_point(minimap)
 
-    if self._screen.x < self._minimap.x or self._screen.y < self._minimap.y:
-      raise ValueError(
-          "Screen (%s) can't be smaller than the minimap (%s)." % (
-              self._screen, self._minimap))
-
   @property
   def screen(self):
     return self._screen
@@ -656,6 +651,12 @@ def parse_agent_interface_format(
     rgb_dimensions = Dimensions(
         screen=rgb_screen,
         minimap=rgb_minimap)
+
+    if (rgb_dimensions.screen.x < rgb_dimensions.minimap.x or
+        rgb_dimensions.screen.y < rgb_dimensions.minimap.y):
+      raise ValueError(
+          "Screen (%s) can't be smaller than the minimap (%s)." % (
+              rgb_dimensions.screen, rgb_dimensions.minimap))
   else:
     rgb_dimensions = None
 

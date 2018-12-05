@@ -257,10 +257,6 @@ class DimensionsTest(absltest.TestCase):
     with self.assertRaises(ValueError):
       features.Dimensions(minimap=(64, 67))
 
-  def testScreenSmallerThanMinimapRaises(self):
-    with self.assertRaises(ValueError):
-      features.Dimensions(screen=84, minimap=100)
-
   def testNoneNoneRaises(self):
     with self.assertRaises(ValueError):
       features.Dimensions(screen=None, minimap=None)
@@ -324,7 +320,7 @@ class TestParseAgentInterfaceFormat(parameterized.TestCase):
         agent_interface_format.feature_dimensions.minimap,
         point.Point(24, 24))
 
-  @parameterized.parameters((32, None), (None, 32))
+  @parameterized.parameters((32, None), (None, 32), (32, 64))
   def test_invalid_minimap_combinations_raise(self, screen, minimap):
     with self.assertRaises(ValueError):
       features.parse_agent_interface_format(
