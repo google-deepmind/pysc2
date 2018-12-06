@@ -68,6 +68,17 @@ class Difficulty(enum.IntEnum):
   cheat_money = sc_pb.CheatMoney
   cheat_insane = sc_pb.CheatInsane
 
+
+class BotBuild(enum.IntEnum):
+  """Bot build strategies."""
+  random = sc_pb.RandomBuild
+  rush = sc_pb.Rush
+  timing = sc_pb.Timing
+  power = sc_pb.Power
+  macro = sc_pb.Macro
+  air = sc_pb.Air
+
+
 # Re-export these names to make it easy to construct the environment.
 ActionSpace = actions_lib.ActionSpace  # pylint: disable=invalid-name
 Dimensions = features.Dimensions  # pylint: disable=invalid-name
@@ -81,7 +92,13 @@ class Agent(collections.namedtuple("Agent", ["race", "name"])):
     return super(Agent, cls).__new__(cls, race, name or "<unknown>")
 
 
-Bot = collections.namedtuple("Bot", ["race", "difficulty"])
+class Bot(collections.namedtuple("Bot", ["race", "difficulty", "build"])):
+
+  def __new__(cls, race, difficulty, build=None):
+    return super(Bot, cls).__new__(
+        cls, race, difficulty, build or BotBuild.random)
+
+
 _DelayedAction = collections.namedtuple(
     "DelayedAction", ["game_loop", "action"])
 
@@ -375,7 +392,7 @@ class SC2Env(environment.Base):
         agent = p
       else:
         create.player_setup.add(type=sc_pb.Computer, race=p.race,
-                                difficulty=p.difficulty)
+                                difficulty=p.difficulty, ai_build=p.build)
     if self._random_seed is not None:
       create.random_seed = self._random_seed
     self._controllers[0].create_game(create)

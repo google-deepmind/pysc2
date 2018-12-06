@@ -66,6 +66,8 @@ flags.DEFINE_enum("bot_race", "random", sc2_env.Race._member_names_,  # pylint: 
                   "AI race.")
 flags.DEFINE_enum("difficulty", "very_easy", sc2_env.Difficulty._member_names_,  # pylint: disable=protected-access
                   "Bot's strength.")
+flags.DEFINE_enum("bot_build", "random", sc2_env.BotBuild._member_names_,  # pylint: disable=protected-access
+                  "Bot's build strategy.")
 flags.DEFINE_bool("disable_fog", False, "Disable fog of war.")
 flags.DEFINE_integer("observed_player", 1, "Which player to observe.")
 
@@ -134,7 +136,8 @@ def main(unused_argv):
     create.player_setup.add(type=sc_pb.Participant)
     create.player_setup.add(type=sc_pb.Computer,
                             race=sc2_env.Race[FLAGS.bot_race],
-                            difficulty=sc2_env.Difficulty[FLAGS.difficulty])
+                            difficulty=sc2_env.Difficulty[FLAGS.difficulty],
+                            ai_build=sc2_env.BotBuild[FLAGS.bot_build])
     join = sc_pb.RequestJoinGame(
         options=interface, race=sc2_env.Race[FLAGS.user_race],
         player_name=FLAGS.user_name)

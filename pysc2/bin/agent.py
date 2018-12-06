@@ -71,6 +71,8 @@ flags.DEFINE_enum("agent2_race", "random", sc2_env.Race._member_names_,  # pylin
                   "Agent 2's race.")
 flags.DEFINE_enum("difficulty", "very_easy", sc2_env.Difficulty._member_names_,  # pylint: disable=protected-access
                   "If agent2 is a built-in Bot, it's strength.")
+flags.DEFINE_enum("bot_build", "random", sc2_env.BotBuild._member_names_,  # pylint: disable=protected-access
+                  "Bot's build strategy.")
 
 flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
 flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
@@ -127,7 +129,8 @@ def main(unused_argv):
   if map_inst.players >= 2:
     if FLAGS.agent2 == "Bot":
       players.append(sc2_env.Bot(sc2_env.Race[FLAGS.agent2_race],
-                                 sc2_env.Difficulty[FLAGS.difficulty]))
+                                 sc2_env.Difficulty[FLAGS.difficulty],
+                                 sc2_env.BotBuild[FLAGS.bot_build]))
     else:
       agent_module, agent_name = FLAGS.agent2.rsplit(".", 1)
       agent_cls = getattr(importlib.import_module(agent_module), agent_name)
