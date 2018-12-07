@@ -820,6 +820,7 @@ class Features(object):
     aif = self._agent_interface_format
     if not aif.raw_resolution and map_size:
       aif.raw_resolution = point.Point.build(map_size)
+    self._map_size = map_size
 
     if (aif.use_feature_units
         or aif.use_camera_position
@@ -943,6 +944,10 @@ class Features(object):
   def action_spec(self):
     """The action space pretty complicated and fills the ValidFunctions."""
     return self._valid_functions
+
+  @property
+  def map_size(self):
+    return self._map_size
 
   @sw.decorate
   def transform_obs(self, obs):
