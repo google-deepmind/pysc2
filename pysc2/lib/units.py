@@ -274,3 +274,11 @@ class Zerg(enum.IntEnum):
   Viper = 499
   Zergling = 105
   ZerglingBurrowed = 119
+
+
+def get_unit_type(unit_id):
+  for race in (Neutral, Protoss, Terran, Zerg):
+    try:
+      return race(unit_id)
+    except ValueError:
+      pass  # Wrong race.
