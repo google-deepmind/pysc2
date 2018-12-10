@@ -643,7 +643,7 @@ class SC2Env(environment.Base):
     if (game_loop < target_game_loop and
         not any(o.player_result for o in self._obs)):
       raise ValueError("The game didn't advance to the expected game loop")
-    elif game_loop > target_game_loop:
+    elif game_loop > target_game_loop and target_game_loop > 0:
       logging.warn("Received observation %d step(s) late: %d rather than %d.",
                    game_loop - target_game_loop, game_loop, target_game_loop)
 
