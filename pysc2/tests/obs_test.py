@@ -22,11 +22,14 @@ import functools
 
 from absl.testing import absltest
 
-from pysc2.env import sc2_env
+from pysc2 import maps
+from pysc2 import run_configs
 from pysc2.lib import actions
 from pysc2.lib import buffs
 from pysc2.lib import features
 from pysc2.lib import point
+from pysc2.lib import portspicker
+from pysc2.lib import run_parallel
 from pysc2.lib import units
 
 from s2clientprotocol import common_pb2 as sc_common
@@ -65,42 +68,109 @@ def setup(**kwargs):
   """A decorator to replace unittest.setUp so it can take args."""
   def decorator(func):
     @functools.wraps(func)
-    def inner(self):
+    def _setup(self):
       try:
-        self.start(**kwargs)
+        print((" %s: Starting game " % func.__name__).center(80, "-"))
+        self.start_game(**kwargs)
+        func(self)
+        self.start_replay()
+        print((" %s: Starting replay " % func.__name__).center(80, "-"))
         func(self)
       finally:
         self.close()
-    return inner
+    return _setup
+  return decorator
+
+
+def only_in_game(func):
+  @functools.wraps(func)
+  def decorator(self, *args, **kwargs):
+    if self._in_game:
+      return func(self, *args, **kwargs)
   return decorator
 
 
 class ObsTest(absltest.TestCase):
 
-  def start(self, show_cloaked=True):  # Instead of setUp.
-    # use SC2Env to make it easy to set up a multiplayer game.
-    self._dont_use_env = sc2_env.SC2Env(
-        map_name="Flat64",
-        players=[sc2_env.Agent(sc2_env.Race.protoss, "test1"),
-                 sc2_env.Agent(sc2_env.Race.protoss, "test2")],
-        step_mul=1,
-        game_steps_per_episode=1000,
-        agent_interface_format=sc2_env.AgentInterfaceFormat(
-            feature_dimensions=sc2_env.Dimensions(screen=64, minimap=64),
-            show_cloaked=show_cloaked,
-            use_raw_units=True))
-    self._controllers = self._dont_use_env._controllers
-    self._parallel = self._dont_use_env._parallel
+  def start_game(self, show_cloaked=True, disable_fog=False):
+    """Start a multiplayer game with options."""
+    self._disable_fog = disable_fog
+    run_config = run_configs.get()
+    self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
+    map_inst = maps.get("Flat64")
+    self._map_data = map_inst.data(run_config)
+
+    self._ports = portspicker.pick_unused_ports(4)
+    self._sc2_procs = [run_config.start(extra_ports=self._ports, want_rgb=False)
+                       for _ in range(2)]
+    self._controllers = [p.controller for p in self._sc2_procs]
+
+    self._parallel.run((c.save_map, map_inst.path, self._map_data)
+                       for c in self._controllers)
+
+    self._interface = sc_pb.InterfaceOptions(
+        raw=True, score=False, show_cloaked=show_cloaked)
+    self._interface.feature_layer.width = 24
+    self._interface.feature_layer.resolution.x = 64
+    self._interface.feature_layer.resolution.y = 64
+    self._interface.feature_layer.minimap_resolution.x = 64
+    self._interface.feature_layer.minimap_resolution.y = 64
+
+    create = sc_pb.RequestCreateGame(
+        random_seed=1, disable_fog=self._disable_fog,
+        local_map=sc_pb.LocalMap(map_path=map_inst.path))
+    create.player_setup.add(type=sc_pb.Participant)
+    create.player_setup.add(type=sc_pb.Participant)
+
+    join = sc_pb.RequestJoinGame(race=sc_common.Protoss,
+                                 options=self._interface)
+    join.shared_port = 0  # unused
+    join.server_ports.game_port = self._ports[0]
+    join.server_ports.base_port = self._ports[1]
+    join.client_ports.add(game_port=self._ports[2],
+                          base_port=self._ports[3])
+
+    self._controllers[0].create_game(create)
+    self._parallel.run((c.join_game, join) for c in self._controllers)
+
     self._info = self._controllers[0].game_info()
-    self._features = self._dont_use_env._features[0]
+    self._features = features.features_from_game_info(
+        self._info, use_raw_units=True)
+
     self._map_size = point.Point.build(self._info.start_raw.map_size)
     print("Map size:", self._map_size)
+    self._in_game = True
+    self.step()  # Get into the game properly.
+
+  def start_replay(self):
+    """Switch from the game to a replay."""
+    self.step(300)
+    replay_data = self._controllers[0].save_replay()
+    self._parallel.run(c.leave for c in self._controllers)
+    for player_id, controller in enumerate(self._controllers):
+      controller.start_replay(sc_pb.RequestStartReplay(
+          replay_data=replay_data,
+          map_data=self._map_data,
+          options=self._interface,
+          disable_fog=self._disable_fog,
+          observed_player_id=player_id+1))
+    self._in_game = False
     self.step()  # Get into the game properly.
 
   def close(self):  # Instead of tearDown.
-    self._dont_use_env.close()
-    self._dont_use_env = None
-    self._controllers = None
+    # Don't use parallel since it might be broken by an exception.
+    if hasattr(self, "_controllers") and self._controllers:
+      for c in self._controllers:
+        c.quit()
+      self._controllers = None
+    if hasattr(self, "_sc2_procs") and self._sc2_procs:
+      for p in self._sc2_procs:
+        p.close()
+      self._sc2_procs = None
+
+    if hasattr(self, "_ports") and self._ports:
+      portspicker.return_ports(self._ports)
+      self._ports = None
     self._parallel = None
 
   def step(self, count=4):
@@ -110,12 +180,14 @@ class ObsTest(absltest.TestCase):
     return self._parallel.run((c.observe, disable_fog)
                               for c in self._controllers)
 
+  @only_in_game
   def move_camera(self, x, y):
     action = sc_pb.Action()
     action.action_feature_layer.camera_move.center_minimap.x = x
     action.action_feature_layer.camera_move.center_minimap.y = y
     return self._parallel.run((c.act, action) for c in self._controllers)
 
+  @only_in_game
   def raw_unit_command(self, player, ability_id, unit_tags, pos=None,
                        target=None):
     if isinstance(ability_id, str):
@@ -136,6 +208,7 @@ class ObsTest(absltest.TestCase):
     for result in response.result:
       self.assertEqual(result, sc_error.Success)
 
+  @only_in_game
   def debug(self, player=0, **kwargs):
     self._controllers[player].debug([sc_debug.DebugCommand(**kwargs)])
 
@@ -555,7 +628,7 @@ class ObsTest(absltest.TestCase):
     self.assert_unit(nexus2, display_type=sc_raw.Visible, is_active=True)
     self.assertLen(nexus0.orders, 1)
     self.assertLen(nexus2.orders, 1)
-    self.assertEmpty(nexus1.orders, 0)  # Can't see opponent's orders
+    self.assertEmpty(nexus1.orders)  # Can't see opponent's orders
 
     # Go back to a snapshot
     self.kill_unit(get_unit(obs[0], unit_type=units.Protoss.Observer).tag)
@@ -574,7 +647,39 @@ class ObsTest(absltest.TestCase):
     self.assert_unit(nexus2, display_type=sc_raw.Visible, is_active=True)
     self.assertLen(nexus0.orders, 1)
     self.assertLen(nexus2.orders, 1)
-    self.assertEmpty(nexus1.orders, 0)  # Can't see opponent's orders
+    self.assertEmpty(nexus1.orders)  # Can't see opponent's orders
+
+  @setup(disable_fog=True)
+  def test_disable_fog(self):
+    obs = self.observe()
+
+    for i, o in enumerate(obs):
+      # Probes are active gathering
+      for u in get_units(o, unit_type=units.Protoss.Probe).values():
+        self.assert_unit(u, display_type=sc_raw.Visible, is_active=True)
+
+      # All Nexus are idle.
+      own = get_unit(o, unit_type=units.Protoss.Nexus, owner=i+1)
+      other = get_unit(o, unit_type=units.Protoss.Nexus, owner=2-i)
+      self.assert_unit(own, display_type=sc_raw.Visible, is_active=False)
+      self.assert_unit(other, display_type=sc_raw.Visible, is_active=False)
+      self.assertEmpty(own.orders)
+      self.assertEmpty(other.orders)
+
+      # Give it an action.
+      self.raw_unit_command(i, "Train_Probe_quick", own.tag)
+
+    self.step(32)
+    obs = self.observe()
+
+    # All Nexus are active.
+    for i, o in enumerate(obs):
+      own = get_unit(o, unit_type=units.Protoss.Nexus, owner=i+1)
+      other = get_unit(o, unit_type=units.Protoss.Nexus, owner=2-i)
+      self.assert_unit(own, display_type=sc_raw.Visible, is_active=True)
+      self.assert_unit(other, display_type=sc_raw.Visible, is_active=True)
+      self.assertLen(own.orders, 1)
+      self.assertEmpty(other.orders)
 
 
 if __name__ == "__main__":
