@@ -39,7 +39,6 @@ from s2clientprotocol import sc2api_pb2 as sc_pb
 
 sw = stopwatch.sw
 
-
 possible_results = {
     sc_pb.Victory: 1,
     sc_pb.Defeat: -1,
@@ -437,10 +436,10 @@ class SC2Env(environment.Base):
 
     # Create the join requests.
     agent_players = [p for p in self._players if isinstance(p, Agent)]
+    sanitized_names = crop_and_deduplicate_names(p.name for p in agent_players)
     join_reqs = []
-    name_counts = collections.Counter(p.name for p in agent_players)
-    name_index = collections.defaultdict(lambda: 1)
-    for agent_index, p in enumerate(agent_players):
+    for agent_index, (p, name) in enumerate(
+        zip(agent_players, sanitized_names)):
       ports = self._ports[:]
       join = sc_pb.RequestJoinGame(options=interfaces[agent_index])
       join.shared_port = 0  # unused
@@ -451,11 +450,7 @@ class SC2Env(environment.Base):
                               base_port=ports.pop(0))
 
       join.race = p.race
-      if name_counts[p.name] == 1:
-        join.player_name = p.name
-      else:
-        join.player_name = "({}) {}".format(name_index[p.name], p.name)
-        name_index[p.name] += 1
+      join.player_name = name
       join_reqs.append(join)
 
     # Join the game. This must be run in parallel because Join is a blocking
@@ -769,3 +764,45 @@ class SC2Env(environment.Base):
     if hasattr(self, "_ports") and self._ports:
       portspicker.return_ports(self._ports)
       self._ports = None
+
+
+def crop_and_deduplicate_names(names):
+  """Crops and de-duplicates the passed names.
+
+  SC2 gets confused in a multi-agent game when agents have the same
+  name. We check for name duplication to avoid this, but - SC2 also
+  crops player names to a hard character limit, which can again lead
+  to duplicate names. To avoid this we unique-ify names if they are
+  equivalent after cropping. Ideally SC2 would handle duplicate names,
+  making this unnecessary.
+
+  TODO(b/121092563): Fix this in the SC2 binary.
+
+  Args:
+    names: List of names.
+
+  Returns:
+    De-duplicated names cropped to 32 characters.
+  """
+  max_name_length = 32
+
+  # Crop.
+  cropped = [n[:max_name_length] for n in names]
+
+  # De-duplicate.
+  deduplicated = []
+  name_counts = collections.Counter(n for n in cropped)
+  name_index = collections.defaultdict(lambda: 1)
+  for n in cropped:
+    if name_counts[n] == 1:
+      deduplicated.append(n)
+    else:
+      deduplicated.append("({}) {}".format(name_index[n], n))
+      name_index[n] += 1
+
+  # Crop again.
+  recropped = [n[:max_name_length] for n in deduplicated]
+  if len(set(recropped)) != len(recropped):
+    raise ValueError("Failed to de-duplicate names")
+
+  return recropped
