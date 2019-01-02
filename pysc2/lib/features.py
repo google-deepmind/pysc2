@@ -204,6 +204,7 @@ class FeatureUnit(enum.IntEnum):
   buff_id_1 = 32
   addon_unit_type = 33
   active = 34
+  is_on_screen = 35
 
 
 class EffectPos(enum.IntEnum):
@@ -939,6 +940,7 @@ class Features(object):
 
     if aif.use_camera_position:
       obs_spec["camera_position"] = (2,)
+      obs_spec["camera_size"] = (2,)
     return obs_spec
 
   def action_spec(self):
@@ -1145,6 +1147,7 @@ class Features(object):
           u.buff_ids[1] if len(u.buff_ids) >= 2 else 0,
           get_addon_type(u.add_on_tag) if u.add_on_tag else 0,
           u.is_active,
+          u.is_on_screen,
       ]
       return features
 
@@ -1218,10 +1221,12 @@ class Features(object):
             sorted(unit_counts.items()), [None, UnitCounts], dtype=np.int32)
 
     if aif.use_camera_position:
-      camera_position = self._world_to_world_tl.fwd_pt(
+      camera_position = self._world_to_minimap_px.fwd_pt(
           point.Point.build(raw.player.camera))
       out["camera_position"] = np.array((camera_position.x, camera_position.y),
                                         dtype=np.int32)
+      out["camera_size"] = np.array((self._camera_size.x, self._camera_size.y),
+                                    dtype=np.int32)
 
     out["available_actions"] = np.array(self.available_actions(obs.observation),
                                         dtype=np.int32)
