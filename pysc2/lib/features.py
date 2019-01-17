@@ -465,8 +465,8 @@ class AgentInterfaceFormat(object):
           terms of world units instead of screen units.
       use_unit_counts: Whether to include unit_counts observation. Disabled by
           default since it gives information outside the visible area.
-      use_camera_position: Whether to include the camera's position (in world
-          units) in the observations.
+      use_camera_position: Whether to include the camera's position (in minimap
+          coordinates) in the observations.
       show_cloaked: Whether to show limited information for cloaked units.
       hide_specific_actions: [bool] Some actions (eg cancel) have many
           specific versions (cancel this building, cancel that spell) and can
@@ -728,8 +728,8 @@ def features_from_game_info(
     use_unit_counts: Whether to include unit_counts observation. Disabled by
         default since it gives information outside the visible area.
     show_cloaked: Whether to show limited information for cloaked units.
-    use_camera_position: Whether to include the camera's position (in world
-        units) in the observations.
+    use_camera_position: Whether to include the camera's position (in minimap
+        coordinates) in the observations.
 
   Returns:
     A features object matching the specified parameterisation.
