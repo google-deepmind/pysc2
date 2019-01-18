@@ -79,10 +79,9 @@ class TestMultiplayer(utils.TestCase):
       # Create the join request.
       join = sc_pb.RequestJoinGame(race=sc_common.Random, options=interface)
       join.shared_port = 0  # unused
-      join.server_ports.game_port = ports.pop(0)
-      join.server_ports.base_port = ports.pop(0)
-      for _ in range(players - 1):
-        join.client_ports.add(game_port=ports.pop(0), base_port=ports.pop(0))
+      join.server_ports.game_port = ports[0]
+      join.server_ports.base_port = ports[1]
+      join.client_ports.add(game_port=ports[2], base_port=ports[3])
 
       # Play a few short games.
       for _ in range(2):  # 2 episodes
