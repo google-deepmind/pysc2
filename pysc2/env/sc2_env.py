@@ -324,7 +324,9 @@ class SC2Env(environment.Base):
             use_unit_counts=agent_interface_format.use_unit_counts,
             use_camera_position=agent_interface_format.use_camera_position,
             action_space=agent_interface_format.action_space,
-            hide_specific_actions=agent_interface_format.hide_specific_actions)
+            hide_specific_actions=agent_interface_format.hide_specific_actions,
+            send_observation_proto=agent_interface_format.send_observation_proto
+        )
         for g, agent_interface_format in zip(game_info, agent_interface_formats)
     ]
 

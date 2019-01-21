@@ -441,7 +441,8 @@ class AgentInterfaceFormat(object):
       use_camera_position=False,
       show_cloaked=False,
       hide_specific_actions=True,
-      action_delay_fn=None):
+      action_delay_fn=None,
+      send_observation_proto=False):
     """Initializer.
 
     Args:
@@ -482,6 +483,8 @@ class AgentInterfaceFormat(object):
           loops to apply to a requested action. Defaults to None, meaning no
           delays are added (actions will be executed on the next game loop,
           hence with the minimum delay of 1).
+      send_observation_proto: Whether or not to send the raw observation
+          response proto in the observations.
 
     Raises:
       ValueError: if the parameters are inconsistent.
@@ -528,6 +531,7 @@ class AgentInterfaceFormat(object):
     self._show_cloaked = show_cloaked
     self._hide_specific_actions = hide_specific_actions
     self._action_delay_fn = action_delay_fn
+    self._send_observation_proto = send_observation_proto
 
     if action_space == actions.ActionSpace.FEATURES:
       self._action_dimensions = feature_dimensions
@@ -587,6 +591,10 @@ class AgentInterfaceFormat(object):
     return self._action_delay_fn
 
   @property
+  def send_observation_proto(self):
+    return self._send_observation_proto
+
+  @property
   def action_dimensions(self):
     return self._action_dimensions
 
@@ -604,7 +612,8 @@ def parse_agent_interface_format(
     use_unit_counts=False,
     show_cloaked=False,
     use_camera_position=False,
-    action_delays=None):
+    action_delays=None,
+    send_observation_proto=False):
   """Creates an AgentInterfaceFormat object from keyword args.
 
   Convenient when using dictionaries or command-line arguments for config.
@@ -634,6 +643,7 @@ def parse_agent_interface_format(
       experienced when playing in realtime. Note that 1 is the minimum
       possible delay; as actions can only ever be executed on a subsequent
       game loop.
+    send_observation_proto: A boolean, defaults to False.
 
   Returns:
     An `AgentInterfaceFormat` object.
@@ -689,6 +699,7 @@ def parse_agent_interface_format(
       show_cloaked=show_cloaked,
       use_camera_position=use_camera_position,
       action_delay_fn=_action_delay_fn(action_delays),
+      send_observation_proto=send_observation_proto,
   )
 
 
@@ -701,7 +712,8 @@ def features_from_game_info(
     hide_specific_actions=True,
     use_unit_counts=False,
     show_cloaked=False,
-    use_camera_position=False):
+    use_camera_position=False,
+    send_observation_proto=False):
   """Construct a Features object using data extracted from game info.
 
   Args:
@@ -730,6 +742,8 @@ def features_from_game_info(
     show_cloaked: Whether to show limited information for cloaked units.
     use_camera_position: Whether to include the camera's position (in minimap
         coordinates) in the observations.
+    send_observation_proto: Whether or not to send the raw observation
+        response proto with the observation.
 
   Returns:
     A features object matching the specified parameterisation.
@@ -767,7 +781,8 @@ def features_from_game_info(
           camera_width_world_units=camera_width_world_units,
           action_space=action_space,
           show_cloaked=show_cloaked,
-          hide_specific_actions=hide_specific_actions),
+          hide_specific_actions=hide_specific_actions,
+          send_observation_proto=send_observation_proto),
       map_size=map_size)
 
 
@@ -834,6 +849,7 @@ class Features(object):
 
     self._valid_functions = _init_valid_functions(
         aif.action_dimensions)
+    self._send_observation_proto = aif.send_observation_proto
 
   def init_camera(
       self, feature_dimensions, map_size, camera_width_world_units,
@@ -941,6 +957,9 @@ class Features(object):
     if aif.use_camera_position:
       obs_spec["camera_position"] = (2,)
       obs_spec["camera_size"] = (2,)
+
+    if self._send_observation_proto:
+      obs_spec["_response_observation"] = (0,)
     return obs_spec
 
   def action_spec(self):
@@ -1230,6 +1249,10 @@ class Features(object):
 
     out["available_actions"] = np.array(self.available_actions(obs.observation),
                                         dtype=np.int32)
+
+    # Send the entire proto as well (in a function, so it isn't copied).
+    if self._send_observation_proto:
+      out["_response_observation"] = lambda: obs
 
     return out
 
