@@ -769,6 +769,10 @@ def features_from_game_info(
   map_size = game_info.start_raw.map_size
   camera_width_world_units = game_info.options.feature_layer.width
 
+  requested_races = {
+      info.player_id: info.race_requested for info in game_info.player_info
+      if info.type != sc_pb.Observer}
+
   return Features(
       agent_interface_format=AgentInterfaceFormat(
           feature_dimensions=feature_dimensions,
@@ -783,7 +787,8 @@ def features_from_game_info(
           show_cloaked=show_cloaked,
           hide_specific_actions=hide_specific_actions,
           send_observation_proto=send_observation_proto),
-      map_size=map_size)
+      map_size=map_size,
+      requested_races=requested_races)
 
 
 def _init_valid_functions(action_dimensions):
@@ -817,12 +822,15 @@ class Features(object):
   contexts, eg a supervised dataset pipeline.
   """
 
-  def __init__(self, agent_interface_format=None, map_size=None):
+  def __init__(self, agent_interface_format=None, map_size=None,
+               requested_races=None):
     """Initialize a Features instance matching the specified interface format.
 
     Args:
       agent_interface_format: See the documentation for `AgentInterfaceFormat`.
       map_size: The size of the map in world units, needed for feature_units.
+      requested_races: Optional. Dict mapping `player_id`s to that player's
+          requested race. If present, will send player races in observation.
 
     Raises:
       ValueError: if agent_interface_format isn't specified.
@@ -850,6 +858,9 @@ class Features(object):
     self._valid_functions = _init_valid_functions(
         aif.action_dimensions)
     self._send_observation_proto = aif.send_observation_proto
+    self._requested_races = requested_races
+    if requested_races is not None:
+      assert len(requested_races) <= 2
 
   def init_camera(
       self, feature_dimensions, map_size, camera_width_world_units,
@@ -960,6 +971,9 @@ class Features(object):
 
     if self._send_observation_proto:
       obs_spec["_response_observation"] = (0,)
+
+    obs_spec["home_race_requested"] = (1,)
+    obs_spec["away_race_requested"] = (1,)
     return obs_spec
 
   def action_spec(self):
@@ -980,6 +994,8 @@ class Features(object):
         "build_queue": empty,
         "cargo": empty,
         "cargo_slots_available": np.array([0], dtype=np.int32),
+        "home_race_requested": np.array([0], dtype=np.int32),
+        "away_race_requested": np.array([0], dtype=np.int32),
     })
 
     def or_zeros(layer, size):
@@ -1249,6 +1265,12 @@ class Features(object):
 
     out["available_actions"] = np.array(self.available_actions(obs.observation),
                                         dtype=np.int32)
+    if self._requested_races is not None:
+      out["home_race_requested"] = np.array(
+          (self._requested_races[player.player_id],), dtype=np.int32)
+      for player_id, race in self._requested_races.items():
+        if player_id != player.player_id:
+          out["away_race_requested"] = np.array((race,), dtype=np.int32)
 
     # Send the entire proto as well (in a function, so it isn't copied).
     if self._send_observation_proto:
