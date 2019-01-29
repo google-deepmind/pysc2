@@ -27,6 +27,7 @@ class Neutral(enum.IntEnum):
   BattleStationMineralField750 = 887
   CarrionBird = 322
   CleaningBot = 612
+  CollapsibleRockTower = 609
   CollapsibleRockTowerDebris = 490
   CollapsibleRockTowerDebrisRampLeft = 518
   CollapsibleRockTowerDebrisRampRight = 517
@@ -36,6 +37,7 @@ class Neutral(enum.IntEnum):
   CollapsibleRockTowerPushUnitRampRight = 563
   CollapsibleRockTowerRampLeft = 664
   CollapsibleRockTowerRampRight = 663
+  CollapsibleTerranTower = 610
   CollapsibleTerranTowerDebris = 485
   CollapsibleTerranTowerDiagonal = 589
   CollapsibleTerranTowerPushUnit = 562
@@ -43,13 +45,17 @@ class Neutral(enum.IntEnum):
   CollapsibleTerranTowerPushUnitRampRight = 560
   CollapsibleTerranTowerRampLeft = 590
   CollapsibleTerranTowerRampRight = 591
+  Crabeetle = 662
   DebrisRampLeft = 486
   DebrisRampRight = 487
+  DestructibleBillboardTall = 350
   DestructibleCityDebrisHugeDiagonalBLUR = 630
+  DestructibleDebris4x4 = 364
   DestructibleDebris6x6 = 365
   DestructibleDebrisRampDiagonalHugeBLUR = 377
   DestructibleDebrisRampDiagonalHugeULBR = 376
   DestructibleIce4x4 = 648
+  DestructibleIce6x6 = 649
   DestructibleIceDiagonalHugeBLUR = 651
   DestructibleRampDiagonalHugeBLUR = 373
   DestructibleRock6x6 = 371
@@ -62,6 +68,7 @@ class Neutral(enum.IntEnum):
   LabBot = 661
   LabMineralField = 665
   LabMineralField750 = 666
+  Lyote = 321
   MineralField = 341
   MineralField750 = 483
   ProtossVespeneGeyser = 608
@@ -70,6 +77,7 @@ class Neutral(enum.IntEnum):
   PurifierRichMineralField = 796
   PurifierRichMineralField750 = 797
   PurifierVespeneGeyser = 880
+  ReptileCrate = 877
   RichMineralField = 146
   RichMineralField750 = 147
   RichVespeneGeyser = 344
