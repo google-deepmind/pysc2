@@ -212,7 +212,8 @@ class Arguments(collections.namedtuple("Arguments", [
     minimap: A point on the minimap.
     screen2: The second point for a rectangle. This is needed so that no
         function takes the same type twice.
-    queued: Whether the action should be done now or later.
+    queued: Whether the action should be done immediately or after all other
+        actions queued for this unit.
     control_group_act: What to do with the control group.
     control_group_id: Which control group to do it with.
     select_point_act: What to do with the unit at the point.
