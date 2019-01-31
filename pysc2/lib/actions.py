@@ -409,13 +409,8 @@ class Functions(object):
   build something similar.
   """
 
-  def __init__(self, functions, raw=False):
+  def __init__(self, functions):
     functions = sorted(functions, key=lambda f: f.id)
-    # Convert each int id to the equivalent IntEnum.
-    functions = [
-        f._replace(id=_Functions(f.id)) if f.id < len(_FUNCTIONS) else f
-        for f in functions]
-
     self._func_list = functions
     self._func_dict = {f.name: f for f in functions}
     if len(self._func_dict) != len(self._func_list):
@@ -1022,6 +1017,7 @@ _FUNCTIONS = [
 # show something useful.
 _Functions = enum.IntEnum(  # pylint: disable=invalid-name
     "_Functions", {f.name: f.id for f in _FUNCTIONS})
+_FUNCTIONS = [f._replace(id=_Functions(f.id)) for f in _FUNCTIONS]
 FUNCTIONS = Functions(_FUNCTIONS)
 
 # Some indexes to support features.py and action conversion.
