@@ -67,4 +67,5 @@ class Buffs(enum.IntEnum):
   SupplyDrop = 25
   TemporalField = 121
   ViperConsumeStructure = 59
+  VoidRaySpeedUpgrade = 288
   VoidRaySwarmDamageBoost = 122

@@ -185,8 +185,12 @@ class AvailableActionsTest(absltest.TestCase):
         "Harvest_Gather_SCV_screen",
         "Move_minimap",
         "Move_screen",
+        "Move_Move_minimap",
+        "Move_Move_screen",
         "Patrol_minimap",
         "Patrol_screen",
+        "Patrol_Patrol_minimap",
+        "Patrol_Patrol_screen",
         "Stop_quick",
         "Stop_Stop_quick"
     ])

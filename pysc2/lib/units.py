@@ -46,9 +46,11 @@ class Neutral(enum.IntEnum):
   CollapsibleTerranTowerRampLeft = 590
   CollapsibleTerranTowerRampRight = 591
   Crabeetle = 662
+  Debris2x2NonConjoined = 475
   DebrisRampLeft = 486
   DebrisRampRight = 487
   DestructibleBillboardTall = 350
+  DestructibleCityDebris4x4 = 628
   DestructibleCityDebrisHugeDiagonalBLUR = 630
   DestructibleDebris4x4 = 364
   DestructibleDebris6x6 = 365
