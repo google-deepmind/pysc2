@@ -67,14 +67,19 @@ need to install `libsdl` libraries for the `pygame` dependency.
 Pip will install a few of the  binaries to your bin directory. `pysc2_play` can
 be used as a shortcut to `python -m pysc2.bin.play`.
 
-### Git
+### From Source
 
-Alternatively you can install PySC2 with git. First clone the PySC2 repo, then
-install the dependencies and `pysc2` package:
+Alternatively you can install latest PySC2 codebase from git master branch:
+
+```shell
+$ pip install --upgrade https://github.com/deepmind/pysc2/archive/master.zip
+```
+
+or from a local clone of the git repo:
 
 ```shell
 $ git clone https://github.com/deepmind/pysc2.git
-$ pip install pysc2/
+$ pip install --upgrade pysc2/
 ```
 
 ## Get StarCraft II
