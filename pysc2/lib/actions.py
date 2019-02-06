@@ -150,6 +150,54 @@ def autocast(action, action_space, ability_id):
   action.action_ui.toggle_autocast.ability_id = ability_id
 
 
+def raw_move_camera(action, world):
+  """Move the camera."""
+  action_cmd = action.action_raw.camera_move
+  world.assign_to(action_cmd.center_world_space)
+
+
+def raw_cmd(action, ability_id, queued, unit_tags):
+  """Do a raw command to another unit."""
+  action_cmd = action.action_raw.unit_command
+  action_cmd.ability_id = ability_id
+  action_cmd.queue_command = queued
+  if not isinstance(unit_tags, (tuple, list)):
+    unit_tags = [unit_tags]
+  action_cmd.unit_tags.extend(unit_tags)
+
+
+def raw_cmd_pt(action, ability_id, queued, unit_tags, world):
+  """Do a raw command to another unit towards a point."""
+  action_cmd = action.action_raw.unit_command
+  action_cmd.ability_id = ability_id
+  action_cmd.queue_command = queued
+  if not isinstance(unit_tags, (tuple, list)):
+    unit_tags = [unit_tags]
+  action_cmd.unit_tags.extend(unit_tags)
+  world.assign_to(action_cmd.target_world_space_pos)
+
+
+def raw_cmd_unit(action, ability_id, queued, unit_tags,
+                 target_unit_tag):
+  """Do a raw command to another unit towards a unit."""
+  action_cmd = action.action_raw.unit_command
+  action_cmd.ability_id = ability_id
+  action_cmd.queue_command = queued
+  if not isinstance(unit_tags, (tuple, list)):
+    unit_tags = [unit_tags]
+  action_cmd.unit_tags.extend(unit_tags)
+  action_cmd.target_unit_tag = target_unit_tag
+
+
+def raw_autocast(action, ability_id, unit_tags):
+  """Toggle autocast."""
+  action_cmd = action.action_raw.toggle_autocast
+  action_cmd.ability_id = ability_id
+  if not isinstance(unit_tags, (tuple, list)):
+    unit_tags = [unit_tags]
+  action_cmd.unit_tags.extend(unit_tags)
+
+
 class ArgumentType(collections.namedtuple(
     "ArgumentType", ["id", "name", "sizes", "fn", "values"])):
   """Represents a single argument type.
@@ -237,6 +285,32 @@ class Arguments(collections.namedtuple("Arguments", [
     return self.__class__, tuple(self)
 
 
+class RawArguments(collections.namedtuple("RawArguments", [
+    "world", "queued", "unit_tags", "target_unit_tag"])):
+  """The full list of argument types.
+
+  Take a look at TYPES and FUNCTION_TYPES for more details.
+
+  Attributes:
+    world: A point in world coordinates
+    queued: Whether the action should be done immediately or after all other
+        actions queued for this unit.
+    unit_tags: Which units should execute this action.
+    target_unit_tag: The target unit of this action.
+  """
+  ___slots__ = ()
+
+  @classmethod
+  def types(cls, **kwargs):
+    """Create an Arguments of the possible Types."""
+    named = {name: factory(RawArguments._fields.index(name), name)
+             for name, factory in six.iteritems(kwargs)}
+    return cls(**named)
+
+  def __reduce__(self):
+    return self.__class__, tuple(self)
+
+
 def _define_position_based_enum(name, options):
   return enum.IntEnum(
       name, {opt_name: i for i, (opt_name, _) in enumerate(options)})
@@ -313,6 +387,14 @@ TYPES = Arguments.types(
     unload_id=ArgumentType.scalar(500),  # Depends on the current loaded units.
 )
 
+RAW_TYPES = RawArguments.types(
+    world=ArgumentType.point(),
+    queued=ArgumentType.enum(QUEUED_OPTIONS, Queued),
+    unit_tags=ArgumentType.scalar(512),
+    target_unit_tag=ArgumentType.scalar(512),
+)
+
+
 # Which argument types do each function need?
 FUNCTION_TYPES = {
     no_op: [],
@@ -331,10 +413,17 @@ FUNCTION_TYPES = {
     cmd_screen: [TYPES.queued, TYPES.screen],
     cmd_minimap: [TYPES.queued, TYPES.minimap],
     autocast: [],
+    raw_cmd: [RAW_TYPES.queued, RAW_TYPES.unit_tags],
+    raw_cmd_pt: [RAW_TYPES.queued, RAW_TYPES.unit_tags, RAW_TYPES.world],
+    raw_cmd_unit: [RAW_TYPES.queued, RAW_TYPES.unit_tags,
+                   RAW_TYPES.target_unit_tag],
+    raw_move_camera: [RAW_TYPES.world],
+    raw_autocast: [RAW_TYPES.unit_tags],
 }
 
 # Which ones need an ability?
 ABILITY_FUNCTIONS = {cmd_quick, cmd_screen, cmd_minimap, autocast}
+RAW_ABILITY_FUNCTIONS = {raw_cmd, raw_cmd_pt, raw_cmd_unit, raw_autocast}
 
 # Which ones require a point?
 POINT_REQUIRED_FUNCS = {
@@ -376,6 +465,20 @@ class Function(collections.namedtuple(
     assert function_type in ABILITY_FUNCTIONS
     return cls(id_, name, ability_id, general_id, function_type,
                FUNCTION_TYPES[function_type], None, False)
+
+  @classmethod
+  def raw_ability(cls, id_, name, function_type, ability_id, general_id=0,
+                  avail_fn=always):
+    """Define a function represented as a game ability."""
+    assert function_type in RAW_ABILITY_FUNCTIONS
+    return cls(id_, name, ability_id, general_id, function_type,
+               FUNCTION_TYPES[function_type], avail_fn, True)
+
+  @classmethod
+  def raw_ui_func(cls, id_, name, function_type, avail_fn=always):
+    """Define a function representing a ui action."""
+    return cls(id_, name, 0, 0, function_type, FUNCTION_TYPES[function_type],
+               avail_fn, True)
 
   @classmethod
   def spec(cls, id_, name, args):
@@ -1046,6 +1149,585 @@ ABILITY_IDS = {k: frozenset(v) for k, v in six.iteritems(ABILITY_IDS)}
 FUNCTIONS_AVAILABLE = {f.id: f for f in FUNCTIONS if f.avail_fn}
 
 
+# pylint: disable=line-too-long
+_RAW_FUNCTIONS = [
+    Function.raw_ui_func(0, "no_op", no_op),
+    Function.raw_ui_func(168, "raw_move_camera", raw_move_camera),
+    Function.raw_ability(2, "Attack_pt", raw_cmd_pt, 3674),
+    Function.raw_ability(3, "Attack_unit", raw_cmd_unit, 3674),
+    Function.raw_ability(4, "Attack_Attack_pt", raw_cmd_pt, 23, 3674),
+    Function.raw_ability(6, "Attack_AttackBuilding_pt", raw_cmd_pt, 2048, 3674),
+    Function.raw_ability(5, "Attack_Attack_unit", raw_cmd_unit, 23, 3674),
+    Function.raw_ability(7, "Attack_AttackBuilding_unit", raw_cmd_unit, 2048, 3674),
+    Function.raw_ability(539, "Attack_Battlecruiser_pt", raw_cmd_pt, 3771, 3674),
+    Function.raw_ability(540, "Attack_Battlecruiser_unit", raw_cmd_unit, 3771, 3674),
+    Function.raw_ability(8, "Attack_Redirect_pt", raw_cmd_pt, 1682, 3674),
+    Function.raw_ability(9, "Attack_Redirect_unit", raw_cmd_unit, 1682, 3674),
+    Function.raw_ability(88, "Behavior_BuildingAttackOff_quick", raw_cmd, 2082),  # wrong / baneling
+    Function.raw_ability(87, "Behavior_BuildingAttackOn_quick", raw_cmd, 2081),  # wrong / baneling
+    Function.raw_ability(169, "Behavior_CloakOff_quick", raw_cmd, 3677),
+    Function.raw_ability(170, "Behavior_CloakOff_Banshee_quick", raw_cmd, 393, 3677),
+    Function.raw_ability(171, "Behavior_CloakOff_Ghost_quick", raw_cmd, 383, 3677),
+    Function.raw_ability(172, "Behavior_CloakOn_quick", raw_cmd, 3676),
+    Function.raw_ability(173, "Behavior_CloakOn_Banshee_quick", raw_cmd, 392, 3676),
+    Function.raw_ability(174, "Behavior_CloakOn_Ghost_quick", raw_cmd, 382, 3676),
+    Function.raw_ability(175, "Behavior_GenerateCreepOff_quick", raw_cmd, 1693),
+    Function.raw_ability(176, "Behavior_GenerateCreepOn_quick", raw_cmd, 1692),
+    Function.raw_ability(178, "Behavior_HoldFireOff_Ghost_quick", raw_cmd, 38, 3689),
+    Function.raw_ability(179, "Behavior_HoldFireOff_Lurker_quick", raw_cmd, 2552, 3689),
+    Function.raw_ability(177, "Behavior_HoldFireOff_quick", raw_cmd, 3689),
+    Function.raw_ability(181, "Behavior_HoldFireOn_Ghost_quick", raw_cmd, 36, 3688),
+    Function.raw_ability(182, "Behavior_HoldFireOn_Lurker_quick", raw_cmd, 2550, 3688),
+    Function.raw_ability(180, "Behavior_HoldFireOn_quick", raw_cmd, 3688),
+    Function.raw_ability(158, "Behavior_PulsarBeamOff_quick", raw_cmd, 2376),
+    Function.raw_ability(159, "Behavior_PulsarBeamOn_quick", raw_cmd, 2375),
+    Function.raw_ability(183, "Build_Armory_pt", raw_cmd_pt, 331),
+    Function.raw_ability(36, "Build_Assimilator_unit", raw_cmd_unit, 882),
+    Function.raw_ability(184, "Build_BanelingNest_pt", raw_cmd_pt, 1162),
+    Function.raw_ability(185, "Build_Barracks_pt", raw_cmd_pt, 321),
+    Function.raw_ability(186, "Build_Bunker_pt", raw_cmd_pt, 324),
+    Function.raw_ability(187, "Build_CommandCenter_pt", raw_cmd_pt, 318),
+    Function.raw_ability(188, "Build_CreepTumor_pt", raw_cmd_pt, 3691),
+    Function.raw_ability(189, "Build_CreepTumor_Queen_pt", raw_cmd_pt, 1694, 3691),
+    Function.raw_ability(190, "Build_CreepTumor_Tumor_pt", raw_cmd_pt, 1733, 3691),
+    Function.raw_ability(47, "Build_CyberneticsCore_pt", raw_cmd_pt, 894),
+    Function.raw_ability(44, "Build_DarkShrine_pt", raw_cmd_pt, 891),
+    Function.raw_ability(191, "Build_EngineeringBay_pt", raw_cmd_pt, 322),
+    Function.raw_ability(192, "Build_EvolutionChamber_pt", raw_cmd_pt, 1156),
+    Function.raw_ability(193, "Build_Extractor_unit", raw_cmd_unit, 1154),
+    Function.raw_ability(194, "Build_Factory_pt", raw_cmd_pt, 328),
+    Function.raw_ability(39, "Build_FleetBeacon_pt", raw_cmd_pt, 885),
+    Function.raw_ability(38, "Build_Forge_pt", raw_cmd_pt, 884),
+    Function.raw_ability(195, "Build_FusionCore_pt", raw_cmd_pt, 333),
+    Function.raw_ability(37, "Build_Gateway_pt", raw_cmd_pt, 883),
+    Function.raw_ability(196, "Build_GhostAcademy_pt", raw_cmd_pt, 327),
+    Function.raw_ability(197, "Build_Hatchery_pt", raw_cmd_pt, 1152),
+    Function.raw_ability(198, "Build_HydraliskDen_pt", raw_cmd_pt, 1157),
+    Function.raw_ability(199, "Build_InfestationPit_pt", raw_cmd_pt, 1160),
+    Function.raw_ability(200, "Build_Interceptors_autocast", raw_autocast, 1042),
+    Function.raw_ability(66, "Build_Interceptors_quick", raw_cmd, 1042),
+    Function.raw_ability(201, "Build_LurkerDen_pt", raw_cmd_pt, 1163),
+    Function.raw_ability(202, "Build_MissileTurret_pt", raw_cmd_pt, 323),
+    Function.raw_ability(34, "Build_Nexus_pt", raw_cmd_pt, 880),
+    Function.raw_ability(203, "Build_Nuke_quick", raw_cmd, 710),
+    Function.raw_ability(204, "Build_NydusNetwork_pt", raw_cmd_pt, 1161),
+    Function.raw_ability(205, "Build_NydusWorm_pt", raw_cmd_pt, 1768),
+    Function.raw_ability(41, "Build_PhotonCannon_pt", raw_cmd_pt, 887),
+    Function.raw_ability(35, "Build_Pylon_pt", raw_cmd_pt, 881),
+    Function.raw_ability(207, "Build_Reactor_pt", raw_cmd_pt, 3683),
+    Function.raw_ability(206, "Build_Reactor_quick", raw_cmd, 3683),
+    Function.raw_ability(209, "Build_Reactor_Barracks_pt", raw_cmd_pt, 422, 3683),
+    Function.raw_ability(208, "Build_Reactor_Barracks_quick", raw_cmd, 422, 3683),
+    Function.raw_ability(211, "Build_Reactor_Factory_pt", raw_cmd_pt, 455, 3683),
+    Function.raw_ability(210, "Build_Reactor_Factory_quick", raw_cmd, 455, 3683),
+    Function.raw_ability(213, "Build_Reactor_Starport_pt", raw_cmd_pt, 488, 3683),
+    Function.raw_ability(212, "Build_Reactor_Starport_quick", raw_cmd, 488, 3683),
+    Function.raw_ability(214, "Build_Refinery_pt", raw_cmd_unit, 320),
+    Function.raw_ability(215, "Build_RoachWarren_pt", raw_cmd_pt, 1165),
+    Function.raw_ability(45, "Build_RoboticsBay_pt", raw_cmd_pt, 892),
+    Function.raw_ability(46, "Build_RoboticsFacility_pt", raw_cmd_pt, 893),
+    Function.raw_ability(216, "Build_SensorTower_pt", raw_cmd_pt, 326),
+    Function.raw_ability(48, "Build_ShieldBattery_pt", raw_cmd_pt, 895),
+    Function.raw_ability(217, "Build_SpawningPool_pt", raw_cmd_pt, 1155),
+    Function.raw_ability(218, "Build_SpineCrawler_pt", raw_cmd_pt, 1166),
+    Function.raw_ability(219, "Build_Spire_pt", raw_cmd_pt, 1158),
+    Function.raw_ability(220, "Build_SporeCrawler_pt", raw_cmd_pt, 1167),
+    Function.raw_ability(42, "Build_Stargate_pt", raw_cmd_pt, 889),
+    Function.raw_ability(221, "Build_Starport_pt", raw_cmd_pt, 329),
+    Function.raw_ability(95, "Build_StasisTrap_pt", raw_cmd_pt, 2505),
+    Function.raw_ability(222, "Build_SupplyDepot_pt", raw_cmd_pt, 319),
+    Function.raw_ability(224, "Build_TechLab_pt", raw_cmd_pt, 3682),
+    Function.raw_ability(223, "Build_TechLab_quick", raw_cmd, 3682),
+    Function.raw_ability(226, "Build_TechLab_Barracks_pt", raw_cmd_pt, 421, 3682),
+    Function.raw_ability(225, "Build_TechLab_Barracks_quick", raw_cmd, 421, 3682),
+    Function.raw_ability(228, "Build_TechLab_Factory_pt", raw_cmd_pt, 454, 3682),
+    Function.raw_ability(227, "Build_TechLab_Factory_quick", raw_cmd, 454, 3682),
+    Function.raw_ability(230, "Build_TechLab_Starport_pt", raw_cmd_pt, 487, 3682),
+    Function.raw_ability(229, "Build_TechLab_Starport_quick", raw_cmd, 487, 3682),
+    Function.raw_ability(43, "Build_TemplarArchive_pt", raw_cmd_pt, 890),
+    Function.raw_ability(40, "Build_TwilightCouncil_pt", raw_cmd_pt, 886),
+    Function.raw_ability(231, "Build_UltraliskCavern_pt", raw_cmd_pt, 1159),
+    Function.raw_ability(232, "BurrowDown_quick", raw_cmd, 3661),
+    Function.raw_ability(233, "BurrowDown_Baneling_quick", raw_cmd, 1374, 3661),
+    Function.raw_ability(234, "BurrowDown_Drone_quick", raw_cmd, 1378, 3661),
+    Function.raw_ability(235, "BurrowDown_Hydralisk_quick", raw_cmd, 1382, 3661),
+    Function.raw_ability(236, "BurrowDown_Infestor_quick", raw_cmd, 1444, 3661),
+    Function.raw_ability(237, "BurrowDown_InfestorTerran_quick", raw_cmd, 1394, 3661),
+    Function.raw_ability(238, "BurrowDown_Lurker_quick", raw_cmd, 2108, 3661),
+    Function.raw_ability(239, "BurrowDown_Queen_quick", raw_cmd, 1433, 3661),
+    Function.raw_ability(240, "BurrowDown_Ravager_quick", raw_cmd, 2340, 3661),
+    Function.raw_ability(241, "BurrowDown_Roach_quick", raw_cmd, 1386, 3661),
+    Function.raw_ability(242, "BurrowDown_SwarmHost_quick", raw_cmd, 2014, 3661),
+    Function.raw_ability(243, "BurrowDown_Ultralisk_quick", raw_cmd, 1512, 3661),
+    Function.raw_ability(244, "BurrowDown_WidowMine_quick", raw_cmd, 2095, 3661),
+    Function.raw_ability(245, "BurrowDown_Zergling_quick", raw_cmd, 1390, 3661),
+    Function.raw_ability(247, "BurrowUp_autocast", raw_autocast, 3662),
+    Function.raw_ability(246, "BurrowUp_quick", raw_cmd, 3662),
+    Function.raw_ability(249, "BurrowUp_Baneling_autocast", raw_autocast, 1376, 3662),
+    Function.raw_ability(248, "BurrowUp_Baneling_quick", raw_cmd, 1376, 3662),
+    Function.raw_ability(250, "BurrowUp_Drone_quick", raw_cmd, 1380, 3662),
+    Function.raw_ability(252, "BurrowUp_Hydralisk_autocast", raw_autocast, 1384, 3662),
+    Function.raw_ability(251, "BurrowUp_Hydralisk_quick", raw_cmd, 1384, 3662),
+    Function.raw_ability(253, "BurrowUp_Infestor_quick", raw_cmd, 1446, 3662),
+    Function.raw_ability(255, "BurrowUp_InfestorTerran_autocast", raw_autocast, 1396, 3662),
+    Function.raw_ability(254, "BurrowUp_InfestorTerran_quick", raw_cmd, 1396, 3662),
+    Function.raw_ability(256, "BurrowUp_Lurker_quick", raw_cmd, 2110, 3662),
+    Function.raw_ability(258, "BurrowUp_Queen_autocast", raw_autocast, 1435, 3662),
+    Function.raw_ability(257, "BurrowUp_Queen_quick", raw_cmd, 1435, 3662),
+    Function.raw_ability(260, "BurrowUp_Ravager_autocast", raw_autocast, 2342, 3662),
+    Function.raw_ability(259, "BurrowUp_Ravager_quick", raw_cmd, 2342, 3662),
+    Function.raw_ability(262, "BurrowUp_Roach_autocast", raw_autocast, 1388, 3662),
+    Function.raw_ability(261, "BurrowUp_Roach_quick", raw_cmd, 1388, 3662),
+    Function.raw_ability(263, "BurrowUp_SwarmHost_quick", raw_cmd, 2016, 3662),
+    Function.raw_ability(265, "BurrowUp_Ultralisk_autocast", raw_autocast, 1514, 3662),
+    Function.raw_ability(264, "BurrowUp_Ultralisk_quick", raw_cmd, 1514, 3662),
+    Function.raw_ability(266, "BurrowUp_WidowMine_quick", raw_cmd, 2097, 3662),
+    Function.raw_ability(268, "BurrowUp_Zergling_autocast", raw_autocast, 1392, 3662),
+    Function.raw_ability(267, "BurrowUp_Zergling_quick", raw_cmd, 1392, 3662),
+    Function.raw_ability(98, "Cancel_quick", raw_cmd, 3659),
+    Function.raw_ability(123, "Cancel_AdeptPhaseShift_quick", raw_cmd, 2594, 3659),
+    Function.raw_ability(124, "Cancel_AdeptShadePhaseShift_quick", raw_cmd, 2596, 3659),
+    Function.raw_ability(269, "Cancel_BarracksAddOn_quick", raw_cmd, 451, 3659),
+    Function.raw_ability(125, "Cancel_BuildInProgress_quick", raw_cmd, 314, 3659),
+    Function.raw_ability(270, "Cancel_CreepTumor_quick", raw_cmd, 1763, 3659),
+    Function.raw_ability(271, "Cancel_FactoryAddOn_quick", raw_cmd, 484, 3659),
+    Function.raw_ability(126, "Cancel_GravitonBeam_quick", raw_cmd, 174, 3659),
+    Function.raw_ability(272, "Cancel_HangarQueue5_quick", raw_cmd, 1038, 3671),
+    Function.raw_ability(129, "Cancel_Last_quick", raw_cmd, 3671),
+    Function.raw_ability(273, "Cancel_LockOn_quick", raw_cmd, 2354, 3659),
+    Function.raw_ability(274, "Cancel_MorphBroodlord_quick", raw_cmd, 1373, 3659),
+    Function.raw_ability(275, "Cancel_MorphGreaterSpire_quick", raw_cmd, 1221, 3659),
+    Function.raw_ability(276, "Cancel_MorphHive_quick", raw_cmd, 1219, 3659),
+    Function.raw_ability(277, "Cancel_MorphLair_quick", raw_cmd, 1217, 3659),
+    Function.raw_ability(279, "Cancel_MorphLurkerDen_quick", raw_cmd, 2113, 3659),
+    Function.raw_ability(278, "Cancel_MorphLurker_quick", raw_cmd, 2333, 3659),
+    Function.raw_ability(280, "Cancel_MorphMothership_quick", raw_cmd, 1848, 3659),
+    Function.raw_ability(281, "Cancel_MorphOrbital_quick", raw_cmd, 1517, 3659),
+    Function.raw_ability(282, "Cancel_MorphOverlordTransport_quick", raw_cmd, 2709, 3659),
+    Function.raw_ability(283, "Cancel_MorphOverseer_quick", raw_cmd, 1449, 3659),
+    Function.raw_ability(284, "Cancel_MorphPlanetaryFortress_quick", raw_cmd, 1451, 3659),
+    Function.raw_ability(285, "Cancel_MorphRavager_quick", raw_cmd, 2331, 3659),
+    Function.raw_ability(286, "Cancel_MorphThorExplosiveMode_quick", raw_cmd, 2365, 3659),
+    Function.raw_ability(287, "Cancel_NeuralParasite_quick", raw_cmd, 250, 3659),
+    Function.raw_ability(288, "Cancel_Nuke_quick", raw_cmd, 1623, 3659),
+    Function.raw_ability(130, "Cancel_Queue1_quick", raw_cmd, 304, 3671),
+    Function.raw_ability(131, "Cancel_Queue5_quick", raw_cmd, 306, 3671),
+    Function.raw_ability(289, "Cancel_QueueAddOn_quick", raw_cmd, 312, 3671),
+    Function.raw_ability(132, "Cancel_QueueCancelToSelection_quick", raw_cmd, 308, 3671),
+    Function.raw_ability(134, "Cancel_QueuePassiveCancelToSelection_quick", raw_cmd, 1833, 3671),
+    Function.raw_ability(133, "Cancel_QueuePassive_quick", raw_cmd, 1831, 3671),
+    Function.raw_ability(290, "Cancel_SpineCrawlerRoot_quick", raw_cmd, 1730, 3659),
+    Function.raw_ability(291, "Cancel_SporeCrawlerRoot_quick", raw_cmd, 1732, 3659),
+    Function.raw_ability(292, "Cancel_StarportAddOn_quick", raw_cmd, 517, 3659),
+    Function.raw_ability(127, "Cancel_StasisTrap_quick", raw_cmd, 2535, 3659),
+    Function.raw_ability(128, "Cancel_VoidRayPrismaticAlignment_quick", raw_cmd, 3707, 3659),
+    Function.raw_ability(293, "Effect_Abduct_unit", raw_cmd_unit, 2067),
+    Function.raw_ability(96, "Effect_AdeptPhaseShift_pt", raw_cmd_pt, 2544),
+    Function.raw_ability(294, "Effect_AntiArmorMissile_unit", raw_cmd_unit, 3753),
+    Function.raw_ability(295, "Effect_AutoTurret_pt", raw_cmd_pt, 1764),
+    Function.raw_ability(296, "Effect_BlindingCloud_pt", raw_cmd_pt, 2063),
+    Function.raw_ability(111, "Effect_Blink_pt", raw_cmd_pt, 3687),
+    Function.raw_ability(135, "Effect_Blink_Stalker_pt", raw_cmd_pt, 1442, 3687),
+    Function.raw_ability(112, "Effect_Blink_unit", raw_cmd_unit, 3687),  # wrong/unit
+    Function.raw_ability(297, "Effect_CalldownMULE_pt", raw_cmd_pt, 171),
+    Function.raw_ability(298, "Effect_CalldownMULE_unit", raw_cmd_unit, 171),
+    Function.raw_ability(299, "Effect_CausticSpray_unit", raw_cmd_unit, 2324),
+    Function.raw_ability(302, "Effect_Charge_autocast", raw_autocast, 1819),
+    Function.raw_ability(300, "Effect_Charge_pt", raw_cmd_pt, 1819),
+    Function.raw_ability(301, "Effect_Charge_unit", raw_cmd_unit, 1819),
+    Function.raw_ability(122, "Effect_ChronoBoostEnergyCost_unit", raw_cmd_unit, 3755),  # new 4.0?
+    Function.raw_ability(33, "Effect_ChronoBoost_unit", raw_cmd_unit, 261),  # wrong / old?
+    Function.raw_ability(303, "Effect_Contaminate_unit", raw_cmd_unit, 1825),
+    Function.raw_ability(304, "Effect_CorrosiveBile_pt", raw_cmd_pt, 2338),
+    Function.raw_ability(305, "Effect_EMP_pt", raw_cmd_pt, 1628),
+    Function.raw_ability(306, "Effect_EMP_unit", raw_cmd_unit, 1628),
+    Function.raw_ability(307, "Effect_Explode_quick", raw_cmd, 42),
+    Function.raw_ability(157, "Effect_Feedback_unit", raw_cmd_unit, 140),
+    Function.raw_ability(79, "Effect_ForceField_pt", raw_cmd_pt, 1526),
+    Function.raw_ability(308, "Effect_FungalGrowth_pt", raw_cmd_pt, 74),
+    Function.raw_ability(309, "Effect_FungalGrowth_unit", raw_cmd_unit, 74),
+    Function.raw_ability(310, "Effect_GhostSnipe_unit", raw_cmd_unit, 2714),
+    Function.raw_ability(32, "Effect_GravitonBeam_unit", raw_cmd_unit, 173),
+    Function.raw_ability(20, "Effect_GuardianShield_quick", raw_cmd, 76),
+    Function.raw_ability(312, "Effect_Heal_autocast", raw_autocast, 386),
+    Function.raw_ability(311, "Effect_Heal_unit", raw_cmd_unit, 386),
+    Function.raw_ability(313, "Effect_ImmortalBarrier_autocast", raw_autocast, 2328),
+    Function.raw_ability(91, "Effect_ImmortalBarrier_quick", raw_cmd, 2328),
+    Function.raw_ability(314, "Effect_InfestedTerrans_pt", raw_cmd_pt, 247),
+    Function.raw_ability(315, "Effect_InjectLarva_unit", raw_cmd_unit, 251),
+    Function.raw_ability(316, "Effect_InterferenceMatrix_unit", raw_cmd_unit, 3747),
+    Function.raw_ability(317, "Effect_KD8Charge_pt", raw_cmd_pt, 2588),
+    Function.raw_ability(538, "Effect_KD8Charge_unit", raw_cmd_unit, 2588),
+    Function.raw_ability(318, "Effect_LockOn_unit", raw_cmd_unit, 2350),
+    Function.raw_ability(541, "Effect_LockOn_autocast", raw_autocast, 2350),
+    Function.raw_ability(319, "Effect_LocustSwoop_pt", raw_cmd_pt, 2387),
+    Function.raw_ability(110, "Effect_MassRecall_pt", raw_cmd_pt, 3686),
+    Function.raw_ability(136, "Effect_MassRecall_Mothership_pt", raw_cmd_pt, 2368, 3686),
+    Function.raw_ability(162, "Effect_MassRecall_Nexus_pt", raw_cmd_pt, 3757, 3686),
+    Function.raw_ability(137, "Effect_MassRecall_StrategicRecall_pt", raw_cmd_pt, 142, 3686),
+    Function.raw_ability(320, "Effect_MedivacIgniteAfterburners_quick", raw_cmd, 2116),
+    Function.raw_ability(321, "Effect_NeuralParasite_unit", raw_cmd_unit, 249),
+    Function.raw_ability(322, "Effect_NukeCalldown_pt", raw_cmd_pt, 1622),
+    Function.raw_ability(90, "Effect_OracleRevelation_pt", raw_cmd_pt, 2146),
+    Function.raw_ability(323, "Effect_ParasiticBomb_unit", raw_cmd_unit, 2542),
+    Function.raw_ability(65, "Effect_PsiStorm_pt", raw_cmd_pt, 1036),
+    Function.raw_ability(167, "Effect_PurificationNova_pt", raw_cmd_pt, 2346),
+    Function.raw_ability(324, "Effect_Repair_autocast", raw_autocast, 3685),
+    Function.raw_ability(108, "Effect_Repair_pt", raw_cmd_pt, 3685),
+    Function.raw_ability(109, "Effect_Repair_unit", raw_cmd_unit, 3685),
+    Function.raw_ability(326, "Effect_Repair_Mule_autocast", raw_autocast, 78, 3685),
+    Function.raw_ability(325, "Effect_Repair_Mule_unit", raw_cmd_unit, 78, 3685),
+    Function.raw_ability(328, "Effect_Repair_RepairDrone_autocast", raw_autocast, 3751, 3685),
+    Function.raw_ability(327, "Effect_Repair_RepairDrone_unit", raw_cmd_unit, 3751, 3685),
+    Function.raw_ability(330, "Effect_Repair_SCV_autocast", raw_autocast, 316, 3685),
+    Function.raw_ability(329, "Effect_Repair_SCV_unit", raw_cmd_unit, 316, 3685),
+    Function.raw_ability(331, "Effect_Restore_autocast", raw_autocast, 3765),
+    Function.raw_ability(161, "Effect_Restore_unit", raw_cmd_unit, 3765),
+    Function.raw_ability(332, "Effect_Salvage_quick", raw_cmd, 32),
+    Function.raw_ability(333, "Effect_Scan_pt", raw_cmd_pt, 399),
+    Function.raw_ability(113, "Effect_ShadowStride_pt", raw_cmd_pt, 2700, 3687),
+    Function.raw_ability(334, "Effect_SpawnChangeling_quick", raw_cmd, 181),
+    Function.raw_ability(335, "Effect_SpawnLocusts_pt", raw_cmd_pt, 2704),
+    Function.raw_ability(336, "Effect_SpawnLocusts_unit", raw_cmd_unit, 2704),
+    Function.raw_ability(337, "Effect_Spray_pt", raw_cmd_pt, 3684),
+    Function.raw_ability(338, "Effect_Spray_Protoss_pt", raw_cmd_pt, 30, 3684),
+    Function.raw_ability(339, "Effect_Spray_Terran_pt", raw_cmd_pt, 26, 3684),
+    Function.raw_ability(340, "Effect_Spray_Zerg_pt", raw_cmd_pt, 28, 3684),
+    Function.raw_ability(341, "Effect_Stim_quick", raw_cmd, 3675),
+    Function.raw_ability(342, "Effect_Stim_Marauder_quick", raw_cmd, 253, 3675),
+    Function.raw_ability(343, "Effect_Stim_Marauder_Redirect_quick", raw_cmd, 1684, 3675),
+    Function.raw_ability(344, "Effect_Stim_Marine_quick", raw_cmd, 380, 3675),
+    Function.raw_ability(345, "Effect_Stim_Marine_Redirect_quick", raw_cmd, 1683, 3675),
+    Function.raw_ability(346, "Effect_SupplyDrop_unit", raw_cmd_unit, 255),
+    Function.raw_ability(347, "Effect_TacticalJump_pt", raw_cmd_pt, 2358),
+    Function.raw_ability(348, "Effect_TimeWarp_pt", raw_cmd_pt, 2244),
+    Function.raw_ability(349, "Effect_Transfusion_unit", raw_cmd_unit, 1664),
+    Function.raw_ability(350, "Effect_ViperConsume_unit", raw_cmd_unit, 2073),
+    Function.raw_ability(94, "Effect_VoidRayPrismaticAlignment_quick", raw_cmd, 2393),
+    Function.raw_ability(353, "Effect_WidowMineAttack_autocast", raw_autocast, 2099),
+    Function.raw_ability(351, "Effect_WidowMineAttack_pt", raw_cmd_pt, 2099),
+    Function.raw_ability(352, "Effect_WidowMineAttack_unit", raw_cmd_unit, 2099),
+    Function.raw_ability(537, "Effect_YamatoGun_unit", raw_cmd_unit, 401),
+    Function.raw_ability(93, "Hallucination_Adept_quick", raw_cmd, 2391),
+    Function.raw_ability(22, "Hallucination_Archon_quick", raw_cmd, 146),
+    Function.raw_ability(23, "Hallucination_Colossus_quick", raw_cmd, 148),
+    Function.raw_ability(92, "Hallucination_Disruptor_quick", raw_cmd, 2389),
+    Function.raw_ability(24, "Hallucination_HighTemplar_quick", raw_cmd, 150),
+    Function.raw_ability(25, "Hallucination_Immortal_quick", raw_cmd, 152),
+    Function.raw_ability(89, "Hallucination_Oracle_quick", raw_cmd, 2114),
+    Function.raw_ability(26, "Hallucination_Phoenix_quick", raw_cmd, 154),
+    Function.raw_ability(27, "Hallucination_Probe_quick", raw_cmd, 156),
+    Function.raw_ability(28, "Hallucination_Stalker_quick", raw_cmd, 158),
+    Function.raw_ability(29, "Hallucination_VoidRay_quick", raw_cmd, 160),
+    Function.raw_ability(30, "Hallucination_WarpPrism_quick", raw_cmd, 162),
+    Function.raw_ability(31, "Hallucination_Zealot_quick", raw_cmd, 164),
+    Function.raw_ability(354, "Halt_Building_quick", raw_cmd, 315, 3660),
+    Function.raw_ability(99, "Halt_quick", raw_cmd, 3660),
+    Function.raw_ability(355, "Halt_TerranBuild_quick", raw_cmd, 348, 3660),
+    Function.raw_ability(102, "Harvest_Gather_unit", raw_cmd_unit, 3666),
+    Function.raw_ability(356, "Harvest_Gather_Drone_pt", raw_cmd_pt, 1183, 3666),
+    Function.raw_ability(357, "Harvest_Gather_Mule_pt", raw_cmd_pt, 166, 3666),
+    Function.raw_ability(358, "Harvest_Gather_Probe_pt", raw_cmd_pt, 298, 3666),
+    Function.raw_ability(359, "Harvest_Gather_SCV_pt", raw_cmd_pt, 295, 3666),
+    Function.raw_ability(103, "Harvest_Return_quick", raw_cmd, 3667),
+    Function.raw_ability(360, "Harvest_Return_Drone_quick", raw_cmd, 1184, 3667),
+    Function.raw_ability(361, "Harvest_Return_Mule_quick", raw_cmd, 167, 3667),
+    Function.raw_ability(154, "Harvest_Return_Probe_quick", raw_cmd, 299, 3667),
+    Function.raw_ability(362, "Harvest_Return_SCV_quick", raw_cmd, 296, 3667),
+    Function.raw_ability(17, "HoldPosition_quick", raw_cmd, 3793),
+    Function.raw_ability(542, "HoldPosition_Battlecruiser_quick", raw_cmd, 3778, 3793),
+    Function.raw_ability(543, "HoldPosition_Hold_quick", raw_cmd, 18, 3793),
+    Function.raw_ability(364, "Land_Barracks_pt", raw_cmd_pt, 554, 3678),
+    Function.raw_ability(365, "Land_CommandCenter_pt", raw_cmd_pt, 419, 3678),
+    Function.raw_ability(366, "Land_Factory_pt", raw_cmd_pt, 520, 3678),
+    Function.raw_ability(367, "Land_OrbitalCommand_pt", raw_cmd_pt, 1524, 3678),
+    Function.raw_ability(363, "Land_pt", raw_cmd_pt, 3678),
+    Function.raw_ability(368, "Land_Starport_pt", raw_cmd_pt, 522, 3678),
+    Function.raw_ability(370, "Lift_Barracks_quick", raw_cmd, 452, 3679),
+    Function.raw_ability(371, "Lift_CommandCenter_quick", raw_cmd, 417, 3679),
+    Function.raw_ability(372, "Lift_Factory_quick", raw_cmd, 485, 3679),
+    Function.raw_ability(373, "Lift_OrbitalCommand_quick", raw_cmd, 1522, 3679),
+    Function.raw_ability(369, "Lift_quick", raw_cmd, 3679),
+    Function.raw_ability(374, "Lift_Starport_quick", raw_cmd, 518, 3679),
+    Function.raw_ability(376, "LoadAll_CommandCenter_quick", raw_cmd, 416, 3663),
+    Function.raw_ability(375, "LoadAll_quick", raw_cmd, 3663),
+    Function.raw_ability(377, "Load_Bunker_unit", raw_cmd_unit, 407, 3668),
+    Function.raw_ability(378, "Load_Medivac_unit", raw_cmd_unit, 394, 3668),
+    Function.raw_ability(379, "Load_NydusNetwork_unit", raw_cmd_unit, 1437, 3668),
+    Function.raw_ability(380, "Load_NydusWorm_unit", raw_cmd_unit, 2370, 3668),
+    Function.raw_ability(381, "Load_Overlord_unit", raw_cmd_unit, 1406, 3668),
+    Function.raw_ability(104, "Load_unit", raw_cmd_unit, 3668),
+    Function.raw_ability(382, "Load_WarpPrism_unit", raw_cmd_unit, 911, 3668),
+    Function.raw_ability(86, "Morph_Archon_quick", raw_cmd, 1766),
+    Function.raw_ability(383, "Morph_BroodLord_quick", raw_cmd, 1372),
+    Function.raw_ability(78, "Morph_Gateway_quick", raw_cmd, 1520),
+    Function.raw_ability(384, "Morph_GreaterSpire_quick", raw_cmd, 1220),
+    Function.raw_ability(385, "Morph_Hellbat_quick", raw_cmd, 1998),
+    Function.raw_ability(386, "Morph_Hellion_quick", raw_cmd, 1978),
+    Function.raw_ability(387, "Morph_Hive_quick", raw_cmd, 1218),
+    Function.raw_ability(388, "Morph_Lair_quick", raw_cmd, 1216),
+    Function.raw_ability(389, "Morph_LiberatorAAMode_quick", raw_cmd, 2560),
+    Function.raw_ability(390, "Morph_LiberatorAGMode_pt", raw_cmd_pt, 2558),
+    Function.raw_ability(392, "Morph_LurkerDen_quick", raw_cmd, 2112),
+    Function.raw_ability(391, "Morph_Lurker_quick", raw_cmd, 2332),
+    Function.raw_ability(393, "Morph_Mothership_quick", raw_cmd, 1847),
+    Function.raw_ability(121, "Morph_ObserverMode_quick", raw_cmd, 3739),
+    Function.raw_ability(394, "Morph_OrbitalCommand_quick", raw_cmd, 1516),
+    Function.raw_ability(395, "Morph_OverlordTransport_quick", raw_cmd, 2708),
+    Function.raw_ability(397, "Morph_OverseerMode_quick", raw_cmd, 3745),
+    Function.raw_ability(396, "Morph_Overseer_quick", raw_cmd, 1448),
+    Function.raw_ability(398, "Morph_OversightMode_quick", raw_cmd, 3743),
+    Function.raw_ability(399, "Morph_PlanetaryFortress_quick", raw_cmd, 1450),
+    Function.raw_ability(400, "Morph_Ravager_quick", raw_cmd, 2330),
+    Function.raw_ability(401, "Morph_Root_pt", raw_cmd_pt, 3680),
+    Function.raw_ability(402, "Morph_SiegeMode_quick", raw_cmd, 388),
+    Function.raw_ability(403, "Morph_SpineCrawlerRoot_pt", raw_cmd_pt, 1729, 3680),
+    Function.raw_ability(404, "Morph_SpineCrawlerUproot_quick", raw_cmd, 1725, 3681),
+    Function.raw_ability(405, "Morph_SporeCrawlerRoot_pt", raw_cmd_pt, 1731, 3680),
+    Function.raw_ability(406, "Morph_SporeCrawlerUproot_quick", raw_cmd, 1727, 3681),
+    Function.raw_ability(407, "Morph_SupplyDepot_Lower_quick", raw_cmd, 556),
+    Function.raw_ability(408, "Morph_SupplyDepot_Raise_quick", raw_cmd, 558),
+    Function.raw_ability(160, "Morph_SurveillanceMode_quick", raw_cmd, 3741),
+    Function.raw_ability(409, "Morph_ThorExplosiveMode_quick", raw_cmd, 2364),
+    Function.raw_ability(410, "Morph_ThorHighImpactMode_quick", raw_cmd, 2362),
+    Function.raw_ability(411, "Morph_Unsiege_quick", raw_cmd, 390),
+    Function.raw_ability(412, "Morph_Uproot_quick", raw_cmd, 3681),
+    Function.raw_ability(413, "Morph_VikingAssaultMode_quick", raw_cmd, 403),
+    Function.raw_ability(414, "Morph_VikingFighterMode_quick", raw_cmd, 405),
+    Function.raw_ability(77, "Morph_WarpGate_quick", raw_cmd, 1518),
+    Function.raw_ability(544, "Morph_WarpGate_autocast", raw_autocast, 1518),
+    Function.raw_ability(80, "Morph_WarpPrismPhasingMode_quick", raw_cmd, 1528),
+    Function.raw_ability(81, "Morph_WarpPrismTransportMode_quick", raw_cmd, 1530),
+    Function.raw_ability(13, "Move_pt", raw_cmd_pt, 3794),
+    Function.raw_ability(14, "Move_unit", raw_cmd_unit, 3794),
+    Function.raw_ability(545, "Move_Battlecruiser_pt", raw_cmd_pt, 3776, 3794),
+    Function.raw_ability(546, "Move_Battlecruiser_unit", raw_cmd_unit, 3776, 3794),
+    Function.raw_ability(547, "Move_Move_pt", raw_cmd_pt, 16, 3794),
+    Function.raw_ability(548, "Move_Move_unit", raw_cmd_unit, 16, 3794),
+    Function.raw_ability(15, "Patrol_pt", raw_cmd_pt, 3795),
+    Function.raw_ability(16, "Patrol_unit", raw_cmd_unit, 3795),
+    Function.raw_ability(549, "Patrol_Battlecruiser_pt", raw_cmd_pt, 3777, 3795),
+    Function.raw_ability(550, "Patrol_Battlecruiser_unit", raw_cmd_unit, 3777, 3795),
+    Function.raw_ability(551, "Patrol_Patrol_pt", raw_cmd_pt, 17, 3795),
+    Function.raw_ability(552, "Patrol_Patrol_unit", raw_cmd_unit, 17, 3795),
+    Function.raw_ability(415, "Rally_Building_pt", raw_cmd_pt, 195, 3673),
+    Function.raw_ability(416, "Rally_Building_unit", raw_cmd_unit, 195, 3673),
+    Function.raw_ability(417, "Rally_CommandCenter_pt", raw_cmd_pt, 203, 3690),
+    Function.raw_ability(418, "Rally_CommandCenter_unit", raw_cmd_unit, 203, 3690),
+    Function.raw_ability(419, "Rally_Hatchery_Units_pt", raw_cmd_pt, 211, 3673),
+    Function.raw_ability(420, "Rally_Hatchery_Units_unit", raw_cmd_unit, 211, 3673),
+    Function.raw_ability(421, "Rally_Hatchery_Workers_pt", raw_cmd_pt, 212, 3690),
+    Function.raw_ability(422, "Rally_Hatchery_Workers_unit", raw_cmd_unit, 212, 3690),
+    Function.raw_ability(423, "Rally_Morphing_Unit_pt", raw_cmd_pt, 199, 3673),
+    Function.raw_ability(424, "Rally_Morphing_Unit_unit", raw_cmd_unit, 199, 3673),
+    Function.raw_ability(138, "Rally_Nexus_pt", raw_cmd_pt, 207, 3690),
+    Function.raw_ability(165, "Rally_Nexus_unit", raw_cmd_unit, 207, 3690),
+    Function.raw_ability(106, "Rally_Units_pt", raw_cmd_pt, 3673),
+    Function.raw_ability(107, "Rally_Units_unit", raw_cmd_unit, 3673),
+    Function.raw_ability(114, "Rally_Workers_pt", raw_cmd_pt, 3690),
+    Function.raw_ability(115, "Rally_Workers_unit", raw_cmd_unit, 3690),
+    Function.raw_ability(425, "Research_AdaptiveTalons_quick", raw_cmd, 3709),
+    Function.raw_ability(85, "Research_AdeptResonatingGlaives_quick", raw_cmd, 1594),
+    Function.raw_ability(426, "Research_AdvancedBallistics_quick", raw_cmd, 805),
+    Function.raw_ability(553, "Research_AnabolicSynthesis_quick", raw_cmd, 263),
+    Function.raw_ability(427, "Research_BansheeCloakingField_quick", raw_cmd, 790),
+    Function.raw_ability(428, "Research_BansheeHyperflightRotors_quick", raw_cmd, 799),
+    Function.raw_ability(429, "Research_BattlecruiserWeaponRefit_quick", raw_cmd, 1532),
+    Function.raw_ability(84, "Research_Blink_quick", raw_cmd, 1593),
+    Function.raw_ability(430, "Research_Burrow_quick", raw_cmd, 1225),
+    Function.raw_ability(431, "Research_CentrifugalHooks_quick", raw_cmd, 1482),
+    Function.raw_ability(83, "Research_Charge_quick", raw_cmd, 1592),
+    Function.raw_ability(432, "Research_ChitinousPlating_quick", raw_cmd, 265),
+    Function.raw_ability(433, "Research_CombatShield_quick", raw_cmd, 731),
+    Function.raw_ability(434, "Research_ConcussiveShells_quick", raw_cmd, 732),
+    Function.raw_ability(554, "Research_CycloneLockOnDamage_quick", raw_cmd, 769),
+    Function.raw_ability(435, "Research_CycloneRapidFireLaunchers_quick", raw_cmd, 768),
+    Function.raw_ability(436, "Research_DrillingClaws_quick", raw_cmd, 764),
+    Function.raw_ability(69, "Research_ExtendedThermalLance_quick", raw_cmd, 1097),
+    Function.raw_ability(437, "Research_GlialRegeneration_quick", raw_cmd, 216),
+    Function.raw_ability(67, "Research_GraviticBooster_quick", raw_cmd, 1093),
+    Function.raw_ability(68, "Research_GraviticDrive_quick", raw_cmd, 1094),
+    Function.raw_ability(438, "Research_GroovedSpines_quick", raw_cmd, 1282),
+    Function.raw_ability(440, "Research_HighCapacityFuelTanks_quick", raw_cmd, 804),
+    Function.raw_ability(439, "Research_HiSecAutoTracking_quick", raw_cmd, 650),
+    Function.raw_ability(441, "Research_InfernalPreigniter_quick", raw_cmd, 761),
+    Function.raw_ability(18, "Research_InterceptorGravitonCatapult_quick", raw_cmd, 44),
+    Function.raw_ability(442, "Research_MuscularAugments_quick", raw_cmd, 1283),
+    Function.raw_ability(443, "Research_NeosteelFrame_quick", raw_cmd, 655),
+    Function.raw_ability(444, "Research_NeuralParasite_quick", raw_cmd, 1455),
+    Function.raw_ability(445, "Research_PathogenGlands_quick", raw_cmd, 1454),
+    Function.raw_ability(446, "Research_PersonalCloaking_quick", raw_cmd, 820),
+    Function.raw_ability(19, "Research_PhoenixAnionPulseCrystals_quick", raw_cmd, 46),
+    Function.raw_ability(447, "Research_PneumatizedCarapace_quick", raw_cmd, 1223),
+    Function.raw_ability(139, "Research_ProtossAirArmorLevel1_quick", raw_cmd, 1565, 3692),
+    Function.raw_ability(140, "Research_ProtossAirArmorLevel2_quick", raw_cmd, 1566, 3692),
+    Function.raw_ability(141, "Research_ProtossAirArmorLevel3_quick", raw_cmd, 1567, 3692),
+    Function.raw_ability(116, "Research_ProtossAirArmor_quick", raw_cmd, 3692),
+    Function.raw_ability(142, "Research_ProtossAirWeaponsLevel1_quick", raw_cmd, 1562, 3693),
+    Function.raw_ability(143, "Research_ProtossAirWeaponsLevel2_quick", raw_cmd, 1563, 3693),
+    Function.raw_ability(144, "Research_ProtossAirWeaponsLevel3_quick", raw_cmd, 1564, 3693),
+    Function.raw_ability(117, "Research_ProtossAirWeapons_quick", raw_cmd, 3693),
+    Function.raw_ability(145, "Research_ProtossGroundArmorLevel1_quick", raw_cmd, 1065, 3694),
+    Function.raw_ability(146, "Research_ProtossGroundArmorLevel2_quick", raw_cmd, 1066, 3694),
+    Function.raw_ability(147, "Research_ProtossGroundArmorLevel3_quick", raw_cmd, 1067, 3694),
+    Function.raw_ability(118, "Research_ProtossGroundArmor_quick", raw_cmd, 3694),
+    Function.raw_ability(148, "Research_ProtossGroundWeaponsLevel1_quick", raw_cmd, 1062, 3695),
+    Function.raw_ability(149, "Research_ProtossGroundWeaponsLevel2_quick", raw_cmd, 1063, 3695),
+    Function.raw_ability(150, "Research_ProtossGroundWeaponsLevel3_quick", raw_cmd, 1064, 3695),
+    Function.raw_ability(119, "Research_ProtossGroundWeapons_quick", raw_cmd, 3695),
+    Function.raw_ability(151, "Research_ProtossShieldsLevel1_quick", raw_cmd, 1068, 3696),
+    Function.raw_ability(152, "Research_ProtossShieldsLevel2_quick", raw_cmd, 1069, 3696),
+    Function.raw_ability(153, "Research_ProtossShieldsLevel3_quick", raw_cmd, 1070, 3696),
+    Function.raw_ability(120, "Research_ProtossShields_quick", raw_cmd, 3696),
+    Function.raw_ability(70, "Research_PsiStorm_quick", raw_cmd, 1126),
+    Function.raw_ability(448, "Research_RavenCorvidReactor_quick", raw_cmd, 793),
+    Function.raw_ability(449, "Research_RavenRecalibratedExplosives_quick", raw_cmd, 803),
+    Function.raw_ability(97, "Research_ShadowStrike_quick", raw_cmd, 2720),
+    Function.raw_ability(450, "Research_SmartServos_quick", raw_cmd, 766),
+    Function.raw_ability(451, "Research_Stimpack_quick", raw_cmd, 730),
+    Function.raw_ability(453, "Research_TerranInfantryArmorLevel1_quick", raw_cmd, 656, 3697),
+    Function.raw_ability(454, "Research_TerranInfantryArmorLevel2_quick", raw_cmd, 657, 3697),
+    Function.raw_ability(455, "Research_TerranInfantryArmorLevel3_quick", raw_cmd, 658, 3697),
+    Function.raw_ability(452, "Research_TerranInfantryArmor_quick", raw_cmd, 3697),
+    Function.raw_ability(457, "Research_TerranInfantryWeaponsLevel1_quick", raw_cmd, 652, 3698),
+    Function.raw_ability(458, "Research_TerranInfantryWeaponsLevel2_quick", raw_cmd, 653, 3698),
+    Function.raw_ability(459, "Research_TerranInfantryWeaponsLevel3_quick", raw_cmd, 654, 3698),
+    Function.raw_ability(456, "Research_TerranInfantryWeapons_quick", raw_cmd, 3698),
+    Function.raw_ability(461, "Research_TerranShipWeaponsLevel1_quick", raw_cmd, 861, 3699),
+    Function.raw_ability(462, "Research_TerranShipWeaponsLevel2_quick", raw_cmd, 862, 3699),
+    Function.raw_ability(463, "Research_TerranShipWeaponsLevel3_quick", raw_cmd, 863, 3699),
+    Function.raw_ability(460, "Research_TerranShipWeapons_quick", raw_cmd, 3699),
+    Function.raw_ability(464, "Research_TerranStructureArmorUpgrade_quick", raw_cmd, 651),
+    Function.raw_ability(466, "Research_TerranVehicleAndShipPlatingLevel1_quick", raw_cmd, 864, 3700),
+    Function.raw_ability(467, "Research_TerranVehicleAndShipPlatingLevel2_quick", raw_cmd, 865, 3700),
+    Function.raw_ability(468, "Research_TerranVehicleAndShipPlatingLevel3_quick", raw_cmd, 866, 3700),
+    Function.raw_ability(465, "Research_TerranVehicleAndShipPlating_quick", raw_cmd, 3700),
+    Function.raw_ability(470, "Research_TerranVehicleWeaponsLevel1_quick", raw_cmd, 855, 3701),
+    Function.raw_ability(471, "Research_TerranVehicleWeaponsLevel2_quick", raw_cmd, 856, 3701),
+    Function.raw_ability(472, "Research_TerranVehicleWeaponsLevel3_quick", raw_cmd, 857, 3701),
+    Function.raw_ability(469, "Research_TerranVehicleWeapons_quick", raw_cmd, 3701),
+    Function.raw_ability(473, "Research_TunnelingClaws_quick", raw_cmd, 217),
+    Function.raw_ability(82, "Research_WarpGate_quick", raw_cmd, 1568),
+    Function.raw_ability(475, "Research_ZergFlyerArmorLevel1_quick", raw_cmd, 1315, 3702),
+    Function.raw_ability(476, "Research_ZergFlyerArmorLevel2_quick", raw_cmd, 1316, 3702),
+    Function.raw_ability(477, "Research_ZergFlyerArmorLevel3_quick", raw_cmd, 1317, 3702),
+    Function.raw_ability(474, "Research_ZergFlyerArmor_quick", raw_cmd, 3702),
+    Function.raw_ability(479, "Research_ZergFlyerAttackLevel1_quick", raw_cmd, 1312, 3703),
+    Function.raw_ability(480, "Research_ZergFlyerAttackLevel2_quick", raw_cmd, 1313, 3703),
+    Function.raw_ability(481, "Research_ZergFlyerAttackLevel3_quick", raw_cmd, 1314, 3703),
+    Function.raw_ability(478, "Research_ZergFlyerAttack_quick", raw_cmd, 3703),
+    Function.raw_ability(483, "Research_ZergGroundArmorLevel1_quick", raw_cmd, 1189, 3704),
+    Function.raw_ability(484, "Research_ZergGroundArmorLevel2_quick", raw_cmd, 1190, 3704),
+    Function.raw_ability(485, "Research_ZergGroundArmorLevel3_quick", raw_cmd, 1191, 3704),
+    Function.raw_ability(482, "Research_ZergGroundArmor_quick", raw_cmd, 3704),
+    Function.raw_ability(494, "Research_ZerglingAdrenalGlands_quick", raw_cmd, 1252),
+    Function.raw_ability(495, "Research_ZerglingMetabolicBoost_quick", raw_cmd, 1253),
+    Function.raw_ability(487, "Research_ZergMeleeWeaponsLevel1_quick", raw_cmd, 1186, 3705),
+    Function.raw_ability(488, "Research_ZergMeleeWeaponsLevel2_quick", raw_cmd, 1187, 3705),
+    Function.raw_ability(489, "Research_ZergMeleeWeaponsLevel3_quick", raw_cmd, 1188, 3705),
+    Function.raw_ability(486, "Research_ZergMeleeWeapons_quick", raw_cmd, 3705),
+    Function.raw_ability(491, "Research_ZergMissileWeaponsLevel1_quick", raw_cmd, 1192, 3706),
+    Function.raw_ability(492, "Research_ZergMissileWeaponsLevel2_quick", raw_cmd, 1193, 3706),
+    Function.raw_ability(493, "Research_ZergMissileWeaponsLevel3_quick", raw_cmd, 1194, 3706),
+    Function.raw_ability(490, "Research_ZergMissileWeapons_quick", raw_cmd, 3706),
+    Function.raw_ability(10, "Scan_Move_pt", raw_cmd_pt, 19, 3674),
+    Function.raw_ability(11, "Scan_Move_unit", raw_cmd_unit, 19, 3674),
+    Function.raw_ability(1, "Smart_pt", raw_cmd_pt, 1),
+    Function.raw_ability(12, "Smart_unit", raw_cmd_unit, 1),
+    Function.raw_ability(101, "Stop_quick", raw_cmd, 3665),
+    Function.raw_ability(555, "Stop_Battlecruiser_quick", raw_cmd, 3783, 3665),
+    Function.raw_ability(496, "Stop_Building_quick", raw_cmd, 2057, 3665),
+    Function.raw_ability(497, "Stop_Redirect_quick", raw_cmd, 1691, 3665),
+    Function.raw_ability(155, "Stop_Stop_quick", raw_cmd, 4, 3665),
+    Function.raw_ability(54, "Train_Adept_quick", raw_cmd, 922),
+    Function.raw_ability(498, "Train_Baneling_quick", raw_cmd, 80),
+    Function.raw_ability(499, "Train_Banshee_quick", raw_cmd, 621),
+    Function.raw_ability(500, "Train_Battlecruiser_quick", raw_cmd, 623),
+    Function.raw_ability(56, "Train_Carrier_quick", raw_cmd, 948),
+    Function.raw_ability(62, "Train_Colossus_quick", raw_cmd, 978),
+    Function.raw_ability(501, "Train_Corruptor_quick", raw_cmd, 1353),
+    Function.raw_ability(502, "Train_Cyclone_quick", raw_cmd, 597),
+    Function.raw_ability(52, "Train_DarkTemplar_quick", raw_cmd, 920),
+    Function.raw_ability(166, "Train_Disruptor_quick", raw_cmd, 994),
+    Function.raw_ability(503, "Train_Drone_quick", raw_cmd, 1342),
+    Function.raw_ability(504, "Train_Ghost_quick", raw_cmd, 562),
+    Function.raw_ability(505, "Train_Hellbat_quick", raw_cmd, 596),
+    Function.raw_ability(506, "Train_Hellion_quick", raw_cmd, 595),
+    Function.raw_ability(51, "Train_HighTemplar_quick", raw_cmd, 919),
+    Function.raw_ability(507, "Train_Hydralisk_quick", raw_cmd, 1345),
+    Function.raw_ability(63, "Train_Immortal_quick", raw_cmd, 979),
+    Function.raw_ability(508, "Train_Infestor_quick", raw_cmd, 1352),
+    Function.raw_ability(509, "Train_Liberator_quick", raw_cmd, 626),
+    Function.raw_ability(510, "Train_Marauder_quick", raw_cmd, 563),
+    Function.raw_ability(511, "Train_Marine_quick", raw_cmd, 560),
+    Function.raw_ability(512, "Train_Medivac_quick", raw_cmd, 620),
+    Function.raw_ability(513, "Train_MothershipCore_quick", raw_cmd, 1853),
+    Function.raw_ability(21, "Train_Mothership_quick", raw_cmd, 110),
+    Function.raw_ability(514, "Train_Mutalisk_quick", raw_cmd, 1346),
+    Function.raw_ability(61, "Train_Observer_quick", raw_cmd, 977),
+    Function.raw_ability(58, "Train_Oracle_quick", raw_cmd, 954),
+    Function.raw_ability(515, "Train_Overlord_quick", raw_cmd, 1344),
+    Function.raw_ability(55, "Train_Phoenix_quick", raw_cmd, 946),
+    Function.raw_ability(64, "Train_Probe_quick", raw_cmd, 1006),
+    Function.raw_ability(516, "Train_Queen_quick", raw_cmd, 1632),
+    Function.raw_ability(517, "Train_Raven_quick", raw_cmd, 622),
+    Function.raw_ability(518, "Train_Reaper_quick", raw_cmd, 561),
+    Function.raw_ability(519, "Train_Roach_quick", raw_cmd, 1351),
+    Function.raw_ability(520, "Train_SCV_quick", raw_cmd, 524),
+    Function.raw_ability(53, "Train_Sentry_quick", raw_cmd, 921),
+    Function.raw_ability(521, "Train_SiegeTank_quick", raw_cmd, 591),
+    Function.raw_ability(50, "Train_Stalker_quick", raw_cmd, 917),
+    Function.raw_ability(522, "Train_SwarmHost_quick", raw_cmd, 1356),
+    Function.raw_ability(59, "Train_Tempest_quick", raw_cmd, 955),
+    Function.raw_ability(523, "Train_Thor_quick", raw_cmd, 594),
+    Function.raw_ability(524, "Train_Ultralisk_quick", raw_cmd, 1348),
+    Function.raw_ability(525, "Train_VikingFighter_quick", raw_cmd, 624),
+    Function.raw_ability(526, "Train_Viper_quick", raw_cmd, 1354),
+    Function.raw_ability(57, "Train_VoidRay_quick", raw_cmd, 950),
+    Function.raw_ability(76, "TrainWarp_Adept_pt", raw_cmd_pt, 1419),
+    Function.raw_ability(74, "TrainWarp_DarkTemplar_pt", raw_cmd_pt, 1417),
+    Function.raw_ability(73, "TrainWarp_HighTemplar_pt", raw_cmd_pt, 1416),
+    Function.raw_ability(60, "Train_WarpPrism_quick", raw_cmd, 976),
+    Function.raw_ability(75, "TrainWarp_Sentry_pt", raw_cmd_pt, 1418),
+    Function.raw_ability(72, "TrainWarp_Stalker_pt", raw_cmd_pt, 1414),
+    Function.raw_ability(71, "TrainWarp_Zealot_pt", raw_cmd_pt, 1413),
+    Function.raw_ability(527, "Train_WidowMine_quick", raw_cmd, 614),
+    Function.raw_ability(49, "Train_Zealot_quick", raw_cmd, 916),
+    Function.raw_ability(528, "Train_Zergling_quick", raw_cmd, 1343),
+    Function.raw_ability(529, "UnloadAllAt_Medivac_pt", raw_cmd_pt, 396, 3669),
+    Function.raw_ability(530, "UnloadAllAt_Medivac_unit", raw_cmd_unit, 396, 3669),
+    Function.raw_ability(531, "UnloadAllAt_Overlord_pt", raw_cmd_pt, 1408, 3669),
+    Function.raw_ability(532, "UnloadAllAt_Overlord_unit", raw_cmd_unit, 1408, 3669),
+    Function.raw_ability(105, "UnloadAllAt_pt", raw_cmd_pt, 3669),
+    Function.raw_ability(164, "UnloadAllAt_unit", raw_cmd_unit, 3669),
+    Function.raw_ability(156, "UnloadAllAt_WarpPrism_pt", raw_cmd_pt, 913, 3669),
+    Function.raw_ability(163, "UnloadAllAt_WarpPrism_unit", raw_cmd_unit, 913, 3669),
+    Function.raw_ability(533, "UnloadAll_Bunker_quick", raw_cmd, 408, 3664),
+    Function.raw_ability(534, "UnloadAll_CommandCenter_quick", raw_cmd, 413, 3664),
+    Function.raw_ability(535, "UnloadAll_NydasNetwork_quick", raw_cmd, 1438, 3664),
+    Function.raw_ability(536, "UnloadAll_NydusWorm_quick", raw_cmd, 2371, 3664),
+    Function.raw_ability(100, "UnloadAll_quick", raw_cmd, 3664),
+]
+# pylint: enable=line-too-long
+
+# Create an IntEnum of the function names/ids so that printing the id will
+# show something useful.
+_Raw_Functions = enum.IntEnum(  # pylint: disable=invalid-name
+    "_Raw_Functions", {f.name: f.id for f in _RAW_FUNCTIONS})
+_RAW_FUNCTIONS = [f._replace(id=_Raw_Functions(f.id)) for f in _RAW_FUNCTIONS]
+RAW_FUNCTIONS = Functions(_RAW_FUNCTIONS)
+
+# Some indexes to support features.py and action conversion.
+RAW_ABILITY_IDS = collections.defaultdict(set)  # {ability_id: {funcs}}
+for _func in RAW_FUNCTIONS:
+  if _func.ability_id >= 0:
+    RAW_ABILITY_IDS[_func.ability_id].add(_func)
+RAW_ABILITY_IDS = {k: frozenset(v) for k, v in six.iteritems(RAW_ABILITY_IDS)}
+RAW_FUNCTIONS_AVAILABLE = {f.id: f for f in RAW_FUNCTIONS if f.avail_fn}
+RAW_ABILITY_ID_TO_FUNC_ID = {k: min(f.id for f in v)  # pylint: disable=g-complex-comprehension
+                             for k, v in six.iteritems(RAW_ABILITY_IDS)}
+
+
 class FunctionCall(collections.namedtuple(
     "FunctionCall", ["function", "arguments"])):
   """Represents a function call action.
@@ -1075,7 +1757,7 @@ class FunctionCall(collections.namedtuple(
       KeyError: if the enum name doesn't exist.
       ValueError: if the enum id doesn't exist.
     """
-    func = FUNCTIONS[function]
+    func = RAW_FUNCTIONS[function] if raw else FUNCTIONS[function]
     args = []
     for arg, arg_type in zip(arguments, func.args):
       if arg_type.values:  # Allow enum values by name or int.
@@ -1114,10 +1796,12 @@ class FunctionCall(collections.namedtuple(
     Returns:
       A new `FunctionCall` instance.
     """
+    args_type = RawArguments if raw else Arguments
+
     if isinstance(arguments, dict):
-      arguments = Arguments(**arguments)
-    elif not isinstance(arguments, Arguments):
-      arguments = Arguments(*arguments)
+      arguments = args_type(**arguments)
+    elif not isinstance(arguments, args_type):
+      arguments = args_type(*arguments)
     return cls(function, arguments)
 
   def __reduce__(self):

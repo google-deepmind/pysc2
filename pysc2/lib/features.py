@@ -454,6 +454,9 @@ class AgentInterfaceFormat(object):
       camera_width_world_units=None,
       use_feature_units=False,
       use_raw_units=False,
+      use_raw_actions=False,
+      max_raw_actions=512,
+      max_selected_units=30,
       use_unit_counts=False,
       use_camera_position=False,
       show_cloaked=False,
@@ -481,6 +484,10 @@ class AgentInterfaceFormat(object):
           differs from feature_units because it includes units outside the
           screen and hidden units, and because unit positions are given in
           terms of world units instead of screen units.
+      use_raw_actions: [bool] Whether to use raw actions as the interface.
+      max_raw_actions: [int] Maximum number of raw actions
+      max_selected_units: [int] The maximum number of selected units in the
+          raw interface.
       use_unit_counts: Whether to include unit_counts observation. Disabled by
           default since it gives information outside the visible area.
       use_camera_position: Whether to include the camera's position (in minimap
@@ -535,6 +542,9 @@ class AgentInterfaceFormat(object):
     if raw_resolution:
       raw_resolution = _to_point(raw_resolution)
 
+    if use_raw_actions and not use_raw_units:
+      raise ValueError(
+          "You must set use_raw_units if you intend to use_raw_actions")
 
     self._feature_dimensions = feature_dimensions
     self._rgb_dimensions = rgb_dimensions
@@ -543,6 +553,9 @@ class AgentInterfaceFormat(object):
     self._use_feature_units = use_feature_units
     self._use_raw_units = use_raw_units
     self._raw_resolution = raw_resolution
+    self._use_raw_actions = use_raw_actions
+    self._max_raw_actions = max_raw_actions
+    self._max_selected_units = max_selected_units
     self._use_unit_counts = use_unit_counts
     self._use_camera_position = use_camera_position
     self._show_cloaked = show_cloaked
@@ -588,6 +601,18 @@ class AgentInterfaceFormat(object):
     self._raw_resolution = value
 
   @property
+  def use_raw_actions(self):
+    return self._use_raw_actions
+
+  @property
+  def max_raw_actions(self):
+    return self._max_raw_actions
+
+  @property
+  def max_selected_units(self):
+    return self._max_selected_units
+
+  @property
   def use_unit_counts(self):
     return self._use_unit_counts
 
@@ -626,6 +651,9 @@ def parse_agent_interface_format(
     use_feature_units=False,
     use_raw_units=False,
     raw_resolution=None,
+    use_raw_actions=False,
+    max_raw_actions=512,
+    max_selected_units=30,
     use_unit_counts=False,
     show_cloaked=False,
     use_camera_position=False,
@@ -651,6 +679,9 @@ def parse_agent_interface_format(
     use_feature_units: A boolean, defaults to False.
     use_raw_units: A boolean, defaults to False.
     raw_resolution: An int, defaults to None.
+    use_raw_actions: A boolean, defaults to False.
+    max_raw_actions: An int, defaults to 512
+    max_selected_units: An int, defaults to 30.
     use_unit_counts: A boolean, defaults to False.
     show_cloaked: A boolean, defaults to False.
     use_camera_position: A boolean, defaults to False.
@@ -712,6 +743,9 @@ def parse_agent_interface_format(
       camera_width_world_units=camera_width_world_units,
       use_feature_units=use_feature_units,
       use_raw_units=use_raw_units,
+      use_raw_actions=use_raw_actions,
+      max_raw_actions=max_raw_actions,
+      max_selected_units=max_selected_units,
       use_unit_counts=use_unit_counts,
       show_cloaked=show_cloaked,
       use_camera_position=use_camera_position,
@@ -725,6 +759,8 @@ def features_from_game_info(
     use_feature_units=False,
     use_raw_units=False,
     raw_resolution=None,
+    use_raw_actions=False,
+    max_selected_units=30,
     action_space=None,
     hide_specific_actions=True,
     use_unit_counts=False,
@@ -742,6 +778,9 @@ def features_from_game_info(
         terms of world units instead of screen units.
     raw_resolution: The resolution which we wish to discretize raw units
         x/y coordinates to. The default will utilize the map size.
+    use_raw_actions: Using a different action space, which is lower level.
+    max_selected_units: The maximum number of selected units in the raw
+        interface.
     action_space: If you pass both feature and rgb sizes, then you must also
         specify which you want to use for your actions as an ActionSpace enum.
     hide_specific_actions: [bool] Some actions (eg cancel) have many
@@ -797,6 +836,8 @@ def features_from_game_info(
           raw_resolution=raw_resolution,
           use_feature_units=use_feature_units,
           use_raw_units=use_raw_units,
+          use_raw_actions=use_raw_actions,
+          max_selected_units=max_selected_units,
           use_unit_counts=use_unit_counts,
           use_camera_position=use_camera_position,
           camera_width_world_units=camera_width_world_units,
@@ -823,6 +864,23 @@ def _init_valid_functions(action_dimensions):
   functions = actions.Functions([
       actions.Function.spec(f.id, f.name, tuple(types[t.id] for t in f.args))
       for f in actions.FUNCTIONS])
+
+  return actions.ValidActions(types, functions)
+
+
+def _init_valid_raw_functions(raw_resolution, max_selected_units):
+  """Initialize ValidFunctions and set up the callbacks."""
+  sizes = {
+      "world": tuple(int(i) for i in raw_resolution),
+      "unit_tags": (max_selected_units,),
+  }
+  types = actions.RawArguments(*[
+      actions.ArgumentType.spec(t.id, t.name, sizes.get(t.name, t.sizes))
+      for t in actions.RAW_TYPES])
+
+  functions = actions.Functions([
+      actions.Function.spec(f.id, f.name, tuple(types[t.id] for t in f.args))
+      for f in actions.RAW_FUNCTIONS])
 
   return actions.ValidActions(types, functions)
 
@@ -872,9 +930,13 @@ class Features(object):
           aif.camera_width_world_units,
           aif.raw_resolution)
 
-    self._valid_functions = _init_valid_functions(
-        aif.action_dimensions)
     self._send_observation_proto = aif.send_observation_proto
+    self._raw = aif.use_raw_actions
+    if self._raw:
+      self._valid_functions = _init_valid_raw_functions(
+          aif.raw_resolution, aif.max_selected_units)
+    else:
+      self._valid_functions = _init_valid_functions(aif.action_dimensions)
     self._requested_races = requested_races
     if requested_races is not None:
       assert len(requested_races) <= 2
@@ -915,6 +977,16 @@ class Features(object):
         self._world_tl_to_world_camera_rel,
         world_camera_rel_to_feature_screen,
         transform.PixelToCoord())
+
+    # If we don't have a specified raw resolution, we do no transform.
+    world_tl_to_feature_minimap = transform.Linear(
+        scale=raw_resolution / map_size.max_dim() if raw_resolution else None)
+    self._world_to_minimap_px = transform.Chain(
+        self._world_to_world_tl,
+        world_tl_to_feature_minimap,
+        transform.PixelToCoord())
+    self._camera_size = (
+        raw_resolution / map_size.max_dim() * camera_width_world_units)
 
   def _update_camera(self, camera_center):
     """Update the camera transform based on the new camera center."""
@@ -1159,6 +1231,12 @@ class Features(object):
       screen_pos = pos_transform.fwd_pt(
           point.Point.build(u.pos))
       screen_radius = pos_transform.fwd_dist(u.radius)
+      def raw_order(i):
+        if len(u.orders) > i:
+          # TODO(tewalds): Return a generalized func id.
+          return actions.RAW_ABILITY_ID_TO_FUNC_ID.get(
+              u.orders[i].ability_id, 0)
+        return 0
       features = [
           # Match unit_vec order
           u.unit_type,
@@ -1192,8 +1270,8 @@ class Features(object):
           u.ideal_harvesters,
           u.weapon_cooldown,
           len(u.orders),
-          0,  # Placeholder.
-          0,  # Placeholder.
+          raw_order(0),
+          raw_order(1),
           u.tag if is_raw else 0,
           u.is_hallucination,
           u.buff_ids[0] if len(u.buff_ids) >= 1 else 0,
@@ -1370,7 +1448,10 @@ class Features(object):
 
     func_id = func_call.function
     try:
-      func = actions.FUNCTIONS[func_id]
+      if self._raw:
+        func = actions.RAW_FUNCTIONS[func_id]
+      else:
+        func = actions.FUNCTIONS[func_id]
     except KeyError:
       raise ValueError("Invalid function id: %s." % func_id)
 
@@ -1392,6 +1473,8 @@ class Features(object):
         sizes = aif.action_dimensions.screen
       elif t.name == "minimap":
         sizes = aif.action_dimensions.minimap
+      elif t.name == "world":
+        sizes = aif.raw_resolution
       else:
         sizes = t.sizes
 
@@ -1412,11 +1495,27 @@ class Features(object):
     # Call the right callback to get an SC2 action proto.
     sc2_action = sc_pb.Action()
     kwargs["action"] = sc2_action
-    kwargs["action_space"] = aif.action_space
     if func.ability_id:
       kwargs["ability_id"] = func.ability_id
 
-    actions.FUNCTIONS[func_id].function_type(**kwargs)
+    if self._raw:
+      if "world" in kwargs:
+        kwargs["world"] = self._world_to_minimap_px.back_pt(kwargs["world"])
+      def find_original_tag(position):
+        original_tag = self._raw_tags[position]
+        if original_tag == 0:
+          logging.warning("Tag not found: %s", original_tag)
+        return original_tag
+      if "target_unit_tag"  in kwargs:
+        kwargs["target_unit_tag"] = find_original_tag(kwargs["target_unit_tag"])
+      if "unit_tags"  in kwargs:
+        kwargs["unit_tags"] = [
+            find_original_tag(t) for t in kwargs["unit_tags"]
+            if t < len(self._raw_tags)]
+      actions.RAW_FUNCTIONS[func_id].function_type(**kwargs)
+    else:
+      kwargs["action_space"] = aif.action_space
+      actions.FUNCTIONS[func_id].function_type(**kwargs)
     return sc2_action
 
   @sw.decorate
@@ -1519,3 +1618,94 @@ class Features(object):
       raise ValueError("Unknown action:\n%s" % action)
 
     return FUNCTIONS.no_op()
+
+  @sw.decorate
+  def reverse_raw_action(self, action, prev_obs):
+    """Transform an SC2-style action into an agent-style action.
+
+    This should be the inverse of `transform_action`.
+
+    Args:
+      action: a `sc_pb.Action` to be transformed.
+      prev_obs: an obs to figure out tags.
+
+    Returns:
+      A corresponding `actions.FunctionCall`.
+
+    Raises:
+      ValueError: if it doesn't know how to transform this action.
+    """
+    aif = self._agent_interface_format
+    raw_tags = prev_obs["raw_units"][:, FeatureUnit.tag]
+    def find_tag_position(original_tag):
+      for i, tag in enumerate(raw_tags):
+        if tag == original_tag:
+          return i
+      logging.warning("Not found tag! %s", original_tag)
+      return -1
+
+    def func_call_ability(ability_id, cmd_type, *args):
+      """Get the function id for a specific ability id and action type."""
+      if ability_id not in actions.RAW_ABILITY_IDS:
+        logging.warning("Unknown ability_id: %s. This is probably dance or "
+                        "cheer, or some unknown new or map specific ability. "
+                        "Treating it as a no-op.", ability_id)
+        return actions.RAW_FUNCTIONS.no_op()
+
+      if aif.hide_specific_actions:
+        general_id = next(iter(actions.RAW_ABILITY_IDS[ability_id])).general_id
+        if general_id:
+          ability_id = general_id
+
+      for func in actions.RAW_ABILITY_IDS[ability_id]:
+        if func.function_type is cmd_type:
+          return actions.RAW_FUNCTIONS[func.id](*args)
+      raise ValueError("Unknown ability_id: %s, type: %s. Likely a bug." % (
+          ability_id, cmd_type.__name__))
+
+    if action.HasField("action_raw"):
+      raw_act = action.action_raw
+      if raw_act.HasField("unit_command"):
+        uc = raw_act.unit_command
+        ability_id = uc.ability_id
+        queue_command = uc.queue_command
+        unit_tags = (find_tag_position(t) for t in uc.unit_tags)
+        # Remove invalid units.
+        unit_tags = [t for t in unit_tags if t != -1]
+        if not unit_tags:
+          return actions.RAW_FUNCTIONS.no_op()
+
+        if uc.HasField("target_unit_tag"):
+          target_unit_tag = find_tag_position(uc.target_unit_tag)
+          if target_unit_tag == -1:
+            return actions.RAW_FUNCTIONS.no_op()
+          return func_call_ability(ability_id, actions.raw_cmd_unit,
+                                   queue_command, unit_tags, target_unit_tag)
+        if uc.HasField("target_world_space_pos"):
+          coord = point.Point.build(uc.target_world_space_pos)
+          coord = self._world_to_minimap_px.fwd_pt(coord)
+          return func_call_ability(ability_id, actions.raw_cmd_pt,
+                                   queue_command, unit_tags, coord)
+        else:
+          return func_call_ability(ability_id, actions.raw_cmd,
+                                   queue_command, unit_tags)
+
+      if raw_act.HasField("toggle_autocast"):
+        uc = raw_act.toggle_autocast
+        ability_id = uc.ability_id
+        unit_tags = (find_tag_position(t) for t in uc.unit_tags)
+        # Remove invalid units.
+        unit_tags = [t for t in unit_tags if t != -1]
+        if not unit_tags:
+          return actions.RAW_FUNCTIONS.no_op()
+        return func_call_ability(ability_id, actions.raw_autocast, unit_tags)
+
+      if raw_act.HasField("unit_command"):
+        raise ValueError("Unknown action:\n%s" % action)
+
+      if raw_act.HasField("camera_move"):
+        coord = point.Point.build(raw_act.camera_move.center_world_space)
+        coord = self._world_to_minimap_px.fwd_pt(coord)
+        return actions.RAW_FUNCTIONS.raw_move_camera(coord)
+
+    return actions.RAW_FUNCTIONS.no_op()
