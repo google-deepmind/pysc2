@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Render feature layers from SC2 Observation protos into numpy arrays."""
+# pylint: disable=g-complex-comprehension
 
 from __future__ import absolute_import
 from __future__ import division
@@ -205,6 +206,22 @@ class FeatureUnit(enum.IntEnum):
   addon_unit_type = 33
   active = 34
   is_on_screen = 35
+
+
+class CargoUnit(enum.IntEnum):
+  """Indices for the `raw_cargo` observations."""
+  unit_type = 0
+  alliance = 1
+  health = 2
+  shield = 3
+  energy = 4
+  health_ratio = 5
+  shield_ratio = 6
+  energy_ratio = 7
+  owner = 8
+  x = 9
+  y = 10
+  tag = 11
 
 
 class EffectPos(enum.IntEnum):
@@ -959,6 +976,7 @@ class Features(object):
     if aif.use_raw_units:
       obs_spec["raw_units"] = (0, len(FeatureUnit))
       obs_spec["raw_effects"] = (0, len(EffectPos))
+      obs_spec["raw_cargo"] = (0, len(CargoUnit))
 
     obs_spec["upgrades"] = (0,)
 
@@ -1245,6 +1263,32 @@ class Features(object):
             raw_effects, [None, EffectPos], dtype=np.int32)
 
     out["upgrades"] = np.array(raw.player.upgrade_ids, dtype=np.int32)
+
+    if aif.use_raw_units:
+      with sw("raw_cargo"):
+        with sw("to_list"):
+          raw_cargo = []
+          for u in raw.units:
+            screen_pos = self._world_to_minimap_px.fwd_pt(
+                point.Point.build(u.pos))
+            for v in u.passengers:
+              raw_cargo.append([
+                  v.unit_type,
+                  u.alliance,
+                  v.health,
+                  v.shield,
+                  v.energy,
+                  int(v.health / v.health_max * 255) if v.health_max > 0 else 0,
+                  int(v.shield / v.shield_max * 255) if v.shield_max > 0 else 0,
+                  int(v.energy / v.energy_max * 255) if v.energy_max > 0 else 0,
+                  u.owner,
+                  screen_pos.x,
+                  screen_pos.y,
+                  v.tag,
+              ])
+        with sw("to_numpy"):
+          out["raw_cargo"] = named_array.NamedNumpyArray(
+              raw_cargo, [None, CargoUnit], dtype=np.int64)
 
     if aif.use_unit_counts:
       with sw("unit_counts"):
