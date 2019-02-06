@@ -172,7 +172,7 @@ class NamedNumpyArray(np.ndarray):
         elif isinstance(index, (slice, list, np.ndarray)):
           if isinstance(index, np.ndarray) and len(index.shape) > 1:
             raise TypeError("What does it mean to index into a named array by "
-                            "a multidimensional array?")
+                            "a multidimensional array? %s" % index)
           # Rebuild the index of names for the various forms of slicing.
           names = sorted(self._index_names[dim].items(),
                          key=lambda item: item[1])
@@ -214,10 +214,11 @@ class NamedNumpyArray(np.ndarray):
 
     # "NamedNumpyArray([1, 3, 6], dtype=int32)" ->
     # ["NamedNumpyArray", "[1, 3, 6]", ", dtype=int32"]
-    matches = re.findall(r"^(\w+)\(([\d\., \n\[\]]*)(, \w+=.+)?\)$",
+    matches = re.findall(r"^(\w+)\(([\d\., \n\[\]]*)(,\s+\w+=.+)?\)$",
                          np.array_repr(self))[0]
-    return "%s(%s, %s%s)" % (
-        matches[0], matches[1], names, matches[2])
+    space = "\n               " if matches[2] and matches[2][1] == "\n" else ""
+    return "%s(%s,%s %s%s)" % (
+        matches[0], matches[1], space, names, matches[2])
 
   def __reduce__(self):
     # Support pickling: https://stackoverflow.com/a/26599346

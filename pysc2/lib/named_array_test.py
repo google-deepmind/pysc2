@@ -64,7 +64,8 @@ class BadNamedTuple(collections.namedtuple("BadNamedTuple", ["a", "b"])):
 class NamedArrayTest(parameterized.TestCase):
 
   def assertArrayEqual(self, a, b):
-    np.testing.assert_array_equal(a, b)
+    # np.testing.assert_array_equal does indexing we don't support yet.
+    np.testing.assert_array_equal(np.array(a), np.array(b))
 
   @parameterized.named_parameters(
       ("none", None),
@@ -274,15 +275,34 @@ class NamedArrayTest(parameterized.TestCase):
     self.assertEqual(repr(a), ("NamedNumpyArray([[1, 3],\n"
                                "                 [6, 8]], [['a', 'b'], None])"))
 
+    a = named_array.NamedNumpyArray([0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                    [str(i) for i in range(13)], dtype=np.int32)
+    numpy_repr = np.array_repr(a)
+    if "\n" in numpy_repr:  # ie numpy > 1.14
+      self.assertEqual(repr(a), """
+NamedNumpyArray([ 0,  0,  0, 50,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+                ['0', '1', '2', '3', '4', '...', '8', '9', '10', '11', '12'],
+                dtype=int32)""".strip())  # Keep the middle newlines.
+    else:
+      self.assertEqual(repr(a), (
+          "NamedNumpyArray("
+          "[ 0,  0,  0, 50,  0,  0,  0,  0,  0,  0,  0,  0,  0], "
+          "['0', '1', '2', '3', '4', '...', '8', '9', '10', '11', '12'], "
+          "dtype=int32)"))  # Note the lack of newlines.
+
     a = named_array.NamedNumpyArray([list(range(50))] * 50,
                                     [None, ["a%s" % i for i in range(50)]])
     self.assertIn("49", str(a))
     self.assertIn("49", repr(a))
+    self.assertIn("a4", repr(a))
+    self.assertIn("a49", repr(a))
 
     a = named_array.NamedNumpyArray([list(range(50))] * 50,
                                     [["a%s" % i for i in range(50)], None])
     self.assertIn("49", str(a))
     self.assertIn("49", repr(a))
+    self.assertIn("a4", repr(a))
+    self.assertIn("a49", repr(a))
 
   def test_pickle(self):
     arr = named_array.NamedNumpyArray([1, 3, 6], ["a", "b", "c"])
