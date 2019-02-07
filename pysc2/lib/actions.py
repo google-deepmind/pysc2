@@ -150,6 +150,10 @@ def autocast(action, action_space, ability_id):
   action.action_ui.toggle_autocast.ability_id = ability_id
 
 
+def raw_no_op(action):
+  del action
+
+
 def raw_move_camera(action, world):
   """Move the camera."""
   action_cmd = action.action_raw.camera_move
@@ -413,6 +417,7 @@ FUNCTION_TYPES = {
     cmd_screen: [TYPES.queued, TYPES.screen],
     cmd_minimap: [TYPES.queued, TYPES.minimap],
     autocast: [],
+    raw_no_op: [],
     raw_cmd: [RAW_TYPES.queued, RAW_TYPES.unit_tags],
     raw_cmd_pt: [RAW_TYPES.queued, RAW_TYPES.unit_tags, RAW_TYPES.world],
     raw_cmd_unit: [RAW_TYPES.queued, RAW_TYPES.unit_tags,
@@ -1151,7 +1156,7 @@ FUNCTIONS_AVAILABLE = {f.id: f for f in FUNCTIONS if f.avail_fn}
 
 # pylint: disable=line-too-long
 _RAW_FUNCTIONS = [
-    Function.raw_ui_func(0, "no_op", no_op),
+    Function.raw_ui_func(0, "no_op", raw_no_op),
     Function.raw_ui_func(168, "raw_move_camera", raw_move_camera),
     Function.raw_ability(2, "Attack_pt", raw_cmd_pt, 3674),
     Function.raw_ability(3, "Attack_unit", raw_cmd_unit, 3674),
