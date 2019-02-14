@@ -18,6 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import functools
 from absl import logging
 import os
 import random
@@ -41,7 +42,33 @@ def get_maps(count=None):
   return sorted(random.sample(all_maps.keys(), min(count, len(all_maps))))
 
 
+_sc2_proc = None
+
+
+def cache_sc2_proc(func):
+  """A decorator to replace setUp/tearDown so it can handle exceptions."""
+  @functools.wraps(func)
+  def _cache_sc2_proc(self, *args, **kwargs):
+    global _sc2_proc
+    if not _sc2_proc:
+      _sc2_proc = run_configs.get().start(want_rgb=False)
+    try:
+      func(self, _sc2_proc.controller, *args, **kwargs)
+    except:  # pylint: disable=bare-except
+      _sc2_proc.close()
+      _sc2_proc = None
+  return _cache_sc2_proc
+
+
 class MapsTest(parameterized.TestCase, utils.TestCase):
+
+  @classmethod
+  def tearDownClass(cls):
+    global _sc2_proc
+    if _sc2_proc:
+      _sc2_proc.close()
+      _sc2_proc = None
+    super(MapsTest, cls).tearDownClass()
 
   @parameterized.parameters(get_maps())
   def test_list_all_maps(self, map_name):
@@ -52,34 +79,34 @@ class MapsTest(parameterized.TestCase, utils.TestCase):
     self.assertTrue(map_inst.data(run_config), msg="Failed on %s" % map_inst)
 
   @parameterized.parameters(get_maps(5))
-  def test_load_random_map(self, map_name):
+  @cache_sc2_proc
+  def test_load_random_map(self, controller, map_name):
     """Test loading a few random maps."""
     m = maps.get(map_name)
     run_config = run_configs.get()
 
-    with run_config.start(want_rgb=False) as controller:
-      logging.info("Loading map: %s", m.name)
-      create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
-          map_path=m.path, map_data=m.data(run_config)))
-      create.player_setup.add(type=sc_pb.Participant)
-      create.player_setup.add(type=sc_pb.Computer, race=sc_common.Random,
-                              difficulty=sc_pb.VeryEasy)
-      join = sc_pb.RequestJoinGame(race=sc_common.Random,
-                                   options=sc_pb.InterfaceOptions(raw=True))
+    logging.info("Loading map: %s", m.name)
+    create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
+        map_path=m.path, map_data=m.data(run_config)))
+    create.player_setup.add(type=sc_pb.Participant)
+    create.player_setup.add(type=sc_pb.Computer, race=sc_common.Random,
+                            difficulty=sc_pb.VeryEasy)
+    join = sc_pb.RequestJoinGame(race=sc_common.Random,
+                                 options=sc_pb.InterfaceOptions(raw=True))
 
-      controller.create_game(create)
-      controller.join_game(join)
+    controller.create_game(create)
+    controller.join_game(join)
 
-      # Verify it has the right mods and isn't running into licensing issues.
-      info = controller.game_info()
-      logging.info("Mods for %s: %s", m.name, info.mod_names)
-      self.assertIn("Mods/Void.SC2Mod", info.mod_names)
-      self.assertIn("Mods/VoidMulti.SC2Mod", info.mod_names)
+    # Verify it has the right mods and isn't running into licensing issues.
+    info = controller.game_info()
+    logging.info("Mods for %s: %s", m.name, info.mod_names)
+    self.assertIn("Mods/Void.SC2Mod", info.mod_names)
+    self.assertIn("Mods/VoidMulti.SC2Mod", info.mod_names)
 
-      # Verify it can be played without making actions.
-      for _ in range(3):
-        controller.step()
-        controller.observe()
+    # Verify it can be played without making actions.
+    for _ in range(3):
+      controller.step()
+      controller.observe()
 
 
 if __name__ == "__main__":
