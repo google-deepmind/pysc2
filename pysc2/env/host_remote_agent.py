@@ -248,7 +248,7 @@ class VsBot(object):
 
   def close(self):
     """Shutdown and free all resources."""
-    if self._process is not None:
+    if hasattr(self, "_process") and self._process is not None:
       try:
         self._reconnect(timeout_seconds=1)
         self._controller.quit()
