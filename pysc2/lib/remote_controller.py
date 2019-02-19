@@ -35,6 +35,8 @@ from s2clientprotocol import sc2api_pb2 as sc_pb
 flags.DEFINE_bool("sc2_log_actions", False,
                   ("Print all the actions sent to SC2. If you want observations"
                    " as well, consider using `sc2_verbose_protocol`."))
+flags.DEFINE_integer("sc2_timeout", 120,
+                     "Timeout to connect and wait for rpc responses.")
 FLAGS = flags.FLAGS
 
 sw = stopwatch.sw
@@ -139,7 +141,7 @@ class RemoteController(object):
   """
 
   def __init__(self, host, port, proc=None, timeout_seconds=None):
-    timeout_seconds = timeout_seconds or 120
+    timeout_seconds = timeout_seconds or FLAGS.sc2_timeout
     sock = self._connect(host, port, proc, timeout_seconds)
     self._client = protocol.StarcraftProtocol(sock)
     self.ping()
