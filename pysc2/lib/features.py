@@ -441,6 +441,12 @@ class Dimensions(object):
   def __repr__(self):
     return "Dimensions(screen={}, minimap={})".format(self.screen, self.minimap)
 
+  def __eq__(self, other):
+    return self.screen == other.screen and self.minimap == other.minimap
+
+  def __ne__(self, other):
+    return not self == other
+
 
 class AgentInterfaceFormat(object):
   """Observation and action interface format specific to a particular agent."""
