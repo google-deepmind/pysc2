@@ -197,8 +197,8 @@ class FeatureUnit(enum.IntEnum):
   ideal_harvesters = 24
   weapon_cooldown = 25
   order_length = 26  # If zero, the unit is idle.
-  order_id_0 = 27  # Currently unused.
-  order_id_1 = 28  # Currently unused.
+  order_id_0 = 27
+  order_id_1 = 28
   tag = 29  # Unique identifier for a unit (only populated for raw units).
   hallucination = 30
   buff_id_0 = 31
@@ -206,6 +206,10 @@ class FeatureUnit(enum.IntEnum):
   addon_unit_type = 33
   active = 34
   is_on_screen = 35
+  order_progress_0 = 36
+  order_progress_1 = 37
+  order_id_2 = 38
+  order_id_3 = 39
 
 
 class CargoUnit(enum.IntEnum):
@@ -1285,6 +1289,10 @@ class Features(object):
           get_addon_type(u.add_on_tag) if u.add_on_tag else 0,
           u.is_active,
           u.is_on_screen,
+          int(u.orders[0].progress * 100) if len(u.orders) >= 1 else 0,
+          int(u.orders[1].progress * 100) if len(u.orders) >= 2 else 0,
+          raw_order(2),
+          raw_order(3),
       ]
       return features
 
