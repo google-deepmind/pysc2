@@ -70,8 +70,10 @@ class TestRender(utils.TestCase):
 
       game_info = controller.game_info()
 
+      self.assertEqual(interface.raw, game_info.options.raw)
+      self.assertEqual(interface.feature_layer, game_info.options.feature_layer)
       # Can fail if rendering is disabled.
-      self.assertEqual(interface, game_info.options)
+      self.assertEqual(interface.render, game_info.options.render)
 
       for _ in range(50):
         controller.step(8)
