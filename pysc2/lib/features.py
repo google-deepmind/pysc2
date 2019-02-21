@@ -210,22 +210,7 @@ class FeatureUnit(enum.IntEnum):
   order_progress_1 = 37
   order_id_2 = 38
   order_id_3 = 39
-
-
-class CargoUnit(enum.IntEnum):
-  """Indices for the `raw_cargo` observations."""
-  unit_type = 0
-  alliance = 1
-  health = 2
-  shield = 3
-  energy = 4
-  health_ratio = 5
-  shield_ratio = 6
-  energy_ratio = 7
-  owner = 8
-  x = 9
-  y = 10
-  tag = 11
+  is_in_cargo = 40
 
 
 class EffectPos(enum.IntEnum):
@@ -472,7 +457,8 @@ class AgentInterfaceFormat(object):
       show_cloaked=False,
       hide_specific_actions=True,
       action_delay_fn=None,
-      send_observation_proto=False):
+      send_observation_proto=False,
+      add_cargo_to_units=False):
     """Initializer.
 
     Args:
@@ -519,6 +505,8 @@ class AgentInterfaceFormat(object):
           hence with the minimum delay of 1).
       send_observation_proto: Whether or not to send the raw observation
           response proto in the observations.
+      add_cargo_to_units: Whether to add the units that are currently in cargo
+          to the feature_units and raw_units lists.
 
     Raises:
       ValueError: if the parameters are inconsistent.
@@ -572,6 +560,7 @@ class AgentInterfaceFormat(object):
     self._hide_specific_actions = hide_specific_actions
     self._action_delay_fn = action_delay_fn
     self._send_observation_proto = send_observation_proto
+    self._add_cargo_to_units = add_cargo_to_units
 
     if action_space == actions.ActionSpace.FEATURES:
       self._action_dimensions = feature_dimensions
@@ -647,6 +636,10 @@ class AgentInterfaceFormat(object):
     return self._send_observation_proto
 
   @property
+  def add_cargo_to_units(self):
+    return self._add_cargo_to_units
+
+  @property
   def action_dimensions(self):
     return self._action_dimensions
 
@@ -668,7 +661,8 @@ def parse_agent_interface_format(
     show_cloaked=False,
     use_camera_position=False,
     action_delays=None,
-    send_observation_proto=False):
+    send_observation_proto=False,
+    add_cargo_to_units=False):
   """Creates an AgentInterfaceFormat object from keyword args.
 
   Convenient when using dictionaries or command-line arguments for config.
@@ -702,6 +696,7 @@ def parse_agent_interface_format(
       possible delay; as actions can only ever be executed on a subsequent
       game loop.
     send_observation_proto: A boolean, defaults to False.
+    add_cargo_to_units: A boolean, defaults to False.
 
   Returns:
     An `AgentInterfaceFormat` object.
@@ -761,6 +756,7 @@ def parse_agent_interface_format(
       use_camera_position=use_camera_position,
       action_delay_fn=_action_delay_fn(action_delays),
       send_observation_proto=send_observation_proto,
+      add_cargo_to_units=add_cargo_to_units,
   )
 
 
@@ -776,7 +772,8 @@ def features_from_game_info(
     use_unit_counts=False,
     show_cloaked=False,
     use_camera_position=False,
-    send_observation_proto=False):
+    send_observation_proto=False,
+    add_cargo_to_units=False):
   """Construct a Features object using data extracted from game info.
 
   Args:
@@ -810,6 +807,8 @@ def features_from_game_info(
         coordinates) in the observations.
     send_observation_proto: Whether or not to send the raw observation
         response proto with the observation.
+    add_cargo_to_units: Whether or not to add the units in cargo to the
+        feature_units and raw_units lists.
 
   Returns:
     A features object matching the specified parameterisation.
@@ -854,7 +853,8 @@ def features_from_game_info(
           action_space=action_space,
           show_cloaked=show_cloaked,
           hide_specific_actions=hide_specific_actions,
-          send_observation_proto=send_observation_proto),
+          send_observation_proto=send_observation_proto,
+          add_cargo_to_units=add_cargo_to_units),
       map_size=map_size,
       requested_races=requested_races)
 
@@ -1058,7 +1058,6 @@ class Features(object):
     if aif.use_raw_units:
       obs_spec["raw_units"] = (0, len(FeatureUnit))
       obs_spec["raw_effects"] = (0, len(EffectPos))
-      obs_spec["raw_cargo"] = (0, len(CargoUnit))
 
     obs_spec["upgrades"] = (0,)
 
@@ -1293,6 +1292,7 @@ class Features(object):
           int(u.orders[1].progress * 100) if len(u.orders) >= 2 else 0,
           raw_order(2),
           raw_order(3),
+          0,
       ]
       return features
 
@@ -1356,31 +1356,89 @@ class Features(object):
 
     out["upgrades"] = np.array(raw.player.upgrade_ids, dtype=np.int32)
 
-    if aif.use_raw_units:
-      with sw("raw_cargo"):
-        with sw("to_list"):
-          raw_cargo = []
-          for u in raw.units:
-            screen_pos = self._world_to_minimap_px.fwd_pt(
-                point.Point.build(u.pos))
-            for v in u.passengers:
-              raw_cargo.append([
-                  v.unit_type,
-                  u.alliance,
-                  v.health,
-                  v.shield,
-                  v.energy,
-                  int(v.health / v.health_max * 255) if v.health_max > 0 else 0,
-                  int(v.shield / v.shield_max * 255) if v.shield_max > 0 else 0,
-                  int(v.energy / v.energy_max * 255) if v.energy_max > 0 else 0,
-                  u.owner,
-                  screen_pos.x,
-                  screen_pos.y,
-                  v.tag,
-              ])
-        with sw("to_numpy"):
-          out["raw_cargo"] = named_array.NamedNumpyArray(
-              raw_cargo, [None, CargoUnit], dtype=np.int64)
+    def cargo_units(u, pos_transform, is_raw=False):
+      """Compute unit features."""
+      screen_pos = pos_transform.fwd_pt(
+          point.Point.build(u.pos))
+      features = []
+      for v in u.passengers:
+        features.append([
+            v.unit_type,
+            u.alliance,  # Self = 1, Ally = 2, Neutral = 3, Enemy = 4
+            v.health,
+            v.shield,
+            v.energy,
+            0,  # cargo_space_taken
+            0,  # build_progress
+            int(v.health / v.health_max * 255) if v.health_max > 0 else 0,
+            int(v.shield / v.shield_max * 255) if v.shield_max > 0 else 0,
+            int(v.energy / v.energy_max * 255) if v.energy_max > 0 else 0,
+            0,  # display_type
+            u.owner,  # 1-15, 16 = neutral
+            screen_pos.x,
+            screen_pos.y,
+            0,  # facing
+            0,  # screen_radius
+            0,  # cloak
+            0,  # is_selected
+            0,  # is_blip
+            0,  # is powered
+            0,  # mineral_contents
+            0,  # vespene_contents
+            0,  # cargo_space_max
+            0,  # assigned_harvesters
+            0,  # ideal_harvesters
+            0,  # weapon_cooldown
+            0,  # order_length
+            0,  # order_id_0
+            0,  # order_id_1
+            v.tag if is_raw else 0,
+            0,  # is hallucination
+            0,  # buff_id_1
+            0,  # buff_id_2
+            0,  # addon_unit_type
+            0,  # active
+            0,  # is_on_screen
+            0,  # order_progress_1
+            0,  # order_progress_2
+            0,  # order_id_2
+            0,  # order_id_3
+            1,  # is_in_cargo
+        ])
+      return features
+
+    if aif.add_cargo_to_units:
+      with sw("add_cargo_to_units"):
+        if aif.use_feature_units:
+          with sw("feature_units"):
+            with sw("to_list"):
+              feature_cargo_units = []
+              for u in raw.units:
+                if u.is_on_screen:
+                  feature_cargo_units += cargo_units(
+                      u, self._world_to_feature_screen_px)
+            with sw("to_numpy"):
+              if feature_cargo_units:
+                all_feature_units = np.array(
+                    feature_cargo_units, dtype=np.int64)
+                all_feature_units = np.concatenate(
+                    [out["feature_units"], feature_cargo_units], axis=0)
+                out["feature_units"] = named_array.NamedNumpyArray(
+                    all_feature_units, [None, FeatureUnit], dtype=np.int64)
+        if aif.use_raw_units:
+          with sw("raw_units"):
+            with sw("to_list"):
+              raw_cargo_units = []
+              for u in raw.units:
+                raw_cargo_units += cargo_units(
+                    u, self._world_to_minimap_px, is_raw=True)
+            with sw("to_numpy"):
+              if raw_cargo_units:
+                raw_cargo_units = np.array(raw_cargo_units, dtype=np.int64)
+                all_raw_units = np.concatenate(
+                    [out["raw_units"], raw_cargo_units], axis=0)
+                out["raw_units"] = named_array.NamedNumpyArray(
+                    all_raw_units, [None, FeatureUnit], dtype=np.int64)
 
     if aif.use_unit_counts:
       with sw("unit_counts"):

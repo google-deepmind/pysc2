@@ -328,6 +328,7 @@ class SC2Env(environment.Base):
             use_camera_position=agent_interface_format.use_camera_position,
             action_space=agent_interface_format.action_space,
             hide_specific_actions=agent_interface_format.hide_specific_actions,
+            add_cargo_to_units=agent_interface_format.add_cargo_to_units,
             send_observation_proto=agent_interface_format.send_observation_proto
         )
         for g, agent_interface_format in zip(game_info, agent_interface_formats)
