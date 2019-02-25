@@ -60,12 +60,14 @@ class Neutral(enum.IntEnum):
   DestructibleIce6x6 = 649
   DestructibleIceDiagonalHugeBLUR = 651
   DestructibleRampDiagonalHugeBLUR = 373
+  DestructibleRampDiagonalHugeULBR = 372
   DestructibleRock6x6 = 371
   DestructibleRockEx14x4 = 638
   DestructibleRockEx16x6 = 639
   DestructibleRockEx1DiagonalHugeBLUR = 641
   DestructibleRockEx1DiagonalHugeULBR = 640
   DestructibleRockEx1HorizontalHuge = 643
+  Dog = 336
   KarakFemale = 324
   LabBot = 661
   LabMineralField = 665
