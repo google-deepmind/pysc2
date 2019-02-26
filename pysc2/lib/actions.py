@@ -1714,6 +1714,13 @@ _RAW_FUNCTIONS = [
     Function.raw_ability(535, "UnloadAll_NydasNetwork_quick", raw_cmd, 1438, 3664),
     Function.raw_ability(536, "UnloadAll_NydusWorm_quick", raw_cmd, 2371, 3664),
     Function.raw_ability(100, "UnloadAll_quick", raw_cmd, 3664),
+    Function.raw_ability(556, "UnloadUnit_quick", raw_cmd, 3796),
+    Function.raw_ability(557, "UnloadUnit_Bunker_quick", raw_cmd, 410, 3796),
+    Function.raw_ability(558, "UnloadUnit_CommandCenter_quick", raw_cmd, 415, 3796),
+    Function.raw_ability(559, "UnloadUnit_Medivac_quick", raw_cmd, 397, 3796),
+    Function.raw_ability(560, "UnloadUnit_NydasNetwork_quick", raw_cmd, 1440, 3796),
+    Function.raw_ability(561, "UnloadUnit_Overlord_quick", raw_cmd, 1409, 3796),
+    Function.raw_ability(562, "UnloadUnit_WarpPrism_quick", raw_cmd, 914, 3796),
 ]
 # pylint: enable=line-too-long
 
