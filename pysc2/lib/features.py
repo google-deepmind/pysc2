@@ -1597,7 +1597,7 @@ class Features(object):
       if "target_unit_tag"  in kwargs:
         kwargs["target_unit_tag"] = find_original_tag(kwargs["target_unit_tag"])
       if "unit_tags"  in kwargs:
-        if not isinstance(kwargs["unit_tags"], (tuple, list)):
+        if not isinstance(kwargs["unit_tags"], (tuple, list, np.ndarray)):
           kwargs["unit_tags"] = [kwargs["unit_tags"]]
         kwargs["unit_tags"] = [find_original_tag(t)
                                for t in kwargs["unit_tags"]]
