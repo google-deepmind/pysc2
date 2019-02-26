@@ -1439,6 +1439,7 @@ class Features(object):
                     [out["raw_units"], raw_cargo_units], axis=0)
                 out["raw_units"] = named_array.NamedNumpyArray(
                     all_raw_units, [None, FeatureUnit], dtype=np.int64)
+                self._raw_tags = out["raw_units"][:, FeatureUnit.tag]
 
     if aif.use_unit_counts:
       with sw("unit_counts"):
