@@ -301,6 +301,12 @@ class RemoteController(object):
       debug_commands = [debug_commands]
     return self._client.send(debug=sc_pb.RequestDebug(debug=debug_commands))
 
+  @valid_status(Status.in_game, Status.in_replay)
+  @sw.decorate
+  def query(self, query):
+    """Query the game state."""
+    return self._client.send(query=query)
+
   @skip_status(Status.quit)
   @sw.decorate
   def quit(self):
