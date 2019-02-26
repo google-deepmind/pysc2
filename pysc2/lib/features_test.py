@@ -358,6 +358,7 @@ class TestParseAgentInterfaceFormat(parameterized.TestCase):
         feature_minimap=(24, 24),
         rgb_screen=64,
         rgb_minimap=(48, 48),
+        use_raw_units=True,
         action_space=action_space)
 
     self.assertEqual(
@@ -404,7 +405,7 @@ class FeaturesTest(absltest.TestCase):
       self.assertEqual(len(func_def.args), len(func.args))  # pylint: disable=g-generic-assert
 
   def gen_random_function_call(self, action_spec, func_id):
-    args = [[numpy.random.randint(0, size) for size in arg.sizes]
+    args = [[numpy.random.randint(0, size) for size in arg.sizes]  # pylint: disable=g-complex-comprehension
             for arg in action_spec.functions[func_id].args]
     return actions.FunctionCall(func_id, args)
 

@@ -512,23 +512,28 @@ class AgentInterfaceFormat(object):
       ValueError: if the parameters are inconsistent.
     """
 
-    if not feature_dimensions and not rgb_dimensions:
-      raise ValueError("Must set either the feature layer or rgb dimensions.")
+    if not (feature_dimensions or rgb_dimensions or use_raw_units):
+      raise ValueError("Must set either the feature layer or rgb dimensions, "
+                       "or use raw units.")
 
     if action_space:
       if not isinstance(action_space, actions.ActionSpace):
         raise ValueError("action_space must be of type ActionSpace.")
 
-      if ((action_space == actions.ActionSpace.FEATURES and
-           not feature_dimensions) or
-          (action_space == actions.ActionSpace.RGB and
-           not rgb_dimensions)):
+      if action_space == actions.ActionSpace.RAW:
+        use_raw_actions = True
+      elif ((action_space == actions.ActionSpace.FEATURES and
+             not feature_dimensions) or
+            (action_space == actions.ActionSpace.RGB and
+             not rgb_dimensions)):
         raise ValueError(
             "Action space must match the observations, action space={}, "
             "feature_dimensions={}, rgb_dimensions={}".format(
                 action_space, feature_dimensions, rgb_dimensions))
     else:
-      if feature_dimensions and rgb_dimensions:
+      if use_raw_actions:
+        action_space = actions.ActionSpace.RAW
+      elif feature_dimensions and rgb_dimensions:
         raise ValueError(
             "You must specify the action space if you have both screen and "
             "rgb observations.")
@@ -540,9 +545,13 @@ class AgentInterfaceFormat(object):
     if raw_resolution:
       raw_resolution = _to_point(raw_resolution)
 
-    if use_raw_actions and not use_raw_units:
-      raise ValueError(
-          "You must set use_raw_units if you intend to use_raw_actions")
+    if use_raw_actions:
+      if not use_raw_units:
+        raise ValueError(
+            "You must set use_raw_units if you intend to use_raw_actions")
+      if action_space != actions.ActionSpace.RAW:
+        raise ValueError(
+            "Don't specify both an action_space and use_raw_actions.")
 
     self._feature_dimensions = feature_dimensions
     self._rgb_dimensions = rgb_dimensions
@@ -979,14 +988,15 @@ class Features(object):
     self._world_to_world_tl = transform.Linear(point.Point(1, -1),
                                                point.Point(0, map_size.y))
     self._world_tl_to_world_camera_rel = transform.Linear(offset=-map_size / 4)
-    world_camera_rel_to_feature_screen = transform.Linear(
-        feature_dimensions.screen / camera_width_world_units,
-        feature_dimensions.screen / 2)
-    self._world_to_feature_screen_px = transform.Chain(
-        self._world_to_world_tl,
-        self._world_tl_to_world_camera_rel,
-        world_camera_rel_to_feature_screen,
-        transform.PixelToCoord())
+    if feature_dimensions:
+      world_camera_rel_to_feature_screen = transform.Linear(
+          feature_dimensions.screen / camera_width_world_units,
+          feature_dimensions.screen / 2)
+      self._world_to_feature_screen_px = transform.Chain(
+          self._world_to_world_tl,
+          self._world_tl_to_world_camera_rel,
+          world_camera_rel_to_feature_screen,
+          transform.PixelToCoord())
 
     # If we don't have a specified raw resolution, we do no transform.
     world_tl_to_feature_minimap = transform.Linear(
@@ -1092,6 +1102,7 @@ class Features(object):
         "multi_select": empty,
         "build_queue": empty,
         "cargo": empty,
+        "last_actions": np.array([], dtype=np.int32),
         "cargo_slots_available": np.array([0], dtype=np.int32),
         "home_race_requested": np.array([0], dtype=np.int32),
         "away_race_requested": np.array([0], dtype=np.int32),
@@ -1127,10 +1138,11 @@ class Features(object):
         out["rgb_minimap"] = Feature.unpack_rgb_image(
             obs.observation.render_data.minimap).astype(np.int32)
 
-    with sw("last_actions"):
-      out["last_actions"] = np.array(
-          [self.reverse_action(a).function for a in obs.actions],
-          dtype=np.int32)
+    if not self._raw:
+      with sw("last_actions"):
+        out["last_actions"] = np.array(
+            [self.reverse_action(a).function for a in obs.actions],
+            dtype=np.int32)
 
     out["action_result"] = np.array([o.result for o in obs.action_errors],
                                     dtype=np.int32)
@@ -1529,7 +1541,8 @@ class Features(object):
       raise ValueError("Invalid function id: %s." % func_id)
 
     # Available?
-    if not (skip_available or func_id in self.available_actions(obs)):
+    if not (skip_available or self._raw or
+            func_id in self.available_actions(obs)):
       raise ValueError("Function %s/%s is currently not available" % (
           func_id, func.name))
 
@@ -1575,6 +1588,8 @@ class Features(object):
       if "world" in kwargs:
         kwargs["world"] = self._world_to_minimap_px.back_pt(kwargs["world"])
       def find_original_tag(position):
+        if position >= len(self._raw_tags):  # Assume it's a real unit tag.
+          return position
         original_tag = self._raw_tags[position]
         if original_tag == 0:
           logging.warning("Tag not found: %s", original_tag)
@@ -1582,9 +1597,10 @@ class Features(object):
       if "target_unit_tag"  in kwargs:
         kwargs["target_unit_tag"] = find_original_tag(kwargs["target_unit_tag"])
       if "unit_tags"  in kwargs:
-        kwargs["unit_tags"] = [
-            find_original_tag(t) for t in kwargs["unit_tags"]
-            if t < len(self._raw_tags)]
+        if not isinstance(kwargs["unit_tags"], (tuple, list)):
+          kwargs["unit_tags"] = [kwargs["unit_tags"]]
+        kwargs["unit_tags"] = [find_original_tag(t)
+                               for t in kwargs["unit_tags"]]
       actions.RAW_FUNCTIONS[func_id].function_type(**kwargs)
     else:
       kwargs["action_space"] = aif.action_space

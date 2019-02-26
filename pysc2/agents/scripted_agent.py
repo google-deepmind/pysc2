@@ -28,6 +28,7 @@ _PLAYER_NEUTRAL = features.PlayerRelative.NEUTRAL  # beacon/minerals
 _PLAYER_ENEMY = features.PlayerRelative.ENEMY
 
 FUNCTIONS = actions.FUNCTIONS
+RAW_FUNCTIONS = actions.RAW_FUNCTIONS
 
 
 def _xy_locs(mask):
@@ -126,6 +127,53 @@ class CollectMineralShardsFeatureUnits(base_agent.BaseAgent):
         return FUNCTIONS.Move_screen("now", closest_mineral_xy)
 
     return FUNCTIONS.no_op()
+
+
+class CollectMineralShardsRaw(base_agent.BaseAgent):
+  """An agent for solving CollectMineralShards with raw units and actions.
+
+  Controls the two marines independently:
+  - move to nearest mineral shard that wasn't the previous target
+  - swap marine and repeat
+  """
+
+  def setup(self, obs_spec, action_spec):
+    super(CollectMineralShardsRaw, self).setup(obs_spec, action_spec)
+    if "raw_units" not in obs_spec:
+      raise Exception("This agent requires the raw_units observation.")
+
+  def reset(self):
+    super(CollectMineralShardsRaw, self).reset()
+    self._last_marine = None
+    self._previous_mineral_xy = [-1, -1]
+
+  def step(self, obs):
+    super(CollectMineralShardsRaw, self).step(obs)
+    marines = [unit for unit in obs.observation.raw_units
+               if unit.alliance == _PLAYER_SELF]
+    if not marines:
+      return RAW_FUNCTIONS.no_op()
+    marine_unit = next((m for m in marines if m.tag != self._last_marine))
+    marine_xy = [marine_unit.x, marine_unit.y]
+
+    minerals = [[unit.x, unit.y] for unit in obs.observation.raw_units
+                if unit.alliance == _PLAYER_NEUTRAL]
+
+    if self._previous_mineral_xy in minerals:
+      # Don't go for the same mineral shard as other marine.
+      minerals.remove(self._previous_mineral_xy)
+
+    if minerals:
+      # Find the closest.
+      distances = numpy.linalg.norm(
+          numpy.array(minerals) - numpy.array(marine_xy), axis=1)
+      closest_mineral_xy = minerals[numpy.argmin(distances)]
+
+      self._last_marine = marine_unit.tag
+      self._previous_mineral_xy = closest_mineral_xy
+      return RAW_FUNCTIONS.Move_pt("now", marine_unit.tag, closest_mineral_xy)
+
+    return RAW_FUNCTIONS.no_op()
 
 
 class DefeatRoaches(base_agent.BaseAgent):

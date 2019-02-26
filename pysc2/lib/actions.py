@@ -21,6 +21,7 @@ import collections
 import numbers
 
 import enum
+import numpy
 import six
 from pysc2.lib import point
 
@@ -29,8 +30,9 @@ from s2clientprotocol import ui_pb2 as sc_ui
 
 
 class ActionSpace(enum.Enum):
-  FEATURES = 1
-  RGB = 2
+  FEATURES = 1  # Act in feature layer pixel space with FUNCTIONS below.
+  RGB = 2       # Act in RGB pixel space with FUNCTIONS below.
+  RAW = 3       # Act with unit tags with RAW_FUNCTIONS below.
 
 
 def spatial(action, action_space):
@@ -1780,7 +1782,7 @@ class FunctionCall(collections.namedtuple(
           except ValueError:
             raise ValueError("Unknown argument value: %s, valid values: %s" % (
                 arg, list(arg_type.values)))
-      elif isinstance(arg, int):  # Allow bare ints.
+      elif isinstance(arg, (int, numpy.int64)):  # Allow bare ints.
         args.append([arg])
       else:  # Allow tuples or iterators.
         args.append(list(arg))
