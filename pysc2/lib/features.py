@@ -1029,7 +1029,6 @@ class Features(object):
     obs_spec = named_array.NamedDict({
         "action_result": (0,),  # See error.proto: ActionResult.
         "alerts": (0,),  # See sc2api.proto: Alert.
-        "available_actions": (0,),
         "build_queue": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
         "cargo": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
         "cargo_slots_available": (1,),
@@ -1043,6 +1042,9 @@ class Features(object):
         "score_by_vital": (len(ScoreByVital), len(ScoreVitals)),  # pytype: disable=wrong-arg-types
         "single_select": (0, len(UnitLayer)),  # Only (n, 7) for n in (0, 1).  # pytype: disable=wrong-arg-types
     })
+
+    if not self._raw:
+      obs_spec["available_actions"] = (0,)
 
     aif = self._agent_interface_format
 
@@ -1470,8 +1472,10 @@ class Features(object):
       out["camera_size"] = np.array((self._camera_size.x, self._camera_size.y),
                                     dtype=np.int32)
 
-    out["available_actions"] = np.array(self.available_actions(obs.observation),
-                                        dtype=np.int32)
+    if not self._raw:
+      out["available_actions"] = np.array(
+          self.available_actions(obs.observation), dtype=np.int32)
+
     if self._requested_races is not None:
       out["home_race_requested"] = np.array(
           (self._requested_races[player.player_id],), dtype=np.int32)
