@@ -33,6 +33,8 @@ from pysc2.lib import stopwatch
 
 flags.DEFINE_bool(
     "sc2_verbose", False, "Enable SC2 verbose logging.", allow_hide_cpp=True)
+flags.DEFINE_bool(
+    "sc2_verbose_mp", False, "Enable SC2 verbose multiplayer logging.")
 flags.DEFINE_integer("sc2_port", None,
                      "If set, connect to the instance on "
                      "localhost:sc2_port instead of launching one.")
@@ -107,6 +109,8 @@ class StarcraftProcess(object):
 
     if verbose or FLAGS.sc2_verbose:
       args += ["-verbose"]
+    if FLAGS.sc2_verbose_mp:
+      args += ["-verboseMP"]
     if self._version and self._version.data_version:
       args += ["-dataVersion", self._version.data_version.upper()]
     if extra_args:
