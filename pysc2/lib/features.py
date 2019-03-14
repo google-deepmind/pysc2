@@ -466,8 +466,8 @@ class AgentInterfaceFormat(object):
           rgb_dimensions (or both) must be set.
       rgb_dimensions: RGB `Dimension`. Either this or feature_dimensions
           (or both) must be set.
-      raw_resolution: Raw features resolution. Discretize the `raw_units`
-          observation's x,y to this resolution.
+      raw_resolution: Discretize the `raw_units` observation's x,y to this
+          resolution. Default is the map_size.
       action_space: If you pass both feature and rgb sizes, then you must also
           specify which you want to use for your actions as an ActionSpace enum.
       camera_width_world_units: The width of your screen in world units. If your
@@ -475,12 +475,13 @@ class AgentInterfaceFormat(object):
           px represents 24 / 64 = 0.375 world units in each of x and y.
           It'll then represent a camera of size (24, 0.375 * 48) = (24, 18)
           world units.
-      use_feature_units: Whether to include feature unit data in observations.
+      use_feature_units: Whether to include feature_unit observations.
       use_raw_units: Whether to include raw unit data in observations. This
           differs from feature_units because it includes units outside the
           screen and hidden units, and because unit positions are given in
           terms of world units instead of screen units.
       use_raw_actions: [bool] Whether to use raw actions as the interface.
+          Same as specifying action_space=ActionSpace.RAW.
       max_raw_actions: [int] Maximum number of raw actions
       max_selected_units: [int] The maximum number of selected units in the
           raw interface.
@@ -552,6 +553,13 @@ class AgentInterfaceFormat(object):
       if action_space != actions.ActionSpace.RAW:
         raise ValueError(
             "Don't specify both an action_space and use_raw_actions.")
+
+    if (rgb_dimensions and
+        (rgb_dimensions.screen.x < rgb_dimensions.minimap.x or
+         rgb_dimensions.screen.y < rgb_dimensions.minimap.y)):
+      raise ValueError(
+          "RGB Screen (%s) can't be smaller than the minimap (%s)." % (
+              rgb_dimensions.screen, rgb_dimensions.minimap))
 
     self._feature_dimensions = feature_dimensions
     self._rgb_dimensions = rgb_dimensions
@@ -659,19 +667,8 @@ def parse_agent_interface_format(
     rgb_screen=None,
     rgb_minimap=None,
     action_space=None,
-    camera_width_world_units=None,
-    use_feature_units=False,
-    use_raw_units=False,
-    raw_resolution=None,
-    use_raw_actions=False,
-    max_raw_actions=512,
-    max_selected_units=30,
-    use_unit_counts=False,
-    show_cloaked=False,
-    use_camera_position=False,
     action_delays=None,
-    send_observation_proto=False,
-    add_cargo_to_units=False):
+    **kwargs):
   """Creates an AgentInterfaceFormat object from keyword args.
 
   Convenient when using dictionaries or command-line arguments for config.
@@ -687,25 +684,14 @@ def parse_agent_interface_format(
     feature_minimap: If specified, so must feature_screen be.
     rgb_screen: If specified, so must rgb_minimap be.
     rgb_minimap: If specified, so must rgb_screen be.
-    action_space: ["FEATURES", "RGB"].
-    camera_width_world_units: An int.
-    use_feature_units: A boolean, defaults to False.
-    use_raw_units: A boolean, defaults to False.
-    raw_resolution: An int, defaults to None.
-    use_raw_actions: A boolean, defaults to False.
-    max_raw_actions: An int, defaults to 512
-    max_selected_units: An int, defaults to 30.
-    use_unit_counts: A boolean, defaults to False.
-    show_cloaked: A boolean, defaults to False.
-    use_camera_position: A boolean, defaults to False.
+    action_space: ["FEATURES", "RGB", "RAW"].
     action_delays: List of relative frequencies for each of [1, 2, 3, ...]
       game loop delays on executed actions. Only used when the environment
       is non-realtime. Intended to simulate the delays which can be
       experienced when playing in realtime. Note that 1 is the minimum
       possible delay; as actions can only ever be executed on a subsequent
       game loop.
-    send_observation_proto: A boolean, defaults to False.
-    add_cargo_to_units: A boolean, defaults to False.
+    **kwargs: Anything else is passed through to AgentInterfaceFormat.
 
   Returns:
     An `AgentInterfaceFormat` object.
@@ -714,22 +700,12 @@ def parse_agent_interface_format(
     ValueError: If an invalid parameter is specified.
   """
   if feature_screen or feature_minimap:
-    feature_dimensions = Dimensions(
-        screen=feature_screen,
-        minimap=feature_minimap)
+    feature_dimensions = Dimensions(feature_screen, feature_minimap)
   else:
     feature_dimensions = None
 
   if rgb_screen or rgb_minimap:
-    rgb_dimensions = Dimensions(
-        screen=rgb_screen,
-        minimap=rgb_minimap)
-
-    if (rgb_dimensions.screen.x < rgb_dimensions.minimap.x or
-        rgb_dimensions.screen.y < rgb_dimensions.minimap.y):
-      raise ValueError(
-          "Screen (%s) can't be smaller than the minimap (%s)." % (
-              rgb_dimensions.screen, rgb_dimensions.minimap))
+    rgb_dimensions = Dimensions(rgb_screen, rgb_minimap)
   else:
     rgb_dimensions = None
 
@@ -746,82 +722,32 @@ def parse_agent_interface_format(
           if sample <= cumulative:
             return i + 1
         raise ValueError("Failed to sample action delay??")
-
       return fn
 
   return AgentInterfaceFormat(
       feature_dimensions=feature_dimensions,
       rgb_dimensions=rgb_dimensions,
-      raw_resolution=raw_resolution,
       action_space=(action_space and actions.ActionSpace[action_space.upper()]),
-      camera_width_world_units=camera_width_world_units,
-      use_feature_units=use_feature_units,
-      use_raw_units=use_raw_units,
-      use_raw_actions=use_raw_actions,
-      max_raw_actions=max_raw_actions,
-      max_selected_units=max_selected_units,
-      use_unit_counts=use_unit_counts,
-      show_cloaked=show_cloaked,
-      use_camera_position=use_camera_position,
       action_delay_fn=_action_delay_fn(action_delays),
-      send_observation_proto=send_observation_proto,
-      add_cargo_to_units=add_cargo_to_units,
-  )
+      **kwargs)
 
 
-def features_from_game_info(
-    game_info,
-    use_feature_units=False,
-    use_raw_units=False,
-    raw_resolution=None,
-    use_raw_actions=False,
-    max_selected_units=30,
-    action_space=None,
-    hide_specific_actions=True,
-    use_unit_counts=False,
-    show_cloaked=False,
-    use_camera_position=False,
-    send_observation_proto=False,
-    add_cargo_to_units=False):
+def features_from_game_info(game_info, agent_interface_format=None, **kwargs):
   """Construct a Features object using data extracted from game info.
 
   Args:
     game_info: A `sc_pb.ResponseGameInfo` from the game.
-    use_feature_units: Whether to include the feature unit observation.
-    use_raw_units: Whether to include raw unit data in observations. This
-        differs from feature_units because it includes units outside the
-        screen and hidden units, and because unit positions are given in
-        terms of world units instead of screen units.
-    raw_resolution: The resolution which we wish to discretize raw units
-        x/y coordinates to. The default will utilize the map size.
-    use_raw_actions: Using a different action space, which is lower level.
-    max_selected_units: The maximum number of selected units in the raw
-        interface.
-    action_space: If you pass both feature and rgb sizes, then you must also
-        specify which you want to use for your actions as an ActionSpace enum.
-    hide_specific_actions: [bool] Some actions (eg cancel) have many
-        specific versions (cancel this building, cancel that spell) and can
-        be represented in a more general form. If a specific action is
-        available, the general will also be available. If you set
-        `hide_specific_actions` to False, the specific versions will also be
-        available, but if it's True, the specific ones will be hidden.
-        Similarly, when transforming back, a specific action will be returned
-        as the general action. This simplifies the action space, though can
-        lead to some actions in replays not being exactly representable using
-        only the general actions.
-    use_unit_counts: Whether to include unit_counts observation. Disabled by
-        default since it gives information outside the visible area.
-    show_cloaked: Whether to show limited information for cloaked units.
-    use_camera_position: Whether to include the camera's position (in minimap
-        coordinates) in the observations.
-    send_observation_proto: Whether or not to send the raw observation
-        response proto with the observation.
-    add_cargo_to_units: Whether or not to add the units in cargo to the
-        feature_units and raw_units lists.
+    agent_interface_format: an optional AgentInterfaceFormat.
+    **kwargs: Anything else is passed through to AgentInterfaceFormat. It's an
+        error to send any kwargs if you pass an agent_interface_format.
 
   Returns:
     A features object matching the specified parameterisation.
 
+  Raises:
+    ValueError: if you pass both agent_interface_format and kwargs.
+    ValueError: if you pass an agent_interface_format that doesn't match
+        game_info's resolutions.
   """
 
   if game_info.options.HasField("feature_layer"):
@@ -829,8 +755,10 @@ def features_from_game_info(
     feature_dimensions = Dimensions(
         screen=(fl_opts.resolution.x, fl_opts.resolution.y),
         minimap=(fl_opts.minimap_resolution.x, fl_opts.minimap_resolution.y))
+    camera_width_world_units = game_info.options.feature_layer.width
   else:
     feature_dimensions = None
+    camera_width_world_units = None
 
   if game_info.options.HasField("render"):
     rgb_opts = game_info.options.render
@@ -841,29 +769,38 @@ def features_from_game_info(
     rgb_dimensions = None
 
   map_size = game_info.start_raw.map_size
-  camera_width_world_units = game_info.options.feature_layer.width
 
   requested_races = {
       info.player_id: info.race_requested for info in game_info.player_info
       if info.type != sc_pb.Observer}
 
+  if agent_interface_format:
+    if kwargs:
+      raise ValueError(
+          "Either give an agent_interface_format or kwargs, not both.")
+    aif = agent_interface_format
+    if (aif.rgb_dimensions != rgb_dimensions or
+        aif.feature_dimensions != feature_dimensions or
+        (feature_dimensions and
+         aif.camera_width_world_units != camera_width_world_units)):
+      raise ValueError("""
+The supplied agent_interface_format doesn't match the resolutions computed from
+the game_info:
+  rgb_dimensions: %s != %s
+  feature_dimensions: %s != %s
+  camera_width_world_units: %s != %s
+""" % (aif.rgb_dimensions, rgb_dimensions,
+       aif.feature_dimensions, feature_dimensions,
+       aif.camera_width_world_units, camera_width_world_units))
+  else:
+    agent_interface_format = AgentInterfaceFormat(
+        feature_dimensions=feature_dimensions,
+        rgb_dimensions=rgb_dimensions,
+        camera_width_world_units=camera_width_world_units,
+        **kwargs)
+
   return Features(
-      agent_interface_format=AgentInterfaceFormat(
-          feature_dimensions=feature_dimensions,
-          rgb_dimensions=rgb_dimensions,
-          raw_resolution=raw_resolution,
-          use_feature_units=use_feature_units,
-          use_raw_units=use_raw_units,
-          use_raw_actions=use_raw_actions,
-          max_selected_units=max_selected_units,
-          use_unit_counts=use_unit_counts,
-          use_camera_position=use_camera_position,
-          camera_width_world_units=camera_width_world_units,
-          action_space=action_space,
-          show_cloaked=show_cloaked,
-          hide_specific_actions=hide_specific_actions,
-          send_observation_proto=send_observation_proto,
-          add_cargo_to_units=add_cargo_to_units),
+      agent_interface_format=agent_interface_format,
       map_size=map_size,
       requested_races=requested_races)
 

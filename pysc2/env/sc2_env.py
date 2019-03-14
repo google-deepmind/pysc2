@@ -294,19 +294,7 @@ class SC2Env(environment.Base):
 
     self._features = [
         features.features_from_game_info(
-            game_info=g,
-            use_feature_units=agent_interface_format.use_feature_units,
-            use_raw_units=agent_interface_format.use_raw_units,
-            raw_resolution=agent_interface_format.raw_resolution,
-            use_raw_actions=agent_interface_format.use_raw_actions,
-            max_selected_units=agent_interface_format.max_selected_units,
-            use_unit_counts=agent_interface_format.use_unit_counts,
-            use_camera_position=agent_interface_format.use_camera_position,
-            action_space=agent_interface_format.action_space,
-            hide_specific_actions=agent_interface_format.hide_specific_actions,
-            add_cargo_to_units=agent_interface_format.add_cargo_to_units,
-            send_observation_proto=agent_interface_format.send_observation_proto
-        )
+            game_info=g, agent_interface_format=agent_interface_format)
         for g, agent_interface_format in zip(game_info, agent_interface_formats)
     ]
 
