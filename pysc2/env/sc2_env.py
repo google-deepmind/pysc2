@@ -118,11 +118,6 @@ class SC2Env(environment.Base):
                _only_use_kwargs=None,
                map_name=None,
                players=None,
-               agent_race=None,  # deprecated
-               bot_race=None,  # deprecated
-               difficulty=None,  # deprecated
-               screen_size_px=None,  # deprecated
-               minimap_size_px=None,  # deprecated
                agent_interface_format=None,
                discount=1.,
                discount_zero_after_timeout=False,
@@ -154,11 +149,6 @@ class SC2Env(environment.Base):
           known maps. Alternatively, pass a Map instance. Take a look at the
           docs in maps/README.md for more information on available maps.
       players: A list of Agent and Bot instances that specify who will play.
-      agent_race: Deprecated. Use players instead.
-      bot_race: Deprecated. Use players instead.
-      difficulty: Deprecated. Use players instead.
-      screen_size_px: Deprecated. Use agent_interface_formats instead.
-      minimap_size_px: Deprecated. Use agent_interface_formats instead.
       agent_interface_format: A sequence containing one AgentInterfaceFormat
         per agent, matching the order of agents specified in the players list.
         Or a single AgentInterfaceFormat to be used for all agents.
@@ -196,23 +186,9 @@ class SC2Env(environment.Base):
       ValueError: if the agent_race, bot_race or difficulty are invalid.
       ValueError: if too many players are requested for a map.
       ValueError: if the resolutions aren't specified correctly.
-      DeprecationWarning: if screen_size_px or minimap_size_px are sent.
-      DeprecationWarning: if agent_race, bot_race or difficulty are sent.
     """
     if _only_use_kwargs:
       raise ValueError("All arguments must be passed as keyword arguments.")
-
-    if screen_size_px or minimap_size_px:
-      raise DeprecationWarning(
-          "screen_size_px and minimap_size_px are deprecated. Use the feature "
-          "or rgb variants instead. Make sure to check your observations too "
-          "since they also switched from screen/minimap to feature and rgb "
-          "variants.")
-
-    if agent_race or bot_race or difficulty:
-      raise DeprecationWarning(
-          "Explicit agent and bot races are deprecated. Pass an array of "
-          "sc2_env.Bot and sc2_env.Agent instances instead.")
 
     map_inst = maps.get(map_name)
     self._map_name = map_name
