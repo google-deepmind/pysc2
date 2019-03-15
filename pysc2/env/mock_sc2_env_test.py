@@ -90,6 +90,7 @@ class _TestMixin(object):
 class TestTestEnvironment(_TestMixin, absltest.TestCase):
 
   def setUp(self):
+    super(TestTestEnvironment, self).setUp()
     self._env = mock_sc2_env._TestEnvironment(
         num_agents=1,
         observation_spec=({'mock': [10, 1]},),

@@ -28,6 +28,7 @@ class TestCompareEnvironments(absltest.TestCase):
 
   @classmethod
   def setUpClass(cls):
+    super(TestCompareEnvironments, cls).setUpClass()
     players = [
         sc2_env.Agent(race=sc2_env.Race.terran),
         sc2_env.Agent(race=sc2_env.Race.protoss),
@@ -57,6 +58,7 @@ class TestCompareEnvironments(absltest.TestCase):
 
   @classmethod
   def tearDownClass(cls):
+    super(TestCompareEnvironments, cls).tearDownClass()
     cls._env.close()
     cls._mock_env.close()
 
