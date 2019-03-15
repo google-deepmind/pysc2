@@ -76,6 +76,9 @@ class MapsTest(parameterized.TestCase, utils.TestCase):
     run_config = run_configs.get()
     map_inst = maps.get(map_name)
     logging.info("map: %s", map_inst.name)
+    self.assertIsNotNone(map_inst.players)
+    self.assertGreaterEqual(map_inst.players, 1)
+    self.assertLessEqual(map_inst.players, 8)
     self.assertTrue(map_inst.data(run_config), msg="Failed on %s" % map_inst)
 
   @parameterized.parameters(get_maps(5))

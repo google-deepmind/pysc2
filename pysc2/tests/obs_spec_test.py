@@ -32,6 +32,8 @@ class TestObservationSpec(utils.TestCase):
   def test_observation_matches_obs_spec(self):
     with sc2_env.SC2Env(
         map_name="Simple64",
+        players=[sc2_env.Agent(sc2_env.Race.random),
+                 sc2_env.Bot(sc2_env.Race.random, sc2_env.Difficulty.easy)],
         agent_interface_format=sc2_env.AgentInterfaceFormat(
             feature_dimensions=sc2_env.Dimensions(
                 screen=(84, 87),

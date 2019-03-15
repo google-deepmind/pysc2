@@ -184,7 +184,7 @@ class SC2Env(environment.Base):
 
     Raises:
       ValueError: if the agent_race, bot_race or difficulty are invalid.
-      ValueError: if too many players are requested for a map.
+      ValueError: if wrong number of players are requested for a map.
       ValueError: if the resolutions aren't specified correctly.
     """
     if _only_use_kwargs:
@@ -194,11 +194,7 @@ class SC2Env(environment.Base):
     self._map_name = map_name
 
     if not players:
-      players = [Agent(Race.random)]
-
-    if len(players) == 1 and (not map_inst.players or map_inst.players >= 2):
-      # Make sure 2p+ maps have an opponent.
-      players.append(Bot(Race.random, Difficulty.very_easy))
+      raise ValueError("You must specify the list of players.")
 
     for p in players:
       if not isinstance(p, (Agent, Bot)):
@@ -210,17 +206,19 @@ class SC2Env(environment.Base):
     self._players = players
 
     if not 1 <= num_players <= 2 or not self._num_agents:
+      raise ValueError("Only 1 or 2 players with at least one agent is "
+                       "supported at the moment.")
+
+    if map_inst.players == 1:
+      if self._num_agents != 1:
+        raise ValueError("Single player maps require exactly one Agent.")
+    elif not 2 <= num_players <= map_inst.players:
       raise ValueError(
-          "Only 1 or 2 players with at least one agent is "
-          "supported at the moment.")
+          "Map supports %s players, but trying to join with %s" % (
+              map_inst.players, num_players))
 
     if save_replay_episodes and not replay_dir:
       raise ValueError("Missing replay_dir")
-
-    if map_inst.players and num_players > map_inst.players:
-      raise ValueError(
-          "Map only supports %s players, but trying to join with %s" % (
-              map_inst.players, num_players))
 
     self._discount = discount
     self._step_mul = step_mul or map_inst.step_mul
