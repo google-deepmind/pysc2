@@ -211,6 +211,11 @@ class FeatureUnit(enum.IntEnum):
   order_id_2 = 38
   order_id_3 = 39
   is_in_cargo = 40
+  buff_duration_remain = 41
+  buff_duration_max = 42
+  attack_upgrade_level = 43
+  armor_upgrade_level = 44
+  shield_upgrade_level = 45
 
 
 class EffectPos(enum.IntEnum):
@@ -292,7 +297,8 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
     "player_relative", "unit_type", "selected", "unit_hit_points",
     "unit_hit_points_ratio", "unit_energy", "unit_energy_ratio", "unit_shields",
     "unit_shields_ratio", "unit_density", "unit_density_aa", "effects",
-    "hallucinations", "cloaked", "blip", "buffs", "active"])):
+    "hallucinations", "cloaked", "blip", "buffs", "buff_duration", "active",
+    "build_progress"])):
   """The set of screen feature layers."""
   __slots__ = ()
 
@@ -359,7 +365,9 @@ SCREEN_FEATURES = ScreenFeatures(
     blip=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE, False),
     buffs=(max(static_data.BUFFS) + 1, FeatureType.CATEGORICAL,
            colors.buffs, False),
+    buff_duration=(256, FeatureType.SCALAR, colors.hot, False),
     active=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE, False),
+    build_progress=(256, FeatureType.SCALAR, colors.hot, False),
 )
 
 MINIMAP_FEATURES = MinimapFeatures(
@@ -1244,6 +1252,11 @@ class Features(object):
           raw_order(2),
           raw_order(3),
           0,
+          u.buff_duration_remain,
+          u.buff_duration_max,
+          u.attack_upgrade_level,
+          u.armor_upgrade_level,
+          u.shield_upgrade_level,
       ]
       return features
 
@@ -1355,6 +1368,11 @@ class Features(object):
             0,  # order_id_2
             0,  # order_id_3
             1,  # is_in_cargo
+            0,  # buff_duration_remain
+            0,  # buff_duration_max
+            0,  # attack_upgrade_level
+            0,  # armor_upgrade_level
+            0,  # shield_upgrade_level
         ])
       return features
 

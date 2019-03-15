@@ -35,6 +35,7 @@ from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy as np
 import pygame
 import queue
+from pysc2.lib import buffs
 from pysc2.lib import colors
 from pysc2.lib import features
 from pysc2.lib import memoize
@@ -186,6 +187,12 @@ class _Surface(object):
       setattr(rect, valign, self.surf.get_height() + pos.y)
     self.surf.blit(text_surf, rect)
 
+  def write_world(self, font, color, world_loc, text):
+    text_surf = font.render(text, True, color)
+    rect = text_surf.get_rect()
+    rect.center = self.world_to_surf.fwd_pt(world_loc)
+    self.surf.blit(text_surf, rect)
+
 
 class MousePos(collections.namedtuple("MousePos", ["world_pos", "surf"])):
   """Holds the mouse position in world coordinates and the surf it came from."""
@@ -277,6 +284,13 @@ class RendererHuman(object):
       ("Ctrl+PgUp/PgDn", "Increase/decrease the step multiplier"),
       ("Pause", "Pause the game"),
       ("?", "This help screen"),
+  ]
+
+  upgrade_colors = [
+      colors.black,  # unused...
+      colors.white * 0.6,
+      colors.white * 0.8,
+      colors.white,
   ]
 
   def __init__(self, fps=22.4, step_mul=1, render_sync=False,
@@ -968,6 +982,7 @@ class RendererHuman(object):
   @sw.decorate
   def draw_units(self, surf):
     """Draw the units and buildings."""
+    tau = 2 * math.pi
     for u, p in self._visible_units():
       if self._camera.intersects_circle(p, u.radius):
         fraction_damage = clamp((u.health_max - u.health) / (u.health_max or 1),
@@ -977,24 +992,78 @@ class RendererHuman(object):
         if fraction_damage > 0:
           surf.draw_circle(colors.PLAYER_ABSOLUTE_PALETTE[u.owner] // 2,
                            p, u.radius * fraction_damage)
+        surf.draw_circle(colors.black, p, u.radius, thickness=1)
+
+        def draw_arc_ratio(color, world_loc, radius, start, end, thickness=1):
+          surf.draw_arc(color, world_loc, radius, start * tau, end * tau,
+                        thickness)
 
         if u.shield and u.shield_max:
-          surf.draw_arc(colors.blue, p, u.radius, 0,
-                        2 * math.pi * u.shield / u.shield_max)
+          draw_arc_ratio(colors.blue, p, u.radius - 0.05, 0,
+                         u.shield / u.shield_max)
         if u.energy and u.energy_max:
-          surf.draw_arc(colors.purple * 0.75, p, u.radius - 0.05, 0,
-                        2 * math.pi * u.energy / u.energy_max)
+          draw_arc_ratio(colors.purple * 0.9, p, u.radius - 0.1, 0,
+                         u.energy / u.energy_max)
+        if 0 < u.build_progress < 1:
+          draw_arc_ratio(colors.cyan, p, u.radius - 0.15, 0, u.build_progress)
+        elif u.orders and 0 < u.orders[0].progress < 1:
+          draw_arc_ratio(colors.cyan, p, u.radius - 0.15, 0,
+                         u.orders[0].progress)
+
+        if u.buff_duration_remain and u.buff_duration_max:
+          draw_arc_ratio(colors.white, p, u.radius - 0.2, 0,
+                         u.buff_duration_remain / u.buff_duration_max)
+
+        if u.attack_upgrade_level:
+          draw_arc_ratio(self.upgrade_colors[u.attack_upgrade_level], p,
+                         u.radius - 0.25, 0.18, 0.22, thickness=3)
+
+        if u.armor_upgrade_level:
+          draw_arc_ratio(self.upgrade_colors[u.armor_upgrade_level], p,
+                         u.radius - 0.25, 0.23, 0.27, thickness=3)
+
+        if u.shield_upgrade_level:
+          draw_arc_ratio(self.upgrade_colors[u.shield_upgrade_level], p,
+                         u.radius - 0.25, 0.28, 0.32, thickness=3)
 
         name = self.get_unit_name(
             surf, self._static_data.units.get(u.unit_type, "<none>"), u.radius)
         if name:
-          text = self._font_small.render(name, True, colors.white)
-          rect = text.get_rect()
-          rect.center = surf.world_to_surf.fwd_pt(p)
-          surf.surf.blit(text, rect)
+          surf.write_world(self._font_small, colors.white, p, name)
+        if u.ideal_harvesters > 0:
+          surf.write_world(
+              self._font_small, colors.white, p + point.Point(0, 0.5),
+              "%s / %s" % (u.assigned_harvesters, u.ideal_harvesters))
+        if u.mineral_contents > 0:
+          surf.write_world(
+              self._font_small, colors.white, p - point.Point(0, 0.5),
+              "%s" % u.mineral_contents)
+        if u.vespene_contents > 0:
+          surf.write_world(
+              self._font_small, colors.white, p - point.Point(0, 0.5),
+              "%s" % u.vespene_contents)
 
         if u.is_selected:
           surf.draw_circle(colors.green, p, u.radius + 0.1, 1)
+
+  @sw.decorate
+  def draw_effects(self, surf):
+    """Draw the effects."""
+    for effect in self._obs.observation.raw_data.effects:
+      color = [
+          colors.effects[effect.effect_id],
+          colors.effects[effect.effect_id],
+          colors.PLAYER_ABSOLUTE_PALETTE[effect.owner],
+      ]
+      name = self.get_unit_name(
+          surf, features.Effects(effect.effect_id).name, effect.radius)
+      for pos in effect.pos:
+        p = point.Point.build(pos)
+        # pygame alpha transparency doesn't work, so just draw thin circles.
+        for r in range(1, effect.radius * 3):
+          surf.draw_circle(color[r % 3], p, r / 3, thickness=2)
+        if name:
+          surf.write_world(self._font_small, colors.white, p, name)
 
   @sw.decorate
   def draw_selection(self, surf):
@@ -1095,26 +1164,32 @@ class RendererHuman(object):
   def draw_panel(self, surf):
     """Draw the unit selection or build queue."""
 
-    left = -12  # How far from the right border
+    left = -14  # How far from the right border
+    line = itertools.count(3)
 
     def unit_name(unit_type):
       return self._static_data.units.get(unit_type, "<unknown>")
 
     def write(loc, text, color=colors.yellow):
       surf.write_screen(self._font_large, color, loc, text)
+    def write_line(x, *args, **kwargs):
+      write((left + x, next(line)), *args, **kwargs)
 
-    def write_single(unit, line):
-      write((left + 1, next(line)), unit_name(unit.unit_type))
-      write((left + 1, next(line)), "Health: %s" % unit.health)
-      write((left + 1, next(line)), "Shields: %s" % unit.shields)
-      write((left + 1, next(line)), "Energy: %s" % unit.energy)
+    def write_single(unit):
+      """Write a description of a single selected unit."""
+      write_line(1, unit_name(unit.unit_type), colors.cyan)
+      write_line(1, "Health: %s / %s" % (unit.health, unit.max_health))
+      if unit.max_shields:
+        write_line(1, "Shields: %s / %s" % (unit.shields, unit.max_shields))
+      if unit.max_energy:
+        write_line(1, "Energy: %s / %s" % (unit.energy, unit.max_energy))
       if unit.build_progress > 0:
-        write((left + 1, next(line)),
-              "Progress: %d%%" % (unit.build_progress * 100))
+        write_line(1, "Progress: %d%%" % (unit.build_progress * 100))
       if unit.transport_slots_taken > 0:
-        write((left + 1, next(line)), "Slots: %s" % unit.transport_slots_taken)
+        write_line(1, "Slots: %s" % unit.transport_slots_taken)
 
-    def write_multi(units, line):
+    def write_multi(units):
+      """Write a description of multiple selected units."""
       counts = collections.defaultdict(int)
       for unit in units:
         counts[unit_name(unit.unit_type)] += 1
@@ -1124,10 +1199,9 @@ class RendererHuman(object):
         write((left + 3, y), name)
 
     ui = self._obs.observation.ui_data
-    line = itertools.count(3)
 
     if ui.groups:
-      write((left, next(line)), "Control Groups:", colors.green)
+      write_line(0, "Control Groups:", colors.green)
       for group in ui.groups:
         y = next(line)
         write((left + 1, y), "%s:" % group.control_group_index, colors.green)
@@ -1136,29 +1210,58 @@ class RendererHuman(object):
       next(line)
 
     if ui.HasField("single"):
-      write((left, next(line)), "Selection:", colors.green)
-      write_single(ui.single.unit, line)
+      write_line(0, "Selection:", colors.green)
+      write_single(ui.single.unit)
+      if (ui.single.attack_upgrade_level or
+          ui.single.armor_upgrade_level or
+          ui.single.shield_upgrade_level):
+        write_line(1, "Upgrades:")
+        if ui.single.attack_upgrade_level:
+          write_line(2, "Attack: %s" % ui.single.attack_upgrade_level)
+        if ui.single.armor_upgrade_level:
+          write_line(2, "Armor: %s" % ui.single.armor_upgrade_level)
+        if ui.single.shield_upgrade_level:
+          write_line(2, "Shield: %s" % ui.single.shield_upgrade_level)
+      if ui.single.buffs:
+        write_line(1, "Buffs:")
+        for b in ui.single.buffs:
+          write_line(2, buffs.Buffs(b).name)
     elif ui.HasField("multi"):
-      write((left, next(line)), "Selection:", colors.green)
-      write_multi(ui.multi.units, line)
+      write_line(0, "Selection:", colors.green)
+      write_multi(ui.multi.units)
     elif ui.HasField("cargo"):
-      write((left, next(line)), "Selection:", colors.green)
-      write_single(ui.cargo.unit, line)
+      write_line(0, "Selection:", colors.green)
+      write_single(ui.cargo.unit)
       next(line)
-      write((left, next(line)), "Cargo:", colors.green)
-      write((left + 1, next(line)),
-            "Empty slots: %s" % ui.cargo.slots_available)
-      write_multi(ui.cargo.passengers, line)
+      write_line(0, "Cargo:", colors.green)
+      write_line(1, "Empty slots: %s" % ui.cargo.slots_available)
+      write_multi(ui.cargo.passengers)
     elif ui.HasField("production"):
-      write((left, next(line)), "Selection:", colors.green)
-      write_single(ui.production.unit, line)
+      write_line(0, "Selection:", colors.green)
+      write_single(ui.production.unit)
       next(line)
-      write((left, next(line)), "Build Queue:", colors.green)
-      for unit in ui.production.build_queue:
-        s = unit_name(unit.unit_type)
-        if unit.build_progress > 0:
-          s += ": %d%%" % (unit.build_progress * 100)
-        write((left + 1, next(line)), s)
+      if ui.production.production_queue:
+        write_line(0, "Production:", colors.green)
+        for item in ui.production.production_queue:
+          specific_data = self._static_data.abilities[item.ability_id]
+          if specific_data.remaps_to_ability_id:
+            general_data = self._static_data.abilities[
+                specific_data.remaps_to_ability_id]
+          else:
+            general_data = specific_data
+          s = (general_data.friendly_name or general_data.button_name or
+               general_data.link_name)
+          s = s.replace("Research ", "").replace("Train ", "")
+          if item.build_progress > 0:
+            s += ": %d%%" % (item.build_progress * 100)
+          write_line(1, s)
+      elif ui.production.build_queue:  # Handle old binaries, no research.
+        write_line(0, "Build Queue:", colors.green)
+        for unit in ui.production.build_queue:
+          s = unit_name(unit.unit_type)
+          if unit.build_progress > 0:
+            s += ": %d%%" % (unit.build_progress * 100)
+          write_line(1, s)
 
   @sw.decorate
   def draw_actions(self):
@@ -1354,6 +1457,7 @@ class RendererHuman(object):
       self.draw_rendered_map(surf)
     else:
       self.draw_base_map(surf)
+      self.draw_effects(surf)
       self.draw_units(surf)
     self.draw_selection(surf)
     self.draw_build_target(surf)
