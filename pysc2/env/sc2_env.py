@@ -20,6 +20,7 @@ from __future__ import print_function
 
 import collections
 from absl import logging
+import random
 import time
 
 import enum
@@ -86,17 +87,27 @@ AgentInterfaceFormat = features.AgentInterfaceFormat  # pylint: disable=invalid-
 parse_agent_interface_format = features.parse_agent_interface_format
 
 
+def to_list(arg):
+  return arg if isinstance(arg, (list, tuple)) else [arg]
+
+
+def get_default(a, b):
+  return b if a is None else a
+
+
 class Agent(collections.namedtuple("Agent", ["race", "name"])):
+  """Define an Agent. It can have a single race or a list of races."""
 
   def __new__(cls, race, name=None):
-    return super(Agent, cls).__new__(cls, race, name or "<unknown>")
+    return super(Agent, cls).__new__(cls, to_list(race), name or "<unknown>")
 
 
 class Bot(collections.namedtuple("Bot", ["race", "difficulty", "build"])):
+  """Define a Bot. It can have a single or list of races or builds."""
 
   def __new__(cls, race, difficulty, build=None):
     return super(Bot, cls).__new__(
-        cls, race, difficulty, build or BotBuild.random)
+        cls, to_list(race), difficulty, to_list(build or BotBuild.random))
 
 
 _DelayedAction = collections.namedtuple(
@@ -147,7 +158,9 @@ class SC2Env(environment.Base):
       _only_use_kwargs: Don't pass args, only kwargs.
       map_name: Name of a SC2 map. Run bin/map_list to get the full list of
           known maps. Alternatively, pass a Map instance. Take a look at the
-          docs in maps/README.md for more information on available maps.
+          docs in maps/README.md for more information on available maps. Can
+          also be a list of map names or instances, in which case one will be
+          chosen at random per episode.
       players: A list of Agent and Bot instances that specify who will play.
       agent_interface_format: A sequence containing one AgentInterfaceFormat
         per agent, matching the order of agents specified in the players list.
@@ -183,15 +196,12 @@ class SC2Env(environment.Base):
           unavailable action is passed to step().
 
     Raises:
-      ValueError: if the agent_race, bot_race or difficulty are invalid.
+      ValueError: if no map is specified.
       ValueError: if wrong number of players are requested for a map.
       ValueError: if the resolutions aren't specified correctly.
     """
     if _only_use_kwargs:
       raise ValueError("All arguments must be passed as keyword arguments.")
-
-    map_inst = maps.get(map_name)
-    self._map_name = map_name
 
     if not players:
       raise ValueError("You must specify the list of players.")
@@ -209,19 +219,24 @@ class SC2Env(environment.Base):
       raise ValueError("Only 1 or 2 players with at least one agent is "
                        "supported at the moment.")
 
-    if map_inst.players == 1:
+    if not map_name:
+      raise ValueError("Missing a map name.")
+
+    self._maps = [maps.get(name) for name in to_list(map_name)]
+    min_players = min(m.players for m in self._maps)
+    max_players = max(m.players for m in self._maps)
+
+    if max_players == 1:
       if self._num_agents != 1:
         raise ValueError("Single player maps require exactly one Agent.")
-    elif not 2 <= num_players <= map_inst.players:
+    elif not 2 <= num_players <= min_players:
       raise ValueError(
-          "Map supports %s players, but trying to join with %s" % (
-              map_inst.players, num_players))
+          "Maps support 2 - %s players, but trying to join with %s" % (
+              min_players, num_players))
 
     if save_replay_episodes and not replay_dir:
       raise ValueError("Missing replay_dir")
 
-    self._discount = discount
-    self._step_mul = step_mul or map_inst.step_mul
     self._realtime = realtime
     self._last_step_time = None
     self._save_replay_episodes = save_replay_episodes
@@ -230,22 +245,12 @@ class SC2Env(environment.Base):
     self._random_seed = random_seed
     self._disable_fog = disable_fog
     self._ensure_available_actions = ensure_available_actions
+    self._discount = discount
     self._discount_zero_after_timeout = discount_zero_after_timeout
-
-    if score_index is None:
-      self._score_index = map_inst.score_index
-    else:
-      self._score_index = score_index
-    if score_multiplier is None:
-      self._score_multiplier = map_inst.score_multiplier
-    else:
-      self._score_multiplier = score_multiplier
-
-    self._episode_length = game_steps_per_episode
-    if self._episode_length is None:
-      self._episode_length = map_inst.game_steps_per_episode
-    if self._episode_length == 0 or self._episode_length > MAX_STEP_COUNT:
-      self._episode_length = MAX_STEP_COUNT
+    self._default_step_mul = step_mul
+    self._default_score_index = score_index
+    self._default_score_multiplier = score_multiplier
+    self._default_episode_length = game_steps_per_episode
 
     self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
@@ -264,42 +269,25 @@ class SC2Env(environment.Base):
     self._action_delay_fns = [aif.action_delay_fn
                               for aif in agent_interface_format]
 
-    interfaces = []
-    for i, interface_format in enumerate(agent_interface_format):
-      require_raw = visualize and (i == 0)
-      interfaces.append(self._get_interface(interface_format, require_raw))
+    self._interface_formats = agent_interface_format
+    self._interface_options = [
+        self._get_interface(interface_format, require_raw=visualize and i == 0)
+        for i, interface_format in enumerate(agent_interface_format)]
 
-    if self._num_agents == 1:
-      self._launch_sp(map_inst, interfaces[0])
-    else:
-      self._launch_mp(map_inst, interfaces)
+    self._launch_game()
+    self._create_join()
 
-    self._finalize(agent_interface_format, interfaces, visualize)
+    self._finalize(visualize)
 
-  def _finalize(self, agent_interface_formats, interfaces, visualize):
-    game_info = self._parallel.run(c.game_info for c in self._controllers)
-    if not self._map_name:
-      self._map_name = game_info[0].map_name
-
-    for g, interface in zip(game_info, interfaces):
-      if g.options.render != interface.render:
-        logging.warning(
-            "Actual interface options don't match requested options:\n"
-            "Requested:\n%s\n\nActual:\n%s", interface, g.options)
-
+  def _finalize(self, visualize):
     self._delayed_actions = [collections.deque()
                              for _ in self._action_delay_fns]
 
-    self._features = [
-        features.features_from_game_info(
-            game_info=g, agent_interface_format=agent_interface_format)
-        for g, agent_interface_format in zip(game_info, agent_interface_formats)
-    ]
-
     if visualize:
-      static_data = self._controllers[0].data()
       self._renderer_human = renderer_human.RendererHuman()
-      self._renderer_human.init(game_info[0], static_data)
+      self._renderer_human.init(
+          self._controllers[0].game_info(),
+          self._controllers[0].data())
     else:
       self._renderer_human = None
 
@@ -310,10 +298,10 @@ class SC2Env(environment.Base):
     self._total_steps = 0
     self._episode_steps = 0
     self._episode_count = 0
-    self._obs = [None] * len(interfaces)
-    self._agent_obs = [None] * len(interfaces)
+    self._obs = [None] * self._num_agents
+    self._agent_obs = [None] * self._num_agents
     self._state = environment.StepType.LAST  # Want to jump to `reset`.
-    logging.info("Environment is ready on map: %s", self._map_name)
+    logging.info("Environment is ready")
 
   @staticmethod
   def _get_interface(agent_interface_format, require_raw):
@@ -341,84 +329,78 @@ class SC2Env(environment.Base):
 
     return interface
 
-  def _launch_sp(self, map_inst, interface):
-    self._sc2_procs = [self._run_config.start(
-        want_rgb=interface.HasField("render"))]
-    self._controllers = [p.controller for p in self._sc2_procs]
-
-    # Create the game.
-    create = sc_pb.RequestCreateGame(
-        local_map=sc_pb.LocalMap(
-            map_path=map_inst.path, map_data=map_inst.data(self._run_config)),
-        disable_fog=self._disable_fog,
-        realtime=self._realtime)
-    agent = Agent(Race.random)
-    for p in self._players:
-      if isinstance(p, Agent):
-        create.player_setup.add(type=sc_pb.Participant)
-        agent = p
-      else:
-        create.player_setup.add(type=sc_pb.Computer, race=p.race,
-                                difficulty=p.difficulty, ai_build=p.build)
-    if self._random_seed is not None:
-      create.random_seed = self._random_seed
-    self._controllers[0].create_game(create)
-
-    join = sc_pb.RequestJoinGame(
-        options=interface, race=agent.race, player_name=agent.name)
-    self._controllers[0].join_game(join)
-
-  def _launch_mp(self, map_inst, interfaces):
+  def _launch_game(self):
     # Reserve a whole bunch of ports for the weird multiplayer implementation.
-    self._ports = portspicker.pick_unused_ports(self._num_agents * 2)
-    logging.info("Ports used for multiplayer: %s", self._ports)
+    if self._num_agents > 1:
+      self._ports = portspicker.pick_unused_ports(self._num_agents * 2)
+      logging.info("Ports used for multiplayer: %s", self._ports)
+    else:
+      self._ports = []
 
     # Actually launch the game processes.
     self._sc2_procs = [
         self._run_config.start(extra_ports=self._ports,
                                want_rgb=interface.HasField("render"))
-        for interface in interfaces]
+        for interface in self._interface_options]
     self._controllers = [p.controller for p in self._sc2_procs]
 
-    # Save the maps so they can access it. Don't do it in parallel since SC2
-    # doesn't respect tmpdir on windows, which leads to a race condition:
-    # https://github.com/Blizzard/s2client-proto/issues/102
-    for c in self._controllers:
-      c.save_map(map_inst.path, map_inst.data(self._run_config))
+  def _create_join(self):
+    """Create the game, and join it."""
+    map_inst = random.choice(self._maps)
+    self._map_name = map_inst.name
+
+    self._step_mul = max(1, self._default_step_mul or map_inst.step_mul)
+    self._score_index = get_default(self._default_score_index,
+                                    map_inst.score_index)
+    self._score_multiplier = get_default(self._default_score_multiplier,
+                                         map_inst.score_multiplier)
+    self._episode_length = get_default(self._default_episode_length,
+                                       map_inst.game_steps_per_episode)
+    if self._episode_length <= 0 or self._episode_length > MAX_STEP_COUNT:
+      self._episode_length = MAX_STEP_COUNT
+
+    map_data = map_inst.data(self._run_config)
+    if self._num_agents > 1:
+      # Save the maps so they can access it. Don't do it in parallel since SC2
+      # doesn't respect tmpdir on windows, which leads to a race condition:
+      # https://github.com/Blizzard/s2client-proto/issues/102
+      for c in self._controllers:
+        c.save_map(map_inst.path, map_data)
 
     # Create the game. Set the first instance as the host.
     create = sc_pb.RequestCreateGame(
-        local_map=sc_pb.LocalMap(
-            map_path=map_inst.path),
+        local_map=sc_pb.LocalMap(map_path=map_inst.path),
         disable_fog=self._disable_fog,
         realtime=self._realtime)
+    if self._num_agents == 1:
+      create.local_map.map_data = map_data
     if self._random_seed is not None:
       create.random_seed = self._random_seed
     for p in self._players:
       if isinstance(p, Agent):
         create.player_setup.add(type=sc_pb.Participant)
       else:
-        create.player_setup.add(type=sc_pb.Computer, race=p.race,
-                                difficulty=p.difficulty)
+        create.player_setup.add(
+            type=sc_pb.Computer, race=random.choice(p.race),
+            difficulty=p.difficulty, ai_build=random.choice(p.build))
     self._controllers[0].create_game(create)
 
     # Create the join requests.
     agent_players = [p for p in self._players if isinstance(p, Agent)]
     sanitized_names = crop_and_deduplicate_names(p.name for p in agent_players)
     join_reqs = []
-    for agent_index, (p, name) in enumerate(
-        zip(agent_players, sanitized_names)):
-      ports = self._ports[:]
-      join = sc_pb.RequestJoinGame(options=interfaces[agent_index])
-      join.shared_port = 0  # unused
-      join.server_ports.game_port = ports.pop(0)
-      join.server_ports.base_port = ports.pop(0)
-      for _ in range(self._num_agents - 1):
-        join.client_ports.add(game_port=ports.pop(0),
-                              base_port=ports.pop(0))
-
-      join.race = p.race
+    for p, name, interface in zip(agent_players, sanitized_names,
+                                  self._interface_options):
+      join = sc_pb.RequestJoinGame(options=interface)
+      join.race = random.choice(p.race)
       join.player_name = name
+      if self._ports:
+        join.shared_port = 0  # unused
+        join.server_ports.game_port = self._ports[0]
+        join.server_ports.base_port = self._ports[1]
+        for i in range(self._num_agents - 1):
+          join.client_ports.add(game_port=self._ports[i * 2 + 2],
+                                base_port=self._ports[i * 2 + 3])
       join_reqs.append(join)
 
     # Join the game. This must be run in parallel because Join is a blocking
@@ -426,9 +408,17 @@ class SC2Env(environment.Base):
     self._parallel.run((c.join_game, join)
                        for c, join in zip(self._controllers, join_reqs))
 
-    # Save them for restart.
-    self._create_req = create
-    self._join_reqs = join_reqs
+    game_info = self._parallel.run(c.game_info for c in self._controllers)
+    for g, interface in zip(game_info, self._interface_options):
+      if g.options.render != interface.render:
+        logging.warning(
+            "Actual interface options don't match requested options:\n"
+            "Requested:\n%s\n\nActual:\n%s", interface, g.options)
+
+    self._features = [
+        features.features_from_game_info(
+            game_info=g, agent_interface_format=aif)
+        for g, aif in zip(game_info, self._interface_formats)]
 
   def observation_spec(self):
     """Look at Features for full specs."""
@@ -455,13 +445,14 @@ class SC2Env(environment.Base):
     return self._action_delays
 
   def _restart(self):
-    if len(self._controllers) == 1:
+    if (len(self._players) == 1 and len(self._players[0].race) == 1 and
+        len(self._maps) == 1):
+      # Need to support restart for fast-restart of mini-games.
       self._controllers[0].restart()
     else:
-      self._parallel.run(c.leave for c in self._controllers)
-      self._controllers[0].create_game(self._create_req)
-      self._parallel.run((c.join_game, j)
-                         for c, j in zip(self._controllers, self._join_reqs))
+      if len(self._controllers) > 1:
+        self._parallel.run(c.leave for c in self._controllers)
+      self._create_join()
 
   @sw.decorate
   def reset(self):
@@ -472,7 +463,10 @@ class SC2Env(environment.Base):
       self._restart()
 
     self._episode_count += 1
-    logging.info("Starting episode: %s", self._episode_count)
+    races = [Race(r).name
+             for _, r in sorted(self._features[0].requested_races.items())]
+    logging.info("Starting episode %s: [%s] on %s",
+                 self._episode_count, ", ".join(races), self._map_name)
     self._metrics.increment_episode()
 
     self._last_score = [0] * self._num_agents

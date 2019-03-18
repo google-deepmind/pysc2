@@ -23,6 +23,7 @@ from absl import logging
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.env import sc2_env
+from pysc2.lib import features
 from pysc2.lib import remote_controller
 from pysc2.lib import run_parallel
 
@@ -153,9 +154,10 @@ class RemoteSC2Env(sc2_env.SC2Env):
       ports = [lan_port + p for p in range(4)]  # 2 * num players *in the game*.
 
     self._connect_remote(
-        host, host_port, ports, race, name, map_inst, save_map, interface)
+        host, host_port, ports, race, name, map_inst, save_map, interface,
+        agent_interface_format)
 
-    self._finalize([agent_interface_format], [interface], visualize)
+    self._finalize(visualize)
 
   def close(self):
     # Leave the game so that another may be created in the same SC2 process.
@@ -171,7 +173,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
     super(RemoteSC2Env, self).close()
 
   def _connect_remote(self, host, host_port, lan_ports, race, name, map_inst,
-                      save_map, interface):
+                      save_map, interface, agent_interface_format):
     """Make sure this stays synced with bin/agent_remote.py."""
     # Connect!
     logging.info("Connecting...")
@@ -194,6 +196,15 @@ class RemoteSC2Env(sc2_env.SC2Env):
 
     logging.info("Joining game.")
     self._controllers[0].join_game(join)
+
+    game_info = self._controllers[0].game_info()
+
+    if not self._map_name:
+      self._map_name = game_info.map_name
+
+    self._features = [features.features_from_game_info(
+        game_info=game_info, agent_interface_format=agent_interface_format)]
+
     self._in_game = True
     logging.info("Game joined.")
 

@@ -1040,6 +1040,10 @@ class Features(object):
   def map_size(self):
     return self._map_size
 
+  @property
+  def requested_races(self):
+    return self._requested_races
+
   @sw.decorate
   def transform_obs(self, obs):
     """Render some SC2 observations into something an agent can handle."""

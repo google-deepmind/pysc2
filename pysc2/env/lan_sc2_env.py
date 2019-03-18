@@ -35,6 +35,7 @@ import time
 from future.builtins import range  # pylint: disable=redefined-builtin
 from pysc2 import run_configs
 from pysc2.env import sc2_env
+from pysc2.lib import features
 from pysc2.lib import run_parallel
 import whichcraft
 
@@ -297,11 +298,13 @@ class LanSC2Env(sc2_env.SC2Env):
     interface = self._get_interface(
         agent_interface_format=agent_interface_format, require_raw=visualize)
 
-    self._launch_remote(host, config_port, race, name, interface)
+    self._launch_remote(host, config_port, race, name, interface,
+                        agent_interface_format)
 
-    self._finalize([agent_interface_format], [interface], visualize)
+    self._finalize(visualize)
 
-  def _launch_remote(self, host, config_port, race, name, interface):
+  def _launch_remote(self, host, config_port, race, name, interface,
+                     agent_interface_format):
     """Make sure this stays synced with bin/play_vs_agent.py."""
     self._tcp_conn, settings = tcp_client(Addr(host, config_port))
 
@@ -342,6 +345,10 @@ class LanSC2Env(sc2_env.SC2Env):
 
     self._controllers[0].save_map(settings["map_path"], settings["map_data"])
     self._controllers[0].join_game(join)
+
+    self._features = [features.features_from_game_info(
+        game_info=self._controllers[0].game_info(),
+        agent_interface_format=agent_interface_format)]
 
   def _restart(self):
     # Can't restart since it's not clear how you'd coordinate that with the
