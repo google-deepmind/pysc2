@@ -275,9 +275,10 @@ class RendererHuman(object):
       ("F3", "Select larva (zerg) or warp gates (protoss)"),
       ("F4", "Quit the game"),
       ("F5", "Restart the map"),
-      ("F7", "Toggle RGB rendering"),
-      ("F8", "Toggle synchronous rendering"),
-      ("F9", "Save a replay"),
+      ("F8", "Save a replay"),
+      ("F9", "Toggle RGB rendering"),
+      ("F10", "Toggle rendering the player_relative layer."),
+      ("F11", "Toggle synchronous rendering"),
       ("Ctrl++", "Zoom in"),
       ("Ctrl+-", "Zoom out"),
       ("PgUp/PgDn", "Increase/decrease the max game speed"),
@@ -310,6 +311,7 @@ class RendererHuman(object):
     self._fps = fps
     self._step_mul = step_mul
     self._render_sync = render_sync or bool(video)
+    self._render_player_relative = False
     self._render_rgb = None
     self._render_feature_grid = render_feature_grid
     self._window = None
@@ -734,15 +736,17 @@ class RendererHuman(object):
           return ActionCmd.QUIT
         elif event.key == pygame.K_F5:
           return ActionCmd.RESTART
-        elif event.key == pygame.K_F7:  # Toggle rgb rendering.
+        elif event.key == pygame.K_F9:  # Toggle rgb rendering.
           if self._rgb_screen_px and self._feature_screen_px:
             self._render_rgb = not self._render_rgb
             print("Rendering", self._render_rgb and "RGB" or "Feature Layers")
             self.init_window()
-        elif event.key == pygame.K_F8:  # Toggle synchronous rendering.
+        elif event.key == pygame.K_F11:  # Toggle synchronous rendering.
           self._render_sync = not self._render_sync
           print("Rendering", self._render_sync and "Sync" or "Async")
-        elif event.key == pygame.K_F9:  # Save a replay.
+        elif event.key == pygame.K_F10:  # Toggle player_relative layer.
+          self._render_player_relative = not self._render_player_relative
+        elif event.key == pygame.K_F8:  # Save a replay.
           self.save_replay(run_config, controller)
         elif event.key in (pygame.K_PLUS, pygame.K_EQUALS) and ctrl:
           self.zoom(1.1)  # zoom in
@@ -1360,26 +1364,32 @@ class RendererHuman(object):
     if not hmap.any():
       hmap = hmap + 100  # pylint: disable=g-no-augmented-assignment
     hmap_color = hmap_feature.color(hmap)
+    out = hmap_color * 0.6
 
     creep_feature = features.SCREEN_FEATURES.creep
     creep = creep_feature.unpack(self._obs.observation)
     creep_mask = creep > 0
     creep_color = creep_feature.color(creep)
+    out[creep_mask, :] = (0.4 * out[creep_mask, :] +
+                          0.6 * creep_color[creep_mask, :])
 
     power_feature = features.SCREEN_FEATURES.power
     power = power_feature.unpack(self._obs.observation)
     power_mask = power > 0
     power_color = power_feature.color(power)
+    out[power_mask, :] = (0.7 * out[power_mask, :] +
+                          0.3 * power_color[power_mask, :])
+
+    if self._render_player_relative:
+      player_rel_feature = features.SCREEN_FEATURES.player_relative
+      player_rel = player_rel_feature.unpack(self._obs.observation)
+      player_rel_mask = player_rel > 0
+      player_rel_color = player_rel_feature.color(player_rel)
+      out[player_rel_mask, :] = player_rel_color[player_rel_mask, :]
 
     visibility = features.SCREEN_FEATURES.visibility_map.unpack(
         self._obs.observation)
     visibility_fade = np.array([[0.5] * 3, [0.75]*3, [1]*3])
-
-    out = hmap_color * 0.6
-    out[creep_mask, :] = (0.4 * out[creep_mask, :] +
-                          0.6 * creep_color[creep_mask, :])
-    out[power_mask, :] = (0.7 * out[power_mask, :] +
-                          0.3 * power_color[power_mask, :])
     out *= visibility_fade[visibility]
 
     surf.blit_np_array(out)
