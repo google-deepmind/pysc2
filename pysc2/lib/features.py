@@ -971,22 +971,24 @@ class Features(object):
       vary in length, for example the number of valid actions depends on which
       units you have selected.
     """
+    # pytype: disable=wrong-arg-types
     obs_spec = named_array.NamedDict({
         "action_result": (0,),  # See error.proto: ActionResult.
         "alerts": (0,),  # See sc2api.proto: Alert.
-        "build_queue": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
-        "cargo": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
+        "build_queue": (0, len(UnitLayer)),
+        "cargo": (0, len(UnitLayer)),
         "cargo_slots_available": (1,),
         "control_groups": (10, 2),
         "game_loop": (1,),
         "last_actions": (0,),
-        "multi_select": (0, len(UnitLayer)),  # pytype: disable=wrong-arg-types
-        "player": (len(Player),),  # pytype: disable=wrong-arg-types
-        "score_cumulative": (len(ScoreCumulative),),  # pytype: disable=wrong-arg-types
-        "score_by_category": (len(ScoreByCategory), len(ScoreCategories)),  # pytype: disable=wrong-arg-types
-        "score_by_vital": (len(ScoreByVital), len(ScoreVitals)),  # pytype: disable=wrong-arg-types
-        "single_select": (0, len(UnitLayer)),  # Only (n, 7) for n in (0, 1).  # pytype: disable=wrong-arg-types
+        "multi_select": (0, len(UnitLayer)),
+        "player": (len(Player),),
+        "score_cumulative": (len(ScoreCumulative),),
+        "score_by_category": (len(ScoreByCategory), len(ScoreCategories)),
+        "score_by_vital": (len(ScoreByVital), len(ScoreVitals)),
+        "single_select": (0, len(UnitLayer)),  # Only (n, 7) for n in (0, 1).
     })
+    # pytype: enable=wrong-arg-types
 
     if not self._raw:
       obs_spec["available_actions"] = (0,)
@@ -1047,12 +1049,12 @@ class Features(object):
   @sw.decorate
   def transform_obs(self, obs):
     """Render some SC2 observations into something an agent can handle."""
-    empty = np.array([], dtype=np.int32).reshape((0, 7))
+    empty_unit = np.array([], dtype=np.int32).reshape((0, len(UnitLayer)))
     out = named_array.NamedDict({  # Fill out some that are sometimes empty.
-        "single_select": empty,
-        "multi_select": empty,
-        "build_queue": empty,
-        "cargo": empty,
+        "single_select": empty_unit,
+        "multi_select": empty_unit,
+        "build_queue": empty_unit,
+        "cargo": empty_unit,
         "last_actions": np.array([], dtype=np.int32),
         "cargo_slots_available": np.array([0], dtype=np.int32),
         "home_race_requested": np.array([0], dtype=np.int32),
@@ -1475,7 +1477,7 @@ class Features(object):
 
   @sw.decorate
   def transform_action(self, obs, func_call, skip_available=False):
-    """Tranform an agent-style action to one that SC2 can consume.
+    """Transform an agent-style action to one that SC2 can consume.
 
     Args:
       obs: a `sc_pb.Observation` from the previous frame.
