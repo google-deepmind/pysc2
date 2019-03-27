@@ -40,7 +40,8 @@ flags.DEFINE_string("map", "Catalyst", "Which map to run.")
 FLAGS = flags.FLAGS
 
 
-def interface_options(score=False, raw=False, features=None, rgb=None):
+def interface_options(score=False, raw=False, features=None, rgb=None,
+                      crop=True):
   """Get an InterfaceOptions for the config."""
   interface = sc_pb.InterfaceOptions()
   interface.score = score
@@ -55,6 +56,7 @@ def interface_options(score=False, raw=False, features=None, rgb=None):
     interface.feature_layer.resolution.y = screen
     interface.feature_layer.minimap_resolution.x = minimap
     interface.feature_layer.minimap_resolution.y = minimap
+    interface.feature_layer.crop_to_playable_area = crop
   if rgb:
     if isinstance(rgb, int):
       screen, minimap = rgb, rgb
@@ -74,6 +76,7 @@ configs = [
     ("raw-feat-128-48", interface_options(raw=True, features=(128, 48))),
     ("feat-32", interface_options(features=32)),
     ("feat-48", interface_options(features=48)),
+    ("feat-72-no-crop", interface_options(features=72, crop=False)),
     ("feat-72", interface_options(features=72)),
     ("feat-96", interface_options(features=96)),
     ("feat-128", interface_options(features=128)),

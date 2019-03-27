@@ -356,6 +356,9 @@ class RendererHuman(object):
       raise ValueError("Raw observations are required for the renderer.")
 
     self._map_size = point.Point.build(game_info.start_raw.map_size)
+    self._playable = point.Rect(
+        point.Point.build(game_info.start_raw.playable_area.p0),
+        point.Point.build(game_info.start_raw.playable_area.p1))
 
     if game_info.options.HasField("feature_layer"):
       fl_opts = game_info.options.feature_layer
@@ -363,6 +366,8 @@ class RendererHuman(object):
       self._feature_minimap_px = point.Point.build(fl_opts.minimap_resolution)
       self._feature_camera_width_world_units = fl_opts.width
       self._render_rgb = False
+      if not fl_opts.crop_to_playable_area:
+        self._playable = point.Rect(self._map_size)
     else:
       self._feature_screen_px = self._feature_minimap_px = None
     if game_info.options.HasField("render"):
@@ -493,12 +498,9 @@ class RendererHuman(object):
           transform.PixelToCoord())
 
       world_tl_to_feature_minimap = transform.Linear(
-          self._feature_minimap_px / self._map_size.max_dim())
-
-      check_eq(world_tl_to_feature_minimap.fwd_pt(point.Point(0, 0)),
-               point.Point(0, 0))
-      check_eq(world_tl_to_feature_minimap.fwd_pt(self._map_size),
-               self._map_size.scale_max_size(self._feature_minimap_px))
+          self._feature_minimap_px / self._playable.diagonal.max_dim())
+      world_tl_to_feature_minimap.offset = world_tl_to_feature_minimap.fwd_pt(
+          -self._world_to_world_tl.fwd_pt(self._playable.bl))
 
       self._world_to_feature_minimap = transform.Chain(
           self._world_to_world_tl,
@@ -506,6 +508,13 @@ class RendererHuman(object):
       self._world_to_feature_minimap_px = transform.Chain(
           self._world_to_feature_minimap,
           transform.PixelToCoord())
+
+      # These are confusing since self._playable is in world coords which is
+      # (bl <= tr), but stored in a Rect that is (tl <= br).
+      check_eq(self._world_to_feature_minimap.fwd_pt(self._playable.bl),
+               point.Point(0, 0))
+      check_eq(self._world_to_feature_minimap.fwd_pt(self._playable.tr),
+               self._playable.diagonal.scale_max_size(self._feature_minimap_px))
 
     if self._rgb_screen_px:
       # RGB pixel locations in continuous space.
@@ -547,7 +556,7 @@ class RendererHuman(object):
 
     # Renderable space for the screen.
     screen_size_px = main_screen_px.scale_max_size(window_size_px)
-    minimap_size_px = self._map_size.scale_max_size(screen_size_px / 4)
+    minimap_size_px = self._playable.diagonal.scale_max_size(screen_size_px / 4)
     minimap_offset = point.Point(0, (screen_size_px.y - minimap_size_px.y))
 
     if self._render_rgb:
@@ -570,7 +579,7 @@ class RendererHuman(object):
                       rgb_minimap_to_main_minimap),
                   self._world_to_rgb_minimap_px,
                   self.draw_mini_map)
-    else:
+    else:  # Feature layer main screen
       feature_screen_to_main_screen = transform.Linear(
           screen_size_px / self._feature_screen_px)
       add_surface(SurfType.FEATURE | SurfType.SCREEN,
@@ -581,7 +590,7 @@ class RendererHuman(object):
                   self._world_to_feature_screen_px,
                   self.draw_screen)
       feature_minimap_to_main_minimap = transform.Linear(
-          minimap_size_px / self._feature_minimap_px)
+          minimap_size_px.max_dim() / self._feature_minimap_px.max_dim())
       add_surface(SurfType.FEATURE | SurfType.MINIMAP,
                   point.Rect(minimap_offset,
                              minimap_offset + minimap_size_px),
@@ -1437,12 +1446,12 @@ class RendererHuman(object):
 
       # Render the bit of the composited layers that actually correspond to the
       # map. This isn't all of it on non-square maps.
-      shape = self._map_size.scale_max_size(
+      shape = self._playable.diagonal.scale_max_size(
           self._feature_minimap_px).floor()
       surf.blit_np_array(out[:shape.y, :shape.x, :])
 
       surf.draw_rect(colors.white * 0.8, self._camera, 1)  # Camera
-      pygame.draw.rect(surf.surf, colors.red, surf.surf.get_rect(), 1)  # Border
+    pygame.draw.rect(surf.surf, colors.red, surf.surf.get_rect(), 1)  # Border
 
   def check_valid_queued_action(self):
     # Make sure the existing command is still valid

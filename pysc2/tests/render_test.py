@@ -43,6 +43,9 @@ class TestRender(utils.TestCase):
     interface.feature_layer.resolution.y = 84
     interface.feature_layer.minimap_resolution.x = 64
     interface.feature_layer.minimap_resolution.y = 64
+    interface.feature_layer.crop_to_playable_area = True
+    interface.feature_layer.allow_cheating_layers = True
+
     interface.render.resolution.x = 256
     interface.render.resolution.y = 256
     interface.render.minimap_resolution.x = 128

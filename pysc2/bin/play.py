@@ -113,11 +113,13 @@ def main(unused_argv):
   interface = sc_pb.InterfaceOptions()
   interface.raw = FLAGS.render
   interface.score = True
-  interface.feature_layer.width = 24
   if FLAGS.feature_screen_size and FLAGS.feature_minimap_size:
+    interface.feature_layer.width = 24
     FLAGS.feature_screen_size.assign_to(interface.feature_layer.resolution)
     FLAGS.feature_minimap_size.assign_to(
         interface.feature_layer.minimap_resolution)
+    interface.feature_layer.crop_to_playable_area = True
+    interface.feature_layer.allow_cheating_layers = True
   if FLAGS.render and FLAGS.rgb_screen_size and FLAGS.rgb_minimap_size:
     FLAGS.rgb_screen_size.assign_to(interface.render.resolution)
     FLAGS.rgb_minimap_size.assign_to(interface.render.minimap_resolution)

@@ -298,7 +298,7 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
     "unit_hit_points_ratio", "unit_energy", "unit_energy_ratio", "unit_shields",
     "unit_shields_ratio", "unit_density", "unit_density_aa", "effects",
     "hallucinations", "cloaked", "blip", "buffs", "buff_duration", "active",
-    "build_progress"])):
+    "build_progress", "pathable", "buildable"])):
   """The set of screen feature layers."""
   __slots__ = ()
 
@@ -319,7 +319,8 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
 
 class MinimapFeatures(collections.namedtuple("MinimapFeatures", [
     "height_map", "visibility_map", "creep", "camera", "player_id",
-    "player_relative", "selected", "alerts"])):
+    "player_relative", "selected", "unit_type", "alerts", "pathable",
+    "buildable"])):
   """The set of minimap feature layers."""
   __slots__ = ()
 
@@ -339,7 +340,7 @@ class MinimapFeatures(collections.namedtuple("MinimapFeatures", [
 
 
 SCREEN_FEATURES = ScreenFeatures(
-    height_map=(256, FeatureType.SCALAR, colors.winter, False),
+    height_map=(256, FeatureType.SCALAR, colors.height_map, False),
     visibility_map=(4, FeatureType.CATEGORICAL,
                     colors.VISIBILITY_PALETTE, False),
     creep=(2, FeatureType.CATEGORICAL, colors.CREEP_PALETTE, False),
@@ -368,10 +369,12 @@ SCREEN_FEATURES = ScreenFeatures(
     buff_duration=(256, FeatureType.SCALAR, colors.hot, False),
     active=(2, FeatureType.CATEGORICAL, colors.POWER_PALETTE, False),
     build_progress=(256, FeatureType.SCALAR, colors.hot, False),
+    pathable=(2, FeatureType.CATEGORICAL, colors.winter, False),
+    buildable=(2, FeatureType.CATEGORICAL, colors.winter, False),
 )
 
 MINIMAP_FEATURES = MinimapFeatures(
-    height_map=(256, FeatureType.SCALAR, colors.winter),
+    height_map=(256, FeatureType.SCALAR, colors.height_map),
     visibility_map=(4, FeatureType.CATEGORICAL, colors.VISIBILITY_PALETTE),
     creep=(2, FeatureType.CATEGORICAL, colors.CREEP_PALETTE),
     camera=(2, FeatureType.CATEGORICAL, colors.CAMERA_PALETTE),
@@ -379,7 +382,11 @@ MINIMAP_FEATURES = MinimapFeatures(
     player_relative=(5, FeatureType.CATEGORICAL,
                      colors.PLAYER_RELATIVE_PALETTE),
     selected=(2, FeatureType.CATEGORICAL, colors.winter),
+    unit_type=(max(static_data.UNIT_TYPES) + 1, FeatureType.CATEGORICAL,
+               colors.unit_type),
     alerts=(2, FeatureType.CATEGORICAL, colors.winter),
+    pathable=(2, FeatureType.CATEGORICAL, colors.winter),
+    buildable=(2, FeatureType.CATEGORICAL, colors.winter),
 )
 
 
@@ -466,6 +473,8 @@ class AgentInterfaceFormat(object):
       hide_specific_actions=True,
       action_delay_fn=None,
       send_observation_proto=False,
+      crop_to_playable_area=False,
+      allow_cheating_layers=False,
       add_cargo_to_units=False):
     """Initializer.
 
@@ -514,6 +523,11 @@ class AgentInterfaceFormat(object):
           hence with the minimum delay of 1).
       send_observation_proto: Whether or not to send the raw observation
           response proto in the observations.
+      crop_to_playable_area: Crop the feature layer minimap observations down
+          from the full map area to just the playable area. Also improves the
+          heightmap rendering.
+      allow_cheating_layers: Show the unit types and potentially other cheating
+          layers on the minimap.
       add_cargo_to_units: Whether to add the units that are currently in cargo
           to the feature_units and raw_units lists.
 
@@ -586,6 +600,8 @@ class AgentInterfaceFormat(object):
     self._action_delay_fn = action_delay_fn
     self._send_observation_proto = send_observation_proto
     self._add_cargo_to_units = add_cargo_to_units
+    self._crop_to_playable_area = crop_to_playable_area
+    self._allow_cheating_layers = allow_cheating_layers
 
     if action_space == actions.ActionSpace.FEATURES:
       self._action_dimensions = feature_dimensions
@@ -667,6 +683,14 @@ class AgentInterfaceFormat(object):
   @property
   def action_dimensions(self):
     return self._action_dimensions
+
+  @property
+  def crop_to_playable_area(self):
+    return self._crop_to_playable_area
+
+  @property
+  def allow_cheating_layers(self):
+    return self._allow_cheating_layers
 
 
 def parse_agent_interface_format(

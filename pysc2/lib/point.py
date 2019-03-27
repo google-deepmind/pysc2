@@ -115,7 +115,10 @@ class Point(collections.namedtuple("Point", ["x", "y"])):
     return Point(min(max(self.x, r.l), r.r), min(max(self.y, r.t), r.b))
 
   def __str__(self):
-    return "%.6f,%.6f" % self
+    if all(isinstance(v, int) for v in self):
+      return "%d,%d" % self
+    else:
+      return "%.6f,%.6f" % self
 
   def __neg__(self):
     return Point(-self.x, -self.y)
@@ -182,7 +185,10 @@ class Rect(collections.namedtuple("Rect", ["t", "l", "b", "r"])):
         "Unexpected arguments to Rect. Takes 1 or 2 Points, or 4 coords.")
 
   def __str__(self):
-    return "%.6f,%.6f,%.6f,%.6f" % self
+    if all(isinstance(v, int) for v in self):
+      return "%d,%d,%d,%d" % self
+    else:
+      return "%.6f,%.6f,%.6f,%.6f" % self
 
   @property
   def center(self):
@@ -227,6 +233,10 @@ class Rect(collections.namedtuple("Rect", ["t", "l", "b", "r"])):
   @property
   def bl(self):
     return Point(self.l, self.b)
+
+  @property
+  def diagonal(self):
+    return Point(self.width, self.height)
 
   @property
   def size(self):

@@ -305,27 +305,27 @@ class SC2Env(environment.Base):
 
   @staticmethod
   def _get_interface(agent_interface_format, require_raw):
+    aif = agent_interface_format
     interface = sc_pb.InterfaceOptions(
-        raw=(agent_interface_format.use_feature_units or
-             agent_interface_format.use_unit_counts or
-             agent_interface_format.use_raw_units or
+        raw=(aif.use_feature_units or
+             aif.use_unit_counts or
+             aif.use_raw_units or
              require_raw),
-        show_cloaked=agent_interface_format.show_cloaked,
+        show_cloaked=aif.show_cloaked,
         score=True)
 
-    if agent_interface_format.feature_dimensions:
-      interface.feature_layer.width = (
-          agent_interface_format.camera_width_world_units)
-      agent_interface_format.feature_dimensions.screen.assign_to(
+    if aif.feature_dimensions:
+      interface.feature_layer.width = aif.camera_width_world_units
+      aif.feature_dimensions.screen.assign_to(
           interface.feature_layer.resolution)
-      agent_interface_format.feature_dimensions.minimap.assign_to(
+      aif.feature_dimensions.minimap.assign_to(
           interface.feature_layer.minimap_resolution)
+      interface.feature_layer.crop_to_playable_area = aif.crop_to_playable_area
+      interface.feature_layer.allow_cheating_layers = aif.allow_cheating_layers
 
-    if agent_interface_format.rgb_dimensions:
-      agent_interface_format.rgb_dimensions.screen.assign_to(
-          interface.render.resolution)
-      agent_interface_format.rgb_dimensions.minimap.assign_to(
-          interface.render.minimap_resolution)
+    if aif.rgb_dimensions:
+      aif.rgb_dimensions.screen.assign_to(interface.render.resolution)
+      aif.rgb_dimensions.minimap.assign_to(interface.render.minimap_resolution)
 
     return interface
 

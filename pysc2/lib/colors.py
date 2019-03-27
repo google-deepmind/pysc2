@@ -138,7 +138,7 @@ def piece_wise_linear(scale, points):
   p2, c2 = points[1]
   next_pt = 2
 
-  for i in range(1, scale):
+  for i in range(1, scale):  # Leave 0 as black.
     v = i / scale
     if v > p2:
       p1, c1 = p2, c2
@@ -160,6 +160,17 @@ def hot(scale):
                                    (0.6, Color(1, 1, 0) * 255),
                                    (1, Color(1, 1, 1) * 255)])
 
+
+def height_map(scale):
+  return piece_wise_linear(scale, [
+      (0, Color(0, 0, 0)),  # Abyss
+      (40/255, Color(67, 109, 95)),  # Water, little below this height.
+      (50/255, Color(168, 152, 129)),  # Beach
+      (60/255, Color(154, 124, 90)),  # Sand, the mode height.
+      (70/255, Color(117, 150, 96)),  # Grass
+      (80/255, Color(166, 98, 97)),  # Dirt, should be the top.
+      (1, Color(255, 255, 100)),  # Heaven. Shouldn't be seen.
+  ])
 
 # Palette used to color player_relative features.
 PLAYER_RELATIVE_PALETTE = numpy.array([
