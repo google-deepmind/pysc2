@@ -43,6 +43,7 @@ _MOTHERSHIP = dummy_observation.Unit(
 class DummyObservationTest(parameterized.TestCase):
 
   def setUp(self):
+    super(DummyObservationTest, self).setUp()
     self._features = features.Features(
         features.AgentInterfaceFormat(
             feature_dimensions=features.Dimensions(
@@ -219,17 +220,29 @@ class DummyObservationTest(parameterized.TestCase):
     nits = [_MOTHERSHIP, _PROBE, _PROBE, _ZEALOT]
     self._builder.multi_select(nits)
     obs = self._get_obs()
-    self.assertEqual(len(obs.ui_data.multi.units), 4)
+    self.assertLen(obs.ui_data.multi.units, 4)
     for proto, builder in zip(obs.ui_data.multi.units, nits):
       self._check_unit(proto, builder)
 
   def testBuildQueue(self):
     nits = [_MOTHERSHIP, _PROBE]
-    self._builder.build_queue(nits)
+    production = [
+        {"ability_id": actions.FUNCTIONS.Train_Mothership_quick.ability_id,
+         "build_progress": 0.5},
+        {"ability_id": actions.FUNCTIONS.Train_Probe_quick.ability_id,
+         "build_progress": 0},
+        {"ability_id": actions.FUNCTIONS.Research_ShadowStrike_quick.ability_id,
+         "build_progress": 0},
+    ]
+    self._builder.build_queue(nits, production)
     obs = self._get_obs()
-    self.assertEqual(len(obs.ui_data.production.build_queue), 2)
+    self.assertLen(obs.ui_data.production.build_queue, 2)
     for proto, builder in zip(obs.ui_data.production.build_queue, nits):
       self._check_unit(proto, builder)
+    self.assertLen(obs.ui_data.production.production_queue, 3)
+    for proto, p in zip(obs.ui_data.production.production_queue, production):
+      self.assertEqual(proto.ability_id, p["ability_id"])
+      self.assertEqual(proto.build_progress, p["build_progress"])
 
   def testFeatureUnitsAreAdded(self):
     feature_units = [

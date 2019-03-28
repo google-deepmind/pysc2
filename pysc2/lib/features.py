@@ -228,6 +228,12 @@ class EffectPos(enum.IntEnum):
   y = 5
 
 
+class ProductionQueue(enum.IntEnum):
+  """Indices for the `production_queue` observations."""
+  ability_id = 0
+  build_progress = 1
+
+
 class Feature(collections.namedtuple(
     "Feature", ["index", "name", "layer_set", "full_name", "scale", "type",
                 "palette", "clip"])):
@@ -1007,6 +1013,7 @@ class Features(object):
         "last_actions": (0,),
         "multi_select": (0, len(UnitLayer)),
         "player": (len(Player),),
+        "production_queue": (0, len(ProductionQueue)),
         "score_cumulative": (len(ScoreCumulative),),
         "score_by_category": (len(ScoreByCategory), len(ScoreCategories)),
         "score_by_vital": (len(ScoreByVital), len(ScoreVitals)),
@@ -1079,6 +1086,8 @@ class Features(object):
         "multi_select": empty_unit,
         "build_queue": empty_unit,
         "cargo": empty_unit,
+        "production_queue": np.array([], dtype=np.int32).reshape(
+            (0, len(ProductionQueue))),
         "last_actions": np.array([], dtype=np.int32),
         "cargo_slots_available": np.array([0], dtype=np.int32),
         "home_race_requested": np.array([0], dtype=np.int32),
@@ -1194,28 +1203,31 @@ class Features(object):
         groups[g.control_group_index, :] = (g.leader_unit_type, g.count)
       out["control_groups"] = groups
 
-      if ui.single:
+      if ui.HasField("single"):
         out["single_select"] = named_array.NamedNumpyArray(
             [unit_vec(ui.single.unit)], [None, UnitLayer])
-
-      if ui.multi and ui.multi.units:
+      elif ui.HasField("multi"):
         out["multi_select"] = named_array.NamedNumpyArray(
             [unit_vec(u) for u in ui.multi.units], [None, UnitLayer])
-
-      if ui.cargo and ui.cargo.passengers:
+      elif ui.HasField("cargo"):
         out["single_select"] = named_array.NamedNumpyArray(
-            [unit_vec(ui.single.unit)], [None, UnitLayer])
+            [unit_vec(ui.cargo.unit)], [None, UnitLayer])
         out["cargo"] = named_array.NamedNumpyArray(
             [unit_vec(u) for u in ui.cargo.passengers], [None, UnitLayer])
         out["cargo_slots_available"] = np.array([ui.cargo.slots_available],
                                                 dtype=np.int32)
-
-      if ui.production and ui.production.build_queue:
+      elif ui.HasField("production"):
         out["single_select"] = named_array.NamedNumpyArray(
             [unit_vec(ui.production.unit)], [None, UnitLayer])
-        out["build_queue"] = named_array.NamedNumpyArray(
-            [unit_vec(u) for u in ui.production.build_queue],
-            [None, UnitLayer])
+        if ui.production.build_queue:
+          out["build_queue"] = named_array.NamedNumpyArray(
+              [unit_vec(u) for u in ui.production.build_queue],
+              [None, UnitLayer], dtype=np.int32)
+        if ui.production.production_queue:
+          out["production_queue"] = named_array.NamedNumpyArray(
+              [(item.ability_id, item.build_progress * 100)
+               for item in ui.production.production_queue],
+              [None, ProductionQueue], dtype=np.int32)
 
     tag_types = {}  # Only populate the cache if it's needed.
     def get_addon_type(tag):

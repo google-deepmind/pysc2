@@ -181,6 +181,7 @@ class Builder(object):
     self._single_select = None
     self._multi_select = None
     self._build_queue = None
+    self._production = None
     self._feature_units = None
 
   def game_loop(self, game_loop):
@@ -264,8 +265,9 @@ class Builder(object):
     self._multi_select = units
     return self
 
-  def build_queue(self, build_queue):
+  def build_queue(self, build_queue, production=None):
     self._build_queue = build_queue
+    self._production = production
     return self
 
   def feature_units(self, feature_units):
@@ -317,6 +319,10 @@ class Builder(object):
     if self._build_queue:
       for unit in self._build_queue:
         obs.ui_data.production.build_queue.add(**unit.as_dict())
+
+    if self._production:
+      for item in self._production:
+        obs.ui_data.production.production_queue.add(**item)
 
     if self._feature_units:
       for tag, feature_unit in enumerate(self._feature_units, 1):
