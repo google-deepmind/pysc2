@@ -88,7 +88,7 @@ parse_agent_interface_format = features.parse_agent_interface_format
 
 
 def to_list(arg):
-  return arg if isinstance(arg, (list, tuple)) else [arg]
+  return arg if isinstance(arg, list) else [arg]
 
 
 def get_default(a, b):
@@ -487,7 +487,10 @@ class SC2Env(environment.Base):
     """Apply actions, step the world forward, and return observations.
 
     Args:
-      actions: A list of actions meeting the action spec, one per agent.
+      actions: A list of actions meeting the action spec, one per agent, or a
+          list per agent. Using a list allows multiple actions per frame, but
+          will still check that they're valid, so disabling
+          ensure_available_actions is encouraged.
       step_mul: If specified, use this rather than the environment's default.
 
     Returns:
@@ -497,20 +500,23 @@ class SC2Env(environment.Base):
       return self.reset()
 
     skip = not self._ensure_available_actions
-    actions = [f.transform_action(o.observation, a, skip_available=skip)
-               for f, o, a in zip(self._features, self._obs, actions)]
+    actions = [[f.transform_action(o.observation, a, skip_available=skip)
+                for a in to_list(acts)]
+               for f, o, acts in zip(self._features, self._obs, actions)]
 
     if not self._realtime:
       actions = self._apply_action_delays(actions)
 
-    self._parallel.run((c.act, a) for c, a in zip(self._controllers, actions))
+    self._parallel.run((c.actions, sc_pb.RequestAction(actions=a))
+                       for c, a in zip(self._controllers, actions))
 
     self._state = environment.StepType.MID
 
     if self._realtime:
       for i, (action, obs) in enumerate(zip(actions, self._obs)):
-        if action.ListFields() and self._last_act_game_loop[i] is None:
-          self._last_act_game_loop[i] = obs.observation.game_loop
+        for a in action:
+          if a.ListFields() and self._last_act_game_loop[i] is None:
+            self._last_act_game_loop[i] = obs.observation.game_loop
 
     return self._step(step_mul)
 
