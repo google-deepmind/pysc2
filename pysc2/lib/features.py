@@ -770,12 +770,14 @@ def parse_agent_interface_format(
       **kwargs)
 
 
-def features_from_game_info(game_info, agent_interface_format=None, **kwargs):
+def features_from_game_info(game_info, agent_interface_format=None,
+                            map_name=None, **kwargs):
   """Construct a Features object using data extracted from game info.
 
   Args:
     game_info: A `sc_pb.ResponseGameInfo` from the game.
     agent_interface_format: an optional AgentInterfaceFormat.
+    map_name: an optional map name, which overrides the one in game_info.
     **kwargs: Anything else is passed through to AgentInterfaceFormat. It's an
         error to send any kwargs if you pass an agent_interface_format.
 
@@ -787,6 +789,8 @@ def features_from_game_info(game_info, agent_interface_format=None, **kwargs):
     ValueError: if you pass an agent_interface_format that doesn't match
         game_info's resolutions.
   """
+  if not map_name:
+    map_name = game_info.map_name
 
   if game_info.options.HasField("feature_layer"):
     fl_opts = game_info.options.feature_layer
@@ -840,6 +844,7 @@ the game_info:
   return Features(
       agent_interface_format=agent_interface_format,
       map_size=map_size,
+      map_name=map_name,
       requested_races=requested_races)
 
 
@@ -892,7 +897,7 @@ class Features(object):
   """
 
   def __init__(self, agent_interface_format=None, map_size=None,
-               requested_races=None):
+               requested_races=None, map_name="unknown"):
     """Initialize a Features instance matching the specified interface format.
 
     Args:
@@ -900,6 +905,7 @@ class Features(object):
       map_size: The size of the map in world units, needed for feature_units.
       requested_races: Optional. Dict mapping `player_id`s to that player's
           requested race. If present, will send player races in observation.
+      map_name: Optional name of the map, to be added to the observation.
 
     Raises:
       ValueError: if agent_interface_format isn't specified.
@@ -914,6 +920,7 @@ class Features(object):
     if not aif.raw_resolution and map_size:
       aif.raw_resolution = point.Point.build(map_size)
     self._map_size = map_size
+    self._map_name = map_name
 
     if (aif.use_feature_units
         or aif.use_camera_position
@@ -1011,6 +1018,7 @@ class Features(object):
         "control_groups": (10, 2),
         "game_loop": (1,),
         "last_actions": (0,),
+        "map_name": (0,),
         "multi_select": (0, len(UnitLayer)),
         "player": (len(Player),),
         "production_queue": (0, len(ProductionQueue)),
@@ -1092,6 +1100,7 @@ class Features(object):
         "cargo_slots_available": np.array([0], dtype=np.int32),
         "home_race_requested": np.array([0], dtype=np.int32),
         "away_race_requested": np.array([0], dtype=np.int32),
+        "map_name": self._map_name,
     })
 
     def or_zeros(layer, size):

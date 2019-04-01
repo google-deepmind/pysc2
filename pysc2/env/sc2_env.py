@@ -417,8 +417,12 @@ class SC2Env(environment.Base):
 
     self._features = [
         features.features_from_game_info(
-            game_info=g, agent_interface_format=aif)
+            game_info=g, agent_interface_format=aif, map_name=self._map_name)
         for g, aif in zip(game_info, self._interface_formats)]
+
+  @property
+  def map_name(self):
+    return self._map_name
 
   def observation_spec(self):
     """Look at Features for full specs."""
