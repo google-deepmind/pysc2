@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import copy
 import functools
 from absl import logging
 import socket
@@ -144,6 +145,7 @@ class RemoteController(object):
     timeout_seconds = timeout_seconds or FLAGS.sc2_timeout
     sock = self._connect(host, port, proc, timeout_seconds)
     self._client = protocol.StarcraftProtocol(sock)
+    self._last_obs = None
     self.ping()
 
   @sw.decorate
@@ -243,9 +245,30 @@ class RemoteController(object):
   @sw.decorate
   def observe(self, disable_fog=False, target_game_loop=0):
     """Get a current observation."""
-    return self._client.send(observation=sc_pb.RequestObservation(
+    obs = self._client.send(observation=sc_pb.RequestObservation(
         game_loop=target_game_loop,
         disable_fog=disable_fog))
+
+    if obs.observation.game_loop == 2**32 - 1:
+      logging.info("Received stub observation.")
+
+      if not obs.player_result:
+        raise ValueError("Expect a player result in a stub observation")
+      elif self._last_obs is None:
+        raise RuntimeError("Received stub observation with no previous obs")
+
+      # Rather than handling empty obs through the code, regurgitate the last
+      # observation (+ player result, sub actions).
+      new_obs = copy.deepcopy(self._last_obs)
+      del new_obs.actions[:]
+      new_obs.actions.extend(obs.actions)
+      new_obs.player_result.extend(obs.player_result)
+      obs = new_obs
+      self._last_obs = None
+    else:
+      self._last_obs = obs
+
+    return obs
 
   @valid_status(Status.in_game, Status.in_replay)
   @catch_game_end
