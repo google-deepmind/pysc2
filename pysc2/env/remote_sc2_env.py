@@ -166,6 +166,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
       self._controllers[0].leave()
       self._in_game = False
       logging.info("Left game.")
+    self._controllers[0].close()
 
     # We don't own the SC2 process, we shouldn't call quit in the super class.
     self._controllers = None
