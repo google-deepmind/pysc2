@@ -480,6 +480,7 @@ class AgentInterfaceFormat(object):
       action_delay_fn=None,
       send_observation_proto=False,
       crop_to_playable_area=False,
+      raw_crop_to_playable_area=False,
       allow_cheating_layers=False,
       add_cargo_to_units=False):
     """Initializer.
@@ -532,6 +533,9 @@ class AgentInterfaceFormat(object):
       crop_to_playable_area: Crop the feature layer minimap observations down
           from the full map area to just the playable area. Also improves the
           heightmap rendering.
+      raw_crop_to_playable_area: Crop the raw units to the playable area. This
+          means units will show up closer to the origin with less dead space
+          around their valid locations.
       allow_cheating_layers: Show the unit types and potentially other cheating
           layers on the minimap.
       add_cargo_to_units: Whether to add the units that are currently in cargo
@@ -607,6 +611,7 @@ class AgentInterfaceFormat(object):
     self._send_observation_proto = send_observation_proto
     self._add_cargo_to_units = add_cargo_to_units
     self._crop_to_playable_area = crop_to_playable_area
+    self._raw_crop_to_playable_area = raw_crop_to_playable_area
     self._allow_cheating_layers = allow_cheating_layers
 
     if action_space == actions.ActionSpace.FEATURES:
@@ -693,6 +698,10 @@ class AgentInterfaceFormat(object):
   @property
   def crop_to_playable_area(self):
     return self._crop_to_playable_area
+
+  @property
+  def raw_crop_to_playable_area(self):
+    return self._raw_crop_to_playable_area
 
   @property
   def allow_cheating_layers(self):

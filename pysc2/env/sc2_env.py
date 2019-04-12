@@ -312,6 +312,7 @@ class SC2Env(environment.Base):
              aif.use_raw_units or
              require_raw),
         show_cloaked=aif.show_cloaked,
+        raw_crop_to_playable_area=aif.raw_crop_to_playable_area,
         score=True)
 
     if aif.feature_dimensions:
