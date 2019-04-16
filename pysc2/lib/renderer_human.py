@@ -46,6 +46,7 @@ from pysc2.lib import transform
 
 from pysc2.lib import video_writer
 from s2clientprotocol import error_pb2 as sc_err
+from s2clientprotocol import raw_pb2 as sc_raw
 from s2clientprotocol import sc2api_pb2 as sc_pb
 from s2clientprotocol import spatial_pb2 as sc_spatial
 from s2clientprotocol import ui_pb2 as sc_ui
@@ -1015,6 +1016,10 @@ class RendererHuman(object):
                            p, u.radius * fraction_damage)
         surf.draw_circle(colors.black, p, u.radius, thickness=1)
 
+        if self._static_data.unit_stats[u.unit_type].movement_speed > 0:
+          surf.draw_arc(colors.white, p, u.radius, u.facing - 0.1,
+                        u.facing + 0.1, thickness=1)
+
         def draw_arc_ratio(color, world_loc, radius, start, end, thickness=1):
           surf.draw_arc(color, world_loc, radius, start * tau, end * tau,
                         thickness)
@@ -1047,22 +1052,28 @@ class RendererHuman(object):
           draw_arc_ratio(self.upgrade_colors[u.shield_upgrade_level], p,
                          u.radius - 0.25, 0.28, 0.32, thickness=3)
 
+        def write_small(loc, s):
+          surf.write_world(self._font_small, colors.white, loc, str(s))
+
         name = self.get_unit_name(
             surf, self._static_data.units.get(u.unit_type, "<none>"), u.radius)
         if name:
-          surf.write_world(self._font_small, colors.white, p, name)
+          write_small(p, name)
         if u.ideal_harvesters > 0:
-          surf.write_world(
-              self._font_small, colors.white, p + point.Point(0, 0.5),
-              "%s / %s" % (u.assigned_harvesters, u.ideal_harvesters))
+          write_small(p + point.Point(0, 0.5),
+                      "%s / %s" % (u.assigned_harvesters, u.ideal_harvesters))
         if u.mineral_contents > 0:
-          surf.write_world(
-              self._font_small, colors.white, p - point.Point(0, 0.5),
-              "%s" % u.mineral_contents)
-        if u.vespene_contents > 0:
-          surf.write_world(
-              self._font_small, colors.white, p - point.Point(0, 0.5),
-              "%s" % u.vespene_contents)
+          write_small(p - point.Point(0, 0.5), u.mineral_contents)
+        elif u.vespene_contents > 0:
+          write_small(p - point.Point(0, 0.5), u.vespene_contents)
+        elif u.display_type == sc_raw.Snapshot:
+          write_small(p - point.Point(0, 0.5), "snapshot")
+        elif u.is_hallucination:
+          write_small(p - point.Point(0, 0.5), "hallucination")
+        elif u.is_burrowed:
+          write_small(p - point.Point(0, 0.5), "burrowed")
+        elif u.cloak != sc_raw.NotCloaked:
+          write_small(p - point.Point(0, 0.5), "cloaked")
 
         if u.is_selected:
           surf.draw_circle(colors.green, p, u.radius + 0.1, 1)
