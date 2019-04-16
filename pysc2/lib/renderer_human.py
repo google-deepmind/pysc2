@@ -1009,11 +1009,15 @@ class RendererHuman(object):
       if self._camera.intersects_circle(p, u.radius):
         fraction_damage = clamp((u.health_max - u.health) / (u.health_max or 1),
                                 0, 1)
-        surf.draw_circle(colors.PLAYER_ABSOLUTE_PALETTE[u.owner], p, u.radius)
+        if u.display_type == sc_raw.Placeholder:
+          surf.draw_circle(colors.PLAYER_ABSOLUTE_PALETTE[u.owner] // 3, p,
+                           u.radius)
+        else:
+          surf.draw_circle(colors.PLAYER_ABSOLUTE_PALETTE[u.owner], p, u.radius)
 
-        if fraction_damage > 0:
-          surf.draw_circle(colors.PLAYER_ABSOLUTE_PALETTE[u.owner] // 2,
-                           p, u.radius * fraction_damage)
+          if fraction_damage > 0:
+            surf.draw_circle(colors.PLAYER_ABSOLUTE_PALETTE[u.owner] // 2,
+                             p, u.radius * fraction_damage)
         surf.draw_circle(colors.black, p, u.radius, thickness=1)
 
         if self._static_data.unit_stats[u.unit_type].movement_speed > 0:
@@ -1068,6 +1072,8 @@ class RendererHuman(object):
           write_small(p - point.Point(0, 0.5), u.vespene_contents)
         elif u.display_type == sc_raw.Snapshot:
           write_small(p - point.Point(0, 0.5), "snapshot")
+        elif u.display_type == sc_raw.Placeholder:
+          write_small(p - point.Point(0, 0.5), "placeholder")
         elif u.is_hallucination:
           write_small(p - point.Point(0, 0.5), "hallucination")
         elif u.is_burrowed:

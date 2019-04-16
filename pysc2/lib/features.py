@@ -304,7 +304,7 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
     "unit_hit_points_ratio", "unit_energy", "unit_energy_ratio", "unit_shields",
     "unit_shields_ratio", "unit_density", "unit_density_aa", "effects",
     "hallucinations", "cloaked", "blip", "buffs", "buff_duration", "active",
-    "build_progress", "pathable", "buildable"])):
+    "build_progress", "pathable", "buildable", "placeholder"])):
   """The set of screen feature layers."""
   __slots__ = ()
 
@@ -377,6 +377,7 @@ SCREEN_FEATURES = ScreenFeatures(
     build_progress=(256, FeatureType.SCALAR, colors.hot, False),
     pathable=(2, FeatureType.CATEGORICAL, colors.winter, False),
     buildable=(2, FeatureType.CATEGORICAL, colors.winter, False),
+    placeholder=(2, FeatureType.CATEGORICAL, colors.winter, False),
 )
 
 MINIMAP_FEATURES = MinimapFeatures(
@@ -476,6 +477,7 @@ class AgentInterfaceFormat(object):
       use_unit_counts=False,
       use_camera_position=False,
       show_cloaked=False,
+      show_placeholders=False,
       hide_specific_actions=True,
       action_delay_fn=None,
       send_observation_proto=False,
@@ -514,6 +516,8 @@ class AgentInterfaceFormat(object):
       use_camera_position: Whether to include the camera's position (in minimap
           coordinates) in the observations.
       show_cloaked: Whether to show limited information for cloaked units.
+      show_placeholders: Whether to show buildings that are queued for
+          construction.
       hide_specific_actions: [bool] Some actions (eg cancel) have many
           specific versions (cancel this building, cancel that spell) and can
           be represented in a more general form. If a specific action is
@@ -606,6 +610,7 @@ class AgentInterfaceFormat(object):
     self._use_unit_counts = use_unit_counts
     self._use_camera_position = use_camera_position
     self._show_cloaked = show_cloaked
+    self._show_placeholders = show_placeholders
     self._hide_specific_actions = hide_specific_actions
     self._action_delay_fn = action_delay_fn
     self._send_observation_proto = send_observation_proto
@@ -674,6 +679,10 @@ class AgentInterfaceFormat(object):
   @property
   def show_cloaked(self):
     return self._show_cloaked
+
+  @property
+  def show_placeholders(self):
+    return self._show_placeholders
 
   @property
   def hide_specific_actions(self):
