@@ -140,6 +140,13 @@ class _Surface(object):
     self.world_to_obs = world_to_obs
     self.draw = draw
 
+  def draw_line(self, color, start_loc, end_loc, thickness=1):
+    """Draw a line using world coordinates and thickness."""
+    pygame.draw.line(self.surf, color,
+                     self.world_to_surf.fwd_pt(start_loc).round(),
+                     self.world_to_surf.fwd_pt(end_loc).round(),
+                     max(1, thickness))
+
   def draw_arc(self, color, world_loc, world_radius, start_angle, stop_angle,
                thickness=1):
     """Draw an arc using world coordinates, radius, start and stop angles."""
@@ -995,6 +1002,7 @@ class RendererHuman(object):
   @sw.decorate
   def draw_units(self, surf):
     """Draw the units and buildings."""
+    unit_dict = None  # Cache the units {tag: unit_proto} for orders.
     tau = 2 * math.pi
     for u, p in self._visible_units():
       if self._camera.intersects_circle(p, u.radius):
@@ -1058,6 +1066,25 @@ class RendererHuman(object):
 
         if u.is_selected:
           surf.draw_circle(colors.green, p, u.radius + 0.1, 1)
+
+          # Draw the orders of selected units.
+          start_point = p
+          for o in u.orders:
+            target_point = None
+            if o.HasField("target_world_space_pos"):
+              target_point = point.Point.build(o.target_world_space_pos)
+            elif o.HasField("target_unit_tag"):
+              if unit_dict is None:
+                unit_dict = {t.tag: t
+                             for t in self._obs.observation.raw_data.units}
+              target_unit = unit_dict.get(o.target_unit_tag)
+              if target_unit:
+                target_point = point.Point.build(target_unit.pos)
+            if target_point:
+              surf.draw_line(colors.blue, start_point, target_point)
+              start_point = target_point
+            else:
+              break
 
   @sw.decorate
   def draw_effects(self, surf):
