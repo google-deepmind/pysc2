@@ -313,6 +313,7 @@ class SC2Env(environment.Base):
              require_raw),
         show_cloaked=aif.show_cloaked,
         show_placeholders=aif.show_placeholders,
+        raw_affects_selection=True,
         raw_crop_to_playable_area=aif.raw_crop_to_playable_area,
         score=True)
 

@@ -112,6 +112,7 @@ def main(unused_argv):
 
   interface = sc_pb.InterfaceOptions()
   interface.raw = FLAGS.render
+  interface.raw_affects_selection = True
   interface.raw_crop_to_playable_area = True
   interface.score = True
   interface.show_cloaked = True
