@@ -1541,6 +1541,11 @@ class RendererHuman(object):
       surf.blit_np_array(out[:shape.y, :shape.x, :])
 
       surf.draw_rect(colors.white * 0.8, self._camera, 1)  # Camera
+
+    if self._obs.observation.game_loop < 22.4 * 20:
+      for loc in self._game_info.start_raw.start_locations:
+        surf.draw_circle(colors.red, point.Point.build(loc), 5, 1)
+
     pygame.draw.rect(surf.surf, colors.red, surf.surf.get_rect(), 1)  # Border
 
   def check_valid_queued_action(self):
