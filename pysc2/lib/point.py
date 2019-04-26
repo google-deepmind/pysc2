@@ -247,6 +247,15 @@ class Rect(collections.namedtuple("Rect", ["t", "l", "b", "r"])):
     size = self.size
     return size.x * size.y
 
+  def round(self):
+    return Rect(self.tl.round(), self.br.round())
+
+  def floor(self):
+    return Rect(self.tl.floor(), self.br.floor())
+
+  def ceil(self):
+    return Rect(self.tl.ceil(), self.br.ceil())
+
   def contains_point(self, pt):
     """Is the point inside this rect?"""
     return (self.l < pt.x and self.r > pt.x and

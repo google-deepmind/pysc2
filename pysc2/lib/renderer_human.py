@@ -424,19 +424,24 @@ class RendererHuman(object):
       main_screen_px = self._feature_screen_px
 
     window_size_ratio = main_screen_px
-    if self._feature_screen_px and self._render_feature_grid:
+    num_feature_layers = 0
+    if self._render_feature_grid:
       # Want a roughly square grid of feature layers, each being roughly square.
-      num_feature_layers = (len(features.SCREEN_FEATURES) +
-                            len(features.MINIMAP_FEATURES))
-      feature_cols = math.ceil(math.sqrt(num_feature_layers))
-      feature_rows = math.ceil(num_feature_layers / feature_cols)
-      features_layout = point.Point(feature_cols,
-                                    feature_rows * 1.05)  # make room for titles
+      if self._game_info.options.raw:
+        num_feature_layers += 5
+      if self._feature_screen_px:
+        num_feature_layers += len(features.SCREEN_FEATURES)
+        num_feature_layers += len(features.MINIMAP_FEATURES)
+      if num_feature_layers > 0:
+        feature_cols = math.ceil(math.sqrt(num_feature_layers))
+        feature_rows = math.ceil(num_feature_layers / feature_cols)
+        features_layout = point.Point(
+            feature_cols, feature_rows * 1.05)  # Make room for titles.
 
-      # Scale features_layout to main_screen_px height so we know its width.
-      features_aspect_ratio = (features_layout * main_screen_px.y /
-                               features_layout.y)
-      window_size_ratio += point.Point(features_aspect_ratio.x, 0)
+        # Scale features_layout to main_screen_px height so we know its width.
+        features_aspect_ratio = (features_layout * main_screen_px.y /
+                                 features_layout.y)
+        window_size_ratio += point.Point(features_aspect_ratio.x, 0)
 
     window_size_px = window_size_ratio.scale_max_size(
         _get_desktop_size() * self._window_scale).ceil()
@@ -608,8 +613,8 @@ class RendererHuman(object):
                   self._world_to_feature_minimap_px,
                   self.draw_mini_map)
 
-    if self._feature_screen_px and self._render_feature_grid:
-      # Add the feature layers
+    if self._render_feature_grid and num_feature_layers > 0:
+      # Add the raw and feature layers
       features_loc = point.Point(screen_size_px.x, 0)
       feature_pane = self._window.subsurface(
           pygame.Rect(features_loc, window_size_px - features_loc))
@@ -617,7 +622,7 @@ class RendererHuman(object):
       feature_pane_size = point.Point(*feature_pane.get_size())
       feature_grid_size = feature_pane_size / point.Point(feature_cols,
                                                           feature_rows)
-      feature_layer_area = self._feature_screen_px.scale_max_size(
+      feature_layer_area = point.Point(1, 1).scale_max_size(
           feature_grid_size)
       feature_layer_padding = feature_layer_area // 20
       feature_layer_size = feature_layer_area - feature_layer_padding * 2
@@ -626,12 +631,12 @@ class RendererHuman(object):
       feature_font = pygame.font.Font(None, feature_font_size)
 
       feature_counter = itertools.count()
-      def add_feature_layer(feature, surf_type, world_to_surf, world_to_obs):
-        """Add a feature layer surface."""
+      def add_layer(surf_type, world_to_surf, world_to_obs, name, fn):
+        """Add a layer surface."""
         i = next(feature_counter)
         grid_offset = point.Point(i % feature_cols,
                                   i // feature_cols) * feature_grid_size
-        text = feature_font.render(feature.full_name, True, colors.white)
+        text = feature_font.render(name, True, colors.white)
         rect = text.get_rect()
         rect.center = grid_offset + point.Point(feature_grid_size.x / 2,
                                                 feature_font_size)
@@ -639,31 +644,50 @@ class RendererHuman(object):
         surf_loc = (features_loc + grid_offset + feature_layer_padding +
                     point.Point(0, feature_font_size))
         add_surface(surf_type,
-                    point.Rect(surf_loc, surf_loc + feature_layer_size),
-                    world_to_surf, world_to_obs,
-                    lambda surf: self.draw_feature_layer(surf, feature))
+                    point.Rect(surf_loc, surf_loc + feature_layer_size).round(),
+                    world_to_surf, world_to_obs, fn)
 
-      # Add the minimap feature layers
-      feature_minimap_to_feature_minimap_surf = transform.Linear(
-          feature_layer_size / self._feature_minimap_px)
-      world_to_feature_minimap_surf = transform.Chain(
-          self._world_to_feature_minimap,
-          feature_minimap_to_feature_minimap_surf)
-      for feature in features.MINIMAP_FEATURES:
-        add_feature_layer(feature, SurfType.FEATURE | SurfType.MINIMAP,
-                          world_to_feature_minimap_surf,
-                          self._world_to_feature_minimap_px)
+      raw_world_to_obs = transform.Linear()
+      raw_world_to_surf = transform.Linear(feature_layer_size / self._map_size)
+      def add_raw_layer(from_obs, name, color):
+        add_layer(SurfType.FEATURE | SurfType.MINIMAP,
+                  raw_world_to_surf, raw_world_to_obs, "raw " + name,
+                  lambda surf: self.draw_raw_layer(surf, from_obs, name, color))
 
-      # Add the screen feature layers
-      feature_screen_to_feature_screen_surf = transform.Linear(
-          feature_layer_size / self._feature_screen_px)
-      world_to_feature_screen_surf = transform.Chain(
-          self._world_to_feature_screen,
-          feature_screen_to_feature_screen_surf)
-      for feature in features.SCREEN_FEATURES:
-        add_feature_layer(feature, SurfType.FEATURE | SurfType.SCREEN,
-                          world_to_feature_screen_surf,
-                          self._world_to_feature_screen_px)
+      if self._game_info.options.raw:
+        add_raw_layer(False, "terrain_height", colors.height_map(256))
+        add_raw_layer(False, "pathing_grid", colors.winter(2))
+        add_raw_layer(False, "placement_grid", colors.winter(2))
+        add_raw_layer(True, "visibility", colors.VISIBILITY_PALETTE)
+        add_raw_layer(True, "creep", colors.CREEP_PALETTE)
+
+      def add_feature_layer(feature, surf_type, world_to_surf, world_to_obs):
+        add_layer(surf_type, world_to_surf, world_to_obs, feature.full_name,
+                  lambda surf: self.draw_feature_layer(surf, feature))
+
+      if self._feature_minimap_px:
+        # Add the minimap feature layers
+        feature_minimap_to_feature_minimap_surf = transform.Linear(
+            feature_layer_size / self._feature_minimap_px)
+        world_to_feature_minimap_surf = transform.Chain(
+            self._world_to_feature_minimap,
+            feature_minimap_to_feature_minimap_surf)
+        for feature in features.MINIMAP_FEATURES:
+          add_feature_layer(feature, SurfType.FEATURE | SurfType.MINIMAP,
+                            world_to_feature_minimap_surf,
+                            self._world_to_feature_minimap_px)
+
+      if self._feature_screen_px:
+        # Add the screen feature layers
+        feature_screen_to_feature_screen_surf = transform.Linear(
+            feature_layer_size / self._feature_screen_px)
+        world_to_feature_screen_surf = transform.Chain(
+            self._world_to_feature_screen,
+            feature_screen_to_feature_screen_surf)
+        for feature in features.SCREEN_FEATURES:
+          add_feature_layer(feature, SurfType.FEATURE | SurfType.SCREEN,
+                            world_to_feature_screen_surf,
+                            self._world_to_feature_screen_px)
 
     # Add the help screen
     help_size = point.Point(
@@ -1534,6 +1558,19 @@ class RendererHuman(object):
     layer = feature.unpack(self._obs.observation)
     if layer is not None:
       surf.blit_np_array(feature.color(layer))
+    else:  # Ignore layers that aren't in this version of SC2.
+      surf.surf.fill(colors.black)
+
+  @sw.decorate
+  def draw_raw_layer(self, surf, from_obs, name, color):
+    """Draw a raw layer."""
+    if from_obs:
+      layer = getattr(self._obs.observation.raw_data.map_state, name)
+    else:
+      layer = getattr(self._game_info.start_raw, name)
+    layer = features.Feature.unpack_layer(layer)
+    if layer is not None:
+      surf.blit_np_array(color[layer])
     else:  # Ignore layers that aren't in this version of SC2.
       surf.surf.fill(colors.black)
 
