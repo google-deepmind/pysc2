@@ -1225,21 +1225,43 @@ class RendererHuman(object):
 
   @sw.decorate
   def draw_commands(self, surf):
-    """Draw the list of available commands."""
-    past_abilities = {act.ability for act in self._past_actions if act.ability}
-    for y, cmd in enumerate(sorted(self._abilities(
-        lambda c: c.name != "Smart"), key=lambda c: c.name), start=2):
-      if self._queued_action and cmd == self._queued_action:
-        color = colors.green
-      elif self._queued_hotkey and cmd.hotkey.startswith(self._queued_hotkey):
-        color = colors.green * 0.75
-      elif cmd.ability_id in past_abilities:
-        color = colors.red
-      else:
-        color = colors.yellow
-      hotkey = cmd.hotkey[0:3]  # truncate "escape" -> "esc"
-      surf.write_screen(self._font_large, color, (0.2, y), hotkey)
-      surf.write_screen(self._font_large, color, (3, y), cmd.name)
+    """Draw the list of upgrades and available commands."""
+    line = itertools.count(2)
+
+    def write(loc, text, color=colors.yellow):
+      surf.write_screen(self._font_large, color, loc, text)
+    def write_line(x, *args, **kwargs):
+      write((x, next(line)), *args, **kwargs)
+
+    action_count = len(self._obs.observation.abilities)
+    if action_count > 0:
+      write_line(0.2, "Available Actions:", colors.green)
+      past_abilities = {act.ability
+                        for act in self._past_actions if act.ability}
+      for cmd in sorted(self._abilities(lambda c: c.name != "Smart"),
+                        key=lambda c: c.name):
+        if self._queued_action and cmd == self._queued_action:
+          color = colors.green
+        elif self._queued_hotkey and cmd.hotkey.startswith(self._queued_hotkey):
+          color = colors.green * 0.75
+        elif cmd.ability_id in past_abilities:
+          color = colors.red
+        else:
+          color = colors.yellow
+        hotkey = cmd.hotkey[0:3]  # truncate "escape" -> "esc"
+        y = next(line)
+        write((1, y), hotkey, color)
+        write((4, y), cmd.name, color)
+      next(line)
+
+    upgrade_count = len(self._obs.observation.raw_data.player.upgrade_ids)
+    if upgrade_count > 0:
+      write_line(0.2, "Upgrades: %s" % upgrade_count, colors.green)
+      upgrades = [
+          self._static_data.upgrades[upgrade_id].name
+          for upgrade_id in self._obs.observation.raw_data.player.upgrade_ids]
+      for name in sorted(upgrades):
+        write_line(1, name)
 
   @sw.decorate
   def draw_panel(self, surf):
