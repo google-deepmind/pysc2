@@ -1555,6 +1555,13 @@ class Features(object):
     # Args are valid?
     aif = self._agent_interface_format
     for t, arg in zip(func.args, func_call.arguments):
+      if t.name == "unit_tags":
+        if len(arg) < 1 or len(arg) > t.sizes[0]:
+          raise ValueError(
+            "Wrong number of values for argument of %s, got: %s" % (
+                func, func_call.arguments))
+        continue
+      
       if t.name in ("screen", "screen2"):
         sizes = aif.action_dimensions.screen
       elif t.name == "minimap":
