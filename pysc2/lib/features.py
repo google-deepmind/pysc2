@@ -1568,6 +1568,8 @@ class Features(object):
         sizes = aif.action_dimensions.minimap
       elif t.name == "world":
         sizes = aif.raw_resolution
+      elif t.name == "unit_tags":
+        sizes = np.zeros(len(arg) if len(arg) < t.sizes[0] else t.sizes[0])
       else:
         sizes = t.sizes
 
