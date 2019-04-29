@@ -287,6 +287,7 @@ class RendererHuman(object):
       ("F9", "Toggle RGB rendering"),
       ("F10", "Toggle rendering the player_relative layer."),
       ("F11", "Toggle synchronous rendering"),
+      ("F12", "Toggle raw/feature layer actions"),
       ("Ctrl++", "Zoom in"),
       ("Ctrl+-", "Zoom out"),
       ("PgUp/PgDn", "Increase/decrease the max game speed"),
@@ -319,6 +320,7 @@ class RendererHuman(object):
     self._fps = fps
     self._step_mul = step_mul
     self._render_sync = render_sync or bool(video)
+    self._raw_actions = False
     self._render_player_relative = False
     self._render_rgb = None
     self._render_feature_grid = render_feature_grid
@@ -785,6 +787,9 @@ class RendererHuman(object):
         elif event.key == pygame.K_F11:  # Toggle synchronous rendering.
           self._render_sync = not self._render_sync
           print("Rendering", self._render_sync and "Sync" or "Async")
+        elif event.key == pygame.K_F12:
+          self._raw_actions = not self._raw_actions
+          print("Action space:", self._raw_actions and "Raw" or "Spatial")
         elif event.key == pygame.K_F10:  # Toggle player_relative layer.
           self._render_player_relative = not self._render_player_relative
         elif event.key == pygame.K_F8:  # Save a replay.
@@ -892,22 +897,37 @@ class RendererHuman(object):
     assert pos1.surf.world_to_obs == pos2.surf.world_to_obs
 
     action = sc_pb.Action()
-    action_spatial = pos1.action_spatial(action)
-
-    if pos1.world_pos == pos2.world_pos:  # select a point
-      select = action_spatial.unit_selection_point
-      pos1.obs_pos.assign_to(select.selection_screen_coord)
-      mod = sc_spatial.ActionSpatialUnitSelectionPoint
-      if ctrl:
-        select.type = mod.AddAllType if shift else mod.AllType
+    if self._raw_actions:
+      unit_command = action.action_raw.unit_command
+      unit_command.ability_id = 0  # no-op
+      player_id = self._obs.observation.player_common.player_id
+      if pos1.world_pos == pos2.world_pos:  # select a point
+        for u, p in reversed(list(self._visible_units())):
+          if (pos1.world_pos.contained_circle(p, u.radius) and
+              u.owner == player_id):
+            unit_command.unit_tags.append(u.tag)
+            break
       else:
-        select.type = mod.Toggle if shift else mod.Select
+        rect = point.Rect(pos1.world_pos, pos2.world_pos)
+        unit_command.unit_tags.extend([
+            u.tag for u, p in self._visible_units()
+            if u.owner == player_id and rect.intersects_circle(p, u.radius)])
     else:
-      select = action_spatial.unit_selection_rect
-      rect = select.selection_screen_coord.add()
-      pos1.obs_pos.assign_to(rect.p0)
-      pos2.obs_pos.assign_to(rect.p1)
-      select.selection_add = shift
+      action_spatial = pos1.action_spatial(action)
+      if pos1.world_pos == pos2.world_pos:  # select a point
+        select = action_spatial.unit_selection_point
+        pos1.obs_pos.assign_to(select.selection_screen_coord)
+        mod = sc_spatial.ActionSpatialUnitSelectionPoint
+        if ctrl:
+          select.type = mod.AddAllType if shift else mod.AllType
+        else:
+          select.type = mod.Toggle if shift else mod.Select
+      else:
+        select = action_spatial.unit_selection_rect
+        rect = select.selection_screen_coord.add()
+        pos1.obs_pos.assign_to(rect.p0)
+        pos2.obs_pos.assign_to(rect.p1)
+        select.selection_add = shift
 
     # Clear the queued action if something will be selected. An alternative
     # implementation may check whether the selection changed next frame.
@@ -970,20 +990,35 @@ class RendererHuman(object):
   def unit_action(self, cmd, pos, shift):
     """Return a `sc_pb.Action` filled with the cmd and appropriate target."""
     action = sc_pb.Action()
-    if pos:
-      action_spatial = pos.action_spatial(action)
-      unit_command = action_spatial.unit_command
+    if self._raw_actions:
+      unit_command = action.action_raw.unit_command
       unit_command.ability_id = cmd.ability_id
       unit_command.queue_command = shift
-      if pos.surf.surf_type & SurfType.SCREEN:
-        pos.obs_pos.assign_to(unit_command.target_screen_coord)
-      elif pos.surf.surf_type & SurfType.MINIMAP:
-        pos.obs_pos.assign_to(unit_command.target_minimap_coord)
+      player_id = self._obs.observation.player_common.player_id
+      unit_command.unit_tags.extend([u.tag for u, _ in self._visible_units()
+                                     if u.is_selected and u.owner == player_id])
+      if pos:
+        for u, p in reversed(list(self._visible_units())):
+          if pos.world_pos.contained_circle(p, u.radius):
+            unit_command.target_unit_tag = u.tag
+            break
+        else:
+          pos.world_pos.assign_to(unit_command.target_world_space_pos)
     else:
-      if self._feature_screen_px:
-        action.action_feature_layer.unit_command.ability_id = cmd.ability_id
+      if pos:
+        action_spatial = pos.action_spatial(action)
+        unit_command = action_spatial.unit_command
+        unit_command.ability_id = cmd.ability_id
+        unit_command.queue_command = shift
+        if pos.surf.surf_type & SurfType.SCREEN:
+          pos.obs_pos.assign_to(unit_command.target_screen_coord)
+        elif pos.surf.surf_type & SurfType.MINIMAP:
+          pos.obs_pos.assign_to(unit_command.target_minimap_coord)
       else:
-        action.action_render.unit_command.ability_id = cmd.ability_id
+        if self._feature_screen_px:
+          action.action_feature_layer.unit_command.ability_id = cmd.ability_id
+        else:
+          action.action_render.unit_command.ability_id = cmd.ability_id
 
     self.clear_queued_action()
     return action
