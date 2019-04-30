@@ -1157,10 +1157,13 @@ class RendererHuman(object):
               if target_unit:
                 target_point = point.Point.build(target_unit.pos)
             if target_point:
-              surf.draw_line(colors.blue, start_point, target_point)
+              surf.draw_line(colors.cyan * 0.75, start_point, target_point)
               start_point = target_point
             else:
               break
+          for rally in u.rally_targets:
+            surf.draw_line(colors.cyan * 0.75, p,
+                           point.Point.build(rally.point))
 
   @sw.decorate
   def draw_effects(self, surf):
