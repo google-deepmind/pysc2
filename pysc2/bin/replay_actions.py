@@ -371,7 +371,7 @@ def main(unused_argv):
     replay_queue_thread.daemon = True
     replay_queue_thread.start()
 
-    for i in range(FLAGS.parallel):
+    for i in range(min(len(replay_list), FLAGS.parallel)):
       p = ReplayProcessor(i, run_config, replay_queue, stats_queue)
       p.daemon = True
       p.start()
