@@ -69,7 +69,7 @@ setup(
         'protobuf>=2.6',
         'pygame',
         'requests',
-        's2clientprotocol>=4.8.3.72282.0',
+        's2clientprotocol>=4.8.6.73620.0',
         'six',
         'sk-video',
         'websocket-client',
