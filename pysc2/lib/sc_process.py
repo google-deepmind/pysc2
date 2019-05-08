@@ -35,6 +35,7 @@ flags.DEFINE_bool(
     "sc2_verbose", False, "Enable SC2 verbose logging.", allow_hide_cpp=True)
 flags.DEFINE_bool(
     "sc2_verbose_mp", False, "Enable SC2 verbose multiplayer logging.")
+flags.DEFINE_bool("sc2_gdb", False, "Run SC2 in gdb.")
 flags.DEFINE_integer("sc2_port", None,
                      "If set, connect to the instance on "
                      "localhost:sc2_port instead of launching one.")
@@ -178,6 +179,11 @@ class StarcraftProcess(object):
   def _launch(self, run_config, args, **kwargs):
     """Launch the process and return the process object."""
     del kwargs
+    if FLAGS.sc2_gdb:
+      print("GDB run command:")
+      print("  run %s" % " ".join(args[1:]))
+      print("\n")
+      args = ["gdb", args[0]]
     try:
       with sw("popen"):
         return subprocess.Popen(args, cwd=run_config.cwd, env=run_config.env)
@@ -208,6 +214,7 @@ def _shutdown_proc(p, timeout):
   """Wait for a proc to shut down, then terminate or kill it after `timeout`."""
   freq = 10  # how often to check per second
   for _ in range(1 + timeout * freq):
+    p.terminate()
     ret = p.poll()
     if ret is not None:
       logging.info("Shutdown gracefully.")
