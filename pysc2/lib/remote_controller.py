@@ -270,6 +270,9 @@ class RemoteController(object):
 
     return obs
 
+  def available_maps(self):
+    return self._client.send(available_maps=sc_pb.RequestAvailableMaps())
+
   @valid_status(Status.in_game, Status.in_replay)
   @catch_game_end
   @sw.decorate
