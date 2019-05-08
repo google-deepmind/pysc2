@@ -108,8 +108,8 @@ class ObsTest(absltest.TestCase):
                        for _ in range(2)]
     self._controllers = [p.controller for p in self._sc2_procs]
 
-    self._parallel.run((c.save_map, map_inst.path, self._map_data)
-                       for c in self._controllers)
+    for c in self._controllers:  # Serial due to a race condition on Windows.
+      c.save_map(map_inst.path, self._map_data)
 
     self._interface = sc_pb.InterfaceOptions(
         raw=True, score=False, show_cloaked=show_cloaked)

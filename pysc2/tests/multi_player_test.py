@@ -67,8 +67,8 @@ class TestMultiplayer(utils.TestCase):
       # Save the maps so they can access it.
       map_path = os.path.basename(map_inst.path)
       print_stage("save_map")
-      parallel.run((c.save_map, map_path, map_inst.data(run_config))
-                   for c in controllers)
+      for c in controllers:  # Skip parallel due to a race condition on Windows.
+        c.save_map(map_path, map_inst.data(run_config))
 
       # Create the create request.
       create = sc_pb.RequestCreateGame(
