@@ -36,18 +36,20 @@ from absl import logging
 import os
 
 
-class DuplicateMapException(Exception):
+class DuplicateMapError(Exception):
   pass
 
 
-class NoMapException(Exception):
+class NoMapError(Exception):
   pass
 
 
 class Map(object):
   """Base map object to configure a map. To define a map just subclass this.
 
-  Properties:
+  Attributes:
+    name: The name of the map/class.
+    path: Where to find the map file.
     directory: Directory for the map
     filename: Actual filename. You can skip the ".SC2Map" file ending.
     download: Where to download the map.
@@ -117,7 +119,7 @@ def get_maps():
     if mp.filename:
       map_name = mp.__name__
       if map_name in maps:
-        raise DuplicateMapException("Duplicate map found: " + map_name)
+        raise DuplicateMapError("Duplicate map found: " + map_name)
       maps[map_name] = mp
   return maps
 
@@ -133,4 +135,4 @@ def get(map_name):
   map_class = maps.get(map_name)
   if map_class:
     return map_class()
-  raise NoMapException("Map doesn't exist: %s" % map_name)
+  raise NoMapError("Map doesn't exist: %s" % map_name)
