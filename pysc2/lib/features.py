@@ -1597,10 +1597,11 @@ class Features(object):
             "Wrong number of values for argument of %s, got: %s" % (
                 func, func_call.arguments))
 
-      for s, a in zip(sizes, arg):
-        if not np.all(0 <= a) and np.all(a < s):
-          raise ValueError("Argument is out of range for %s, got: %s" % (
-              func, func_call.arguments))
+      if t.name != "unit_tags":
+        for s, a in zip(sizes, arg):
+          if not np.all(0 <= a) and np.all(a < s):
+            raise ValueError("Argument is out of range for %s, got: %s" % (
+                func, func_call.arguments))
 
     # Convert them to python types.
     kwargs = {type_.name: type_.fn(a)
