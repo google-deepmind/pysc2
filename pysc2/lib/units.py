@@ -240,7 +240,7 @@ class Zerg(enum.IntEnum):
   LurkerDen = 504
   LurkerCocoon = 501
   Mutalisk = 108
-  NydusCanal = 142
+  NydusWorm = 142
   NydusNetwork = 95
   Overlord = 106
   OverlordTransport = 893
