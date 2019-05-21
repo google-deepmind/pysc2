@@ -28,12 +28,12 @@ def main(unused_argv):
     available_maps = controller.available_maps()
   print("\n")
   print("Local map paths:")
-  for m in available_maps.local_map_paths:
-    print(m)
+  for m in sorted(available_maps.local_map_paths):
+    print(" ", m)
   print()
   print("Battle.net maps:")
-  for m in available_maps.battlenet_map_names:
-    print(m)
+  for m in sorted(available_maps.battlenet_map_names):
+    print(" ", m)
 
 
 if __name__ == "__main__":
