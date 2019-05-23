@@ -116,7 +116,17 @@ class StarcraftProcess(object):
       args += ["-dataVersion", self._version.data_version.upper()]
     if extra_args:
       args += extra_args
-    logging.info("Launching SC2: %s", " ".join(args))
+
+    if FLAGS.sc2_gdb:
+      print("Launching: gdb", args[0])
+      print("GDB run command:")
+      print("  run %s" % " ".join(args[1:]))
+      print("\n")
+      args = ["gdb", args[0]]
+      timeout_seconds = 3600 * 6
+    else:
+      logging.info("Launching SC2: %s", " ".join(args))
+
     try:
       with sw("startup"):
         if not FLAGS.sc2_port:
@@ -179,11 +189,6 @@ class StarcraftProcess(object):
   def _launch(self, run_config, args, **kwargs):
     """Launch the process and return the process object."""
     del kwargs
-    if FLAGS.sc2_gdb:
-      print("GDB run command:")
-      print("  run %s" % " ".join(args[1:]))
-      print("\n")
-      args = ["gdb", args[0]]
     try:
       with sw("popen"):
         return subprocess.Popen(args, cwd=run_config.cwd, env=run_config.env)
