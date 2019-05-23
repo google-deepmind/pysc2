@@ -722,6 +722,7 @@ class RendererHuman(object):
     """Zoom the window in/out."""
     self._window_scale *= factor
     self.init_window()
+    time.sleep(1)  # Avoid a deadlock in pygame if you zoom too quickly.
 
   def get_mouse_pos(self, window_pos=None):
     """Return a MousePos filled with the world position and surf it hit."""
