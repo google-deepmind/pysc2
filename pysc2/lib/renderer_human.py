@@ -409,6 +409,7 @@ class RendererHuman(object):
     self._alerts = {}
     self._past_actions = []
     self._help = False
+    self._last_zoom_time = 0
 
   @with_lock(render_lock)
   @sw.decorate
@@ -721,8 +722,11 @@ class RendererHuman(object):
   def zoom(self, factor):
     """Zoom the window in/out."""
     self._window_scale *= factor
+    if time.time() - self._last_zoom_time < 1:
+      # Avoid a deadlock in pygame if you zoom too quickly.
+      time.sleep(time.time() - self._last_zoom_time)
     self.init_window()
-    time.sleep(1)  # Avoid a deadlock in pygame if you zoom too quickly.
+    self._last_zoom_time = time.time()
 
   def get_mouse_pos(self, window_pos=None):
     """Return a MousePos filled with the world position and surf it hit."""
