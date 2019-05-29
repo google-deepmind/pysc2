@@ -278,7 +278,7 @@ class Arguments(collections.namedtuple("Arguments", [
     build_queue_id: Which build queue index to target.
     unload_id: Which unit to target in a transport/nydus/command center.
   """
-  ___slots__ = ()
+  __slots__ = ()
 
   @classmethod
   def types(cls, **kwargs):
