@@ -228,6 +228,13 @@ class EffectPos(enum.IntEnum):
   y = 5
 
 
+class Radar(enum.IntEnum):
+  """Positions of the Sensor towers."""
+  x = 0
+  y = 1
+  radius = 2
+
+
 class ProductionQueue(enum.IntEnum):
   """Indices for the `production_queue` observations."""
   ability_id = 0
@@ -1040,6 +1047,7 @@ class Features(object):
         "multi_select": (0, len(UnitLayer)),
         "player": (len(Player),),
         "production_queue": (0, len(ProductionQueue)),
+        "radar": (0, len(Radar)),
         "score_cumulative": (len(ScoreCumulative),),
         "score_by_category": (len(ScoreByCategory), len(ScoreCategories)),
         "score_by_vital": (len(ScoreByVital), len(ScoreVitals)),
@@ -1506,6 +1514,13 @@ class Features(object):
       for player_id, race in self._requested_races.items():
         if player_id != player.player_id:
           out["away_race_requested"] = np.array((race,), dtype=np.int32)
+
+    def transform_radar(radar):
+      p = self._world_to_minimap_px.fwd_pt(point.Point.build(radar.pos))
+      return p.x, p.y, radar.radius
+    out["radar"] = named_array.NamedNumpyArray(
+        list(map(transform_radar, obs.observation.raw_data.radar)),
+        [None, Radar], dtype=np.int32)
 
     # Send the entire proto as well (in a function, so it isn't copied).
     if self._send_observation_proto:

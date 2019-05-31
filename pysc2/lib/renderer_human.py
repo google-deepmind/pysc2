@@ -1587,6 +1587,11 @@ class RendererHuman(object):
 
       surf.draw_rect(colors.white * 0.8, self._camera, 1)  # Camera
 
+      # Sensor rings.
+      for radar in self._obs.observation.raw_data.radar:
+        surf.draw_circle(colors.white / 2, point.Point.build(radar.pos),
+                         radar.radius, 1)
+
     if self._obs.observation.game_loop < 22.4 * 20:
       for loc in self._game_info.start_raw.start_locations:
         surf.draw_circle(colors.red, point.Point.build(loc), 5, 1)
