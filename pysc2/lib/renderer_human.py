@@ -1755,6 +1755,8 @@ class RendererHuman(object):
           controller.step(self._step_mul)
 
           if max_game_steps and total_game_steps >= max_game_steps:
+            if not is_replay and save_replay:
+              self.save_replay(run_config, controller)
             return
 
           if game_steps_per_episode and episode_steps >= game_steps_per_episode:
