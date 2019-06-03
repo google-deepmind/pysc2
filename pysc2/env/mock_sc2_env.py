@@ -70,13 +70,13 @@ class _TestEnvironment(environment.Base):
     self._action_spec = action_spec
     self._episode_steps = 0
 
-    self.next_timestep = [
-        environment.TimeStep(
-            step_type=environment.StepType.MID,
-            reward=0.,
-            discount=1.,
-            observation=self._default_observation(obs_spec, agent_index))
-        for agent_index, obs_spec in enumerate(observation_spec)]
+    self.next_timestep = []
+    for agent_index, obs_spec in enumerate(observation_spec):
+      self.next_timestep.append(environment.TimeStep(
+          step_type=environment.StepType.MID,
+          reward=0.,
+          discount=1.,
+          observation=self._default_observation(obs_spec, agent_index)))
 
     self.episode_length = float('inf')
 
