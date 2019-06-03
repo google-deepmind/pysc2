@@ -143,7 +143,8 @@ class SC2Env(environment.Base):
                score_multiplier=None,
                random_seed=None,
                disable_fog=False,
-               ensure_available_actions=True):
+               ensure_available_actions=True,
+               version=None):
     """Create a SC2 Env.
 
     You must pass a resolution that you want to play at. You can send either
@@ -194,6 +195,7 @@ class SC2Env(environment.Base):
       disable_fog: Whether to disable fog of war.
       ensure_available_actions: Whether to throw an exception when an
           unavailable action is passed to step().
+      version: The version of SC2 to use, defaults to the latest.
 
     Raises:
       ValueError: if no map is specified.
@@ -252,7 +254,7 @@ class SC2Env(environment.Base):
     self._default_score_multiplier = score_multiplier
     self._default_episode_length = game_steps_per_episode
 
-    self._run_config = run_configs.get()
+    self._run_config = run_configs.get(version=version)
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
 
     if agent_interface_format is None:

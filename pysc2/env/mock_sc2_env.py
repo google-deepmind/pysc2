@@ -175,7 +175,8 @@ class SC2TestEnv(_TestEnvironment):
                score_multiplier=None,
                random_seed=None,
                disable_fog=False,
-               ensure_available_actions=True):
+               ensure_available_actions=True,
+               version=None):
     """Initializes an SC2TestEnv.
 
     Args:
@@ -199,6 +200,7 @@ class SC2TestEnv(_TestEnvironment):
       disable_fog: Unused.
       ensure_available_actions: Whether to throw an exception when an
         unavailable action is passed to step().
+      version: Unused.
     Raises:
       ValueError: if args are passed.
     """
@@ -215,6 +217,7 @@ class SC2TestEnv(_TestEnvironment):
     del random_seed  # Unused.
     del disable_fog  # Unused.
     del ensure_available_actions  # Unused.
+    del version  # Unused.
 
     if _only_use_kwargs:
       raise ValueError('All arguments must be passed as keyword arguments.')
