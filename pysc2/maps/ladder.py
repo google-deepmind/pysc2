@@ -49,7 +49,7 @@ for name in ladder_seasons:
 # pylint: disable=bad-whitespace, undefined-variable
 # pytype: disable=name-error
 ladder_maps = [
-    ("16Bit",                Ladder2018Season2, "(2)16-BitLE", 2),
+    ("16Bit",                Ladder2018Season2, "16-BitLE", 2),
     ("Abiogenesis",          Ladder2018Season1, "AbiogenesisLE", 2),
     ("AbyssalReef",          Ladder2017Season4, "AbyssalReefLE", 2),
     ("AcidPlant",            Ladder2018Season3, "AcidPlantLE", 2),
@@ -63,10 +63,10 @@ ladder_maps = [
     ("BloodBoil",            Ladder2017Season2, "BloodBoilLE", 2),
     ("Blueshift",            Ladder2018Season4, "BlueshiftLE", 2),
     ("CactusValley",         Ladder2017Season1, "CactusValleyLE", 4),
-    ("Catalyst",             Ladder2018Season2, "(2)CatalystLE", 2),
+    ("Catalyst",             Ladder2018Season2, "CatalystLE", 2),
     ("CeruleanFall",         Ladder2018Season4, "CeruleanFallLE", 2),
     ("CyberForest",          Ladder2019Season1, "CyberForestLE", 2),
-    ("DarknessSanctuary",    Ladder2018Season2, "(4)DarknessSanctuaryLE", 4),
+    ("DarknessSanctuary",    Ladder2018Season2, "DarknessSanctuaryLE", 4),
     ("DefendersLanding",     Ladder2017Season2, "DefendersLandingLE", 2),
     ("Dreamcatcher",         Ladder2018Season3, "DreamcatcherLE", 2),
     ("Eastwatch",            Ladder2018Season1, "EastwatchLE", 2),
@@ -85,7 +85,7 @@ ladder_maps = [
     ("ParaSite",             Ladder2018Season4, "ParaSiteLE", 2),
     ("PortAleksander",       Ladder2019Season1, "PortAleksanderLE", 2),
     ("ProximaStation",       Ladder2017Season2, "ProximaStationLE", 2),
-    ("Redshift",             Ladder2018Season2, "(2)RedshiftLE", 2),
+    ("Redshift",             Ladder2018Season2, "RedshiftLE", 2),
     ("Sequencer",            Ladder2017Season2, "SequencerLE", 2),
     ("Stasis",               Ladder2018Season4, "StasisLE", 2),
     ("YearZero",             Ladder2019Season1, "YearZeroLE", 2),

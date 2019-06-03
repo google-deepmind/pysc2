@@ -82,7 +82,7 @@ class Map(object):
   def data(self, run_config):
     """Return the map data."""
     try:
-      return run_config.map_data(self.path)
+      return run_config.map_data(self.path, self.players)
     except (IOError, OSError) as e:  # Catch both for python 2/3 compatibility.
       if self.download and hasattr(e, "filename"):
         logging.error("Error reading map '%s' from: %s", self.name, e.filename)

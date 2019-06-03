@@ -105,10 +105,19 @@ class RunConfig(object):
     self.env = env
     self.version = self._get_version(version)
 
-  def map_data(self, map_name):
+  def map_data(self, map_name, players=None):
     """Return the map data for a map by name or path."""
-    with gfile.Open(os.path.join(self.data_dir, "Maps", map_name), "rb") as f:
-      return f.read()
+    map_names = [map_name]
+    if players:
+      map_names.append(os.path.join(
+          os.path.dirname(map_name),
+          "(%s)%s" % (players, os.path.basename(map_name))))
+    for name in map_names:
+      path = os.path.join(self.data_dir, "Maps", name)
+      if gfile.Exists(path):
+        with gfile.Open(path, "rb") as f:
+          return f.read()
+    raise ValueError("Map '%s' not found." % map_name)
 
   def abs_replay_path(self, replay_path):
     """Return the absolute path to the replay, outside the sandbox."""

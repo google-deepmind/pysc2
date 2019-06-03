@@ -172,7 +172,8 @@ def main(unused_argv):
       print("-" * 60)
       map_path = FLAGS.map_path or info.local_map_path
       if map_path:
-        start_replay.map_data = run_config.map_data(map_path)
+        start_replay.map_data = run_config.map_data(map_path,
+                                                    len(info.player_info))
       controller.start_replay(start_replay)
 
     if FLAGS.render:
