@@ -254,9 +254,7 @@ class SC2Env(environment.Base):
     self._default_score_multiplier = score_multiplier
     self._default_episode_length = game_steps_per_episode
 
-    self._run_config = run_configs.get()
-    if version is not None:
-      self._run_config = run_configs.get(version=version)
+    self._run_config = run_configs.get(version=version)
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
 
     if agent_interface_format is None:
@@ -616,9 +614,9 @@ class SC2Env(environment.Base):
     game_loop = self._agent_obs[0].game_loop[0]
     if (game_loop < target_game_loop and
         not any(o.player_result for o in self._obs)):
-      raise ValueError(
+      logging.warn(
           ("The game didn't advance to the expected game loop. "
-           "Expected: %s, got: %s") % (target_game_loop, game_loop))
+           "Expected: %s, got: %s"), target_game_loop, game_loop)
     elif game_loop > target_game_loop and target_game_loop > 0:
       logging.warn("Received observation %d step(s) late: %d rather than %d.",
                    game_loop - target_game_loop, game_loop, target_game_loop)
