@@ -101,7 +101,7 @@ ladder_maps = [
 # Create the classes dynamically, putting them into the module scope. They all
 # inherit from a parent and set the players based on the map filename.
 for parent, bnet, players in ladder_maps:
-  name = re.sub(r"[ '-]|LE$", "", bnet)
+  name = re.sub(r"[ '-]|[LTRS]E$", "", bnet)
   map_file = re.sub(r"[ ']", "", bnet)
   globals()[name] = type(name, (parent,), dict(
       filename=map_file, players=players, battle_net=bnet))
