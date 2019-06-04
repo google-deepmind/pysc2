@@ -77,6 +77,7 @@ flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 flags.DEFINE_bool("save_replay", True, "Whether to save a replay at the end.")
 
 flags.DEFINE_string("map", None, "Name of a map to use to play.")
+flags.DEFINE_bool("battle_net_map", False, "Use the battle.net map version.")
 
 flags.DEFINE_string("map_path", None, "Override the map for this replay.")
 flags.DEFINE_string("replay", None, "Name of a replay to show.")
@@ -131,14 +132,25 @@ def main(unused_argv):
   max_episode_steps = FLAGS.max_episode_steps
 
   if FLAGS.map:
-    map_inst = maps.get(FLAGS.map)
-    if map_inst.game_steps_per_episode:
-      max_episode_steps = map_inst.game_steps_per_episode
     create = sc_pb.RequestCreateGame(
         realtime=FLAGS.realtime,
-        disable_fog=FLAGS.disable_fog,
-        local_map=sc_pb.LocalMap(map_path=map_inst.path,
-                                 map_data=map_inst.data(run_config)))
+        disable_fog=FLAGS.disable_fog)
+    try:
+      map_inst = maps.get(FLAGS.map)
+    except maps.lib.NoMapError:
+      if FLAGS.battle_net_map:
+        create.battlenet_map_name = FLAGS.map
+      else:
+        raise
+    else:
+      if map_inst.game_steps_per_episode:
+        max_episode_steps = map_inst.game_steps_per_episode
+      if FLAGS.battle_net_map:
+        create.battlenet_map_name = map_inst.battle_net
+      else:
+        create.local_map.map_path = map_inst.path
+        create.local_map.map_data = map_inst.data(run_config)
+
     create.player_setup.add(type=sc_pb.Participant)
     create.player_setup.add(type=sc_pb.Computer,
                             race=sc2_env.Race[FLAGS.bot_race],

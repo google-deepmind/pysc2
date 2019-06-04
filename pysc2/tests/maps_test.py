@@ -35,9 +35,10 @@ from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
-def get_maps(count=None):
+def get_maps(count=None, filter_fn=None):
   """Test only a few random maps to minimize time."""
-  all_maps = maps.get_maps()
+  all_maps = {k: v for k, v in maps.get_maps().items()
+              if filter_fn is None or filter_fn(v)}
   count = count or len(all_maps)
   return sorted(random.sample(all_maps.keys(), min(count, len(all_maps))))
 
@@ -81,6 +82,17 @@ class MapsTest(parameterized.TestCase, utils.TestCase):
     self.assertLessEqual(map_inst.players, 8)
     self.assertTrue(map_inst.data(run_config), msg="Failed on %s" % map_inst)
 
+  @cache_sc2_proc
+  def test_list_battle_net_maps(self, controller):
+    map_list = get_maps(None, lambda m: m.battle_net is not None)
+
+    available_maps = controller.available_maps()
+    available_maps = set(available_maps.battlenet_map_names)
+
+    unavailable = [m.name for m in map_list
+                   if m.battle_net not in available_maps]
+    self.assertEmpty(unavailable)
+
   @parameterized.parameters(get_maps(5))
   @cache_sc2_proc
   def test_load_random_map(self, controller, map_name):
@@ -105,6 +117,28 @@ class MapsTest(parameterized.TestCase, utils.TestCase):
     logging.info("Mods for %s: %s", m.name, info.mod_names)
     self.assertIn("Mods/Void.SC2Mod", info.mod_names)
     self.assertIn("Mods/VoidMulti.SC2Mod", info.mod_names)
+
+    # Verify it can be played without making actions.
+    for _ in range(3):
+      controller.step()
+      controller.observe()
+
+  @parameterized.parameters(get_maps(5, lambda m: m.battle_net is not None))
+  @cache_sc2_proc
+  def test_load_battle_net_map(self, controller, map_name):
+    """Test loading a few random battle.net maps."""
+    m = maps.get(map_name)
+
+    logging.info("Loading battle.net map: %s", m.name)
+    create = sc_pb.RequestCreateGame(battlenet_map_name=m.battle_net)
+    create.player_setup.add(type=sc_pb.Participant)
+    create.player_setup.add(type=sc_pb.Computer, race=sc_common.Random,
+                            difficulty=sc_pb.VeryEasy)
+    join = sc_pb.RequestJoinGame(race=sc_common.Random,
+                                 options=sc_pb.InterfaceOptions(raw=True))
+
+    controller.create_game(create)
+    controller.join_game(join)
 
     # Verify it can be played without making actions.
     for _ in range(3):

@@ -81,6 +81,7 @@ flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
 flags.DEFINE_bool("save_replay", True, "Whether to save a replay at the end.")
 
 flags.DEFINE_string("map", None, "Name of a map to use.")
+flags.DEFINE_bool("battle_net_map", False, "Use the battle.net map version.")
 flags.mark_flag_as_required("map")
 
 
@@ -88,6 +89,7 @@ def run_thread(agent_classes, players, map_name, visualize):
   """Run one thread worth of the environment with agents."""
   with sc2_env.SC2Env(
       map_name=map_name,
+      battle_net_map=FLAGS.battle_net_map,
       players=players,
       agent_interface_format=sc2_env.parse_agent_interface_format(
           feature_screen=FLAGS.feature_screen_size,

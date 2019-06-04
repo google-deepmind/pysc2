@@ -60,6 +60,7 @@ class Map(object):
         reward. >=0 is the index into score_cumulative.
     score_multiplier: A score multiplier to allow make small scores good.
     players: Max number of players for this map.
+    battle_net: The map name on battle.net, if it exists.
   """
   directory = ""
   filename = None
@@ -69,6 +70,7 @@ class Map(object):
   score_index = -1
   score_multiplier = 1
   players = None
+  battle_net = None
 
   @property
   def path(self):
@@ -94,14 +96,15 @@ class Map(object):
     return self.__class__.__name__
 
   def __str__(self):
-    return "\n".join([
+    return "\n".join(filter(None, [
         self.name,
-        "    %s" % self.path,
+        ("    file: '%s'" % self.path) if self.path else None,
+        ("    battle_net: '%s'" % self.battle_net) if self.battle_net else None,
         "    players: %s, score_index: %s, score_multiplier: %s" % (
             self.players, self.score_index, self.score_multiplier),
         "    step_mul: %s, game_steps_per_episode: %s" % (
             self.step_mul, self.game_steps_per_episode),
-    ])
+    ]))
 
   @classmethod
   def all_subclasses(cls):
@@ -116,7 +119,7 @@ def get_maps():
   """Get the full dict of maps {map_name: map_class}."""
   maps = {}
   for mp in Map.all_subclasses():
-    if mp.filename:
+    if mp.filename or mp.battle_net:
       map_name = mp.__name__
       if map_name in maps:
         raise DuplicateMapError("Duplicate map found: " + map_name)

@@ -128,6 +128,7 @@ class SC2Env(environment.Base):
   def __init__(self,  # pylint: disable=invalid-name
                _only_use_kwargs=None,
                map_name=None,
+               battle_net_map=False,
                players=None,
                agent_interface_format=None,
                discount=1.,
@@ -162,6 +163,7 @@ class SC2Env(environment.Base):
           docs in maps/README.md for more information on available maps. Can
           also be a list of map names or instances, in which case one will be
           chosen at random per episode.
+      battle_net_map: Whether to use the battle.net versions of the map(s).
       players: A list of Agent and Bot instances that specify who will play.
       agent_interface_format: A sequence containing one AgentInterfaceFormat
         per agent, matching the order of agents specified in the players list.
@@ -224,9 +226,14 @@ class SC2Env(environment.Base):
     if not map_name:
       raise ValueError("Missing a map name.")
 
+    self._battle_net_map = battle_net_map
     self._maps = [maps.get(name) for name in to_list(map_name)]
     min_players = min(m.players for m in self._maps)
     max_players = max(m.players for m in self._maps)
+    if self._battle_net_map:
+      for m in self._maps:
+        if not m.battle_net:
+          raise ValueError("%s isn't known on Battle.net" % m.name)
 
     if max_players == 1:
       if self._num_agents != 1:
@@ -349,6 +356,15 @@ class SC2Env(environment.Base):
         for interface in self._interface_options]
     self._controllers = [p.controller for p in self._sc2_procs]
 
+    if self._battle_net_map:
+      available_maps = self._controllers[0].available_maps()
+      available_maps = set(available_maps.battlenet_map_names)
+      unavailable = [m.name for m in self._maps
+                     if m.battle_net not in available_maps]
+      if unavailable:
+        raise ValueError("Requested map(s) not in the battle.net cache: %s"
+                         % ",".join(unavailable))
+
   def _create_join(self):
     """Create the game, and join it."""
     map_inst = random.choice(self._maps)
@@ -364,21 +380,24 @@ class SC2Env(environment.Base):
     if self._episode_length <= 0 or self._episode_length > MAX_STEP_COUNT:
       self._episode_length = MAX_STEP_COUNT
 
-    map_data = map_inst.data(self._run_config)
-    if self._num_agents > 1:
-      # Save the maps so they can access it. Don't do it in parallel since SC2
-      # doesn't respect tmpdir on windows, which leads to a race condition:
-      # https://github.com/Blizzard/s2client-proto/issues/102
-      for c in self._controllers:
-        c.save_map(map_inst.path, map_data)
-
     # Create the game. Set the first instance as the host.
     create = sc_pb.RequestCreateGame(
-        local_map=sc_pb.LocalMap(map_path=map_inst.path),
         disable_fog=self._disable_fog,
         realtime=self._realtime)
-    if self._num_agents == 1:
-      create.local_map.map_data = map_data
+
+    if self._battle_net_map:
+      create.battlenet_map_name = map_inst.battle_net
+    else:
+      create.local_map.map_path = map_inst.path
+      map_data = map_inst.data(self._run_config)
+      if self._num_agents == 1:
+        create.local_map.map_data = map_data
+      else:
+        # Save the maps so they can access it. Don't do it in parallel since SC2
+        # doesn't respect tmpdir on windows, which leads to a race condition:
+        # https://github.com/Blizzard/s2client-proto/issues/102
+        for c in self._controllers:
+          c.save_map(map_inst.path, map_data)
     if self._random_seed is not None:
       create.random_seed = self._random_seed
     for p in self._players:
