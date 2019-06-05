@@ -61,7 +61,6 @@ ladder_maps = [
     (Ladder2018Season1, "Backwater LE", 2),
     (Ladder2017Season4, "Battle on the Boardwalk LE", 2),
     (Ladder2017Season1, "Bel'Shir Vestige LE", 2),
-    (Ladder2018Season1, "Blackpink LE", 2),
     (Ladder2017Season2, "Blood Boil LE", 2),
     (Ladder2018Season4, "Blueshift LE", 2),
     (Ladder2017Season1, "Cactus Valley LE", 4),
@@ -69,7 +68,7 @@ ladder_maps = [
     (Ladder2018Season4, "Cerulean Fall LE", 2),
     (Ladder2019Season1, "Cyber Forest LE", 2),
     (Ladder2018Season2, "Darkness Sanctuary LE", 4),
-    (Ladder2017Season2, "Defenders Landing LE", 2),
+    (Ladder2017Season2, "Defender's Landing LE", 2),
     (Ladder2018Season3, "Dreamcatcher LE", 2),
     (Ladder2018Season1, "Eastwatch LE", 2),
     (Ladder2018Season3, "Fracture LE", 2),
@@ -77,14 +76,15 @@ ladder_maps = [
     (Ladder2017Season1, "Honorgrounds LE", 4),
     (Ladder2017Season3, "Interloper LE", 2),
     (Ladder2019Season1, "Kairos Junction LE", 2),
-    (Ladder2019Season1, "Kings Cove LE", 2),
+    (Ladder2019Season1, "King's Cove LE", 2),
     (Ladder2018Season3, "Lost and Found LE", 2),
     (Ladder2017Season3, "Mech Depot LE", 2),
+    (Ladder2018Season1, "Neon Violet Square LE", 2),
     (Ladder2019Season1, "New Repugnancy LE", 2),
     (Ladder2017Season1, "Newkirk Precinct TE", 2),
     (Ladder2017Season4, "Odyssey LE", 2),
     (Ladder2017Season1, "Paladino Terminal LE", 2),
-    (Ladder2018Season4, "ParaSite LE", 2),
+    (Ladder2018Season4, "Para Site LE", 2),
     (Ladder2019Season1, "Port Aleksander LE", 2),
     (Ladder2017Season2, "Proxima Station LE", 2),
     (Ladder2018Season2, "Redshift LE", 2),
@@ -92,8 +92,8 @@ ladder_maps = [
     (Ladder2018Season4, "Stasis LE", 2),
     (Ladder2019Season1, "Year Zero LE", 2),
 
-    # Disabled due to failing on 4.1.2 on Linux (Websocket Timeout).
-    # (Ladder2018Season1, "Neon Violet Square LE", 2),
+    # Disabled due to being renamed to Neo Seoul
+    # (Ladder2018Season1, "Blackpink LE", 2),
 ]
 # pylint: enable=bad-whitespace, undefined-variable
 # pytype: enable=name-error

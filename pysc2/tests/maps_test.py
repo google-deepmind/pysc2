@@ -58,6 +58,7 @@ def cache_sc2_proc(func):
     except:  # pylint: disable=bare-except
       _sc2_proc.close()
       _sc2_proc = None
+      raise
   return _cache_sc2_proc
 
 
@@ -84,13 +85,13 @@ class MapsTest(parameterized.TestCase, utils.TestCase):
 
   @cache_sc2_proc
   def test_list_battle_net_maps(self, controller):
-    map_list = get_maps(None, lambda m: m.battle_net is not None)
+    map_names = get_maps(None, lambda m: m.battle_net is not None)
+    map_list = set(maps.get(m).battle_net for m in map_names)
 
     available_maps = controller.available_maps()
     available_maps = set(available_maps.battlenet_map_names)
 
-    unavailable = [m.name for m in map_list
-                   if m.battle_net not in available_maps]
+    unavailable = map_list - available_maps
     self.assertEmpty(unavailable)
 
   @parameterized.parameters(get_maps(5))
