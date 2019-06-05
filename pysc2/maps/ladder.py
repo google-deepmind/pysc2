@@ -42,6 +42,7 @@ ladder_seasons = [
     "Ladder2018Season3",
     "Ladder2018Season4",
     "Ladder2019Season1",
+    "Ladder2019Season2",
 ]
 
 for name in ladder_seasons:
@@ -56,6 +57,7 @@ ladder_maps = [
     (Ladder2017Season4, "Abyssal Reef LE", 2),
     (Ladder2018Season3, "Acid Plant LE", 2),
     (Ladder2017Season3, "Acolyte LE", 2),
+    (Ladder2019Season2, "Acropolis LE", 2),
     (Ladder2017Season4, "Ascension to Aiur LE", 2),
     (Ladder2019Season1, "Automaton LE", 2),
     (Ladder2018Season1, "Backwater LE", 2),
@@ -66,7 +68,7 @@ ladder_maps = [
     (Ladder2017Season1, "Cactus Valley LE", 4),
     (Ladder2018Season2, "Catalyst LE", 2),
     (Ladder2018Season4, "Cerulean Fall LE", 2),
-    (Ladder2019Season1, "Cyber Forest LE", 2),
+    (Ladder2019Season2, "Cyber Forest LE", 2),
     (Ladder2018Season2, "Darkness Sanctuary LE", 4),
     (Ladder2017Season2, "Defender's Landing LE", 2),
     (Ladder2018Season3, "Dreamcatcher LE", 2),
@@ -75,12 +77,12 @@ ladder_maps = [
     (Ladder2017Season3, "Frost LE", 2),
     (Ladder2017Season1, "Honorgrounds LE", 4),
     (Ladder2017Season3, "Interloper LE", 2),
-    (Ladder2019Season1, "Kairos Junction LE", 2),
-    (Ladder2019Season1, "King's Cove LE", 2),
+    (Ladder2019Season2, "Kairos Junction LE", 2),
+    (Ladder2019Season2, "King's Cove LE", 2),
     (Ladder2018Season3, "Lost and Found LE", 2),
     (Ladder2017Season3, "Mech Depot LE", 2),
     (Ladder2018Season1, "Neon Violet Square LE", 2),
-    (Ladder2019Season1, "New Repugnancy LE", 2),
+    (Ladder2019Season2, "New Repugnancy LE", 2),
     (Ladder2017Season1, "Newkirk Precinct TE", 2),
     (Ladder2017Season4, "Odyssey LE", 2),
     (Ladder2017Season1, "Paladino Terminal LE", 2),
@@ -90,6 +92,8 @@ ladder_maps = [
     (Ladder2018Season2, "Redshift LE", 2),
     (Ladder2017Season2, "Sequencer LE", 2),
     (Ladder2018Season4, "Stasis LE", 2),
+    (Ladder2019Season2, "Thunderbird LE", 2),
+    (Ladder2019Season2, "Turbo Cruise '84 LE", 2),
     (Ladder2019Season1, "Year Zero LE", 2),
 
     # Disabled due to being renamed to Neo Seoul
