@@ -831,11 +831,13 @@ class RendererHuman(object):
                                             ctrl, shift, alt))
         elif event.key in self.camera_actions:
           if self._obs:
-            controller.act(self.camera_action_raw(
-                point.Point.build(
-                    self._obs.observation.raw_data.player.camera) +
-                self.camera_actions[event.key]))
+            pt = point.Point.build(self._obs.observation.raw_data.player.camera)
+            pt += self.camera_actions[event.key]
+            controller.act(self.camera_action_raw(pt))
+            controller.observer_act(self.camera_action_observer_pt(pt))
         elif event.key == pygame.K_ESCAPE:
+          controller.observer_act(self.camera_action_observer_player(
+              self._obs.observation.player_common.player_id))
           if self._queued_action:
             self.clear_queued_action()
           else:
@@ -867,6 +869,8 @@ class RendererHuman(object):
                 self._queued_action, mouse_pos, shift))
           elif mouse_pos.surf.surf_type & SurfType.MINIMAP:
             controller.act(self.camera_action(mouse_pos))
+            controller.observer_act(self.camera_action_observer_pt(
+                mouse_pos.world_pos))
           else:
             self._select_start = mouse_pos
         elif event.button == MouseButtons.RIGHT:
@@ -896,6 +900,18 @@ class RendererHuman(object):
     """Return a `sc_pb.Action` with the camera movement filled."""
     action = sc_pb.Action()
     world_pos.assign_to(action.action_raw.camera_move.center_world_space)
+    return action
+
+  def camera_action_observer_pt(self, world_pos):
+    """Return a `sc_pb.ObserverAction` with the camera movement filled."""
+    action = sc_pb.ObserverAction()
+    world_pos.assign_to(action.camera_move.world_pos)
+    return action
+
+  def camera_action_observer_player(self, player_id):
+    """Return a `sc_pb.ObserverAction` with the camera movement filled."""
+    action = sc_pb.ObserverAction()
+    action.camera_follow_player.player_id = player_id
     return action
 
   def select_action(self, pos1, pos2, ctrl, shift):

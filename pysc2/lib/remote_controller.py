@@ -298,6 +298,24 @@ class RemoteController(object):
     if action and action.ListFields():  # Skip no-ops.
       return self.actions(sc_pb.RequestAction(actions=[action]))
 
+  @skip_status(Status.in_game)
+  @valid_status(Status.in_replay)
+  @sw.decorate
+  def observer_actions(self, req_observer_action):
+    """Send a `sc_pb.RequestObserverAction`."""
+    if FLAGS.sc2_log_actions:
+      for action in req_observer_action.actions:
+        sys.stderr.write(str(action))
+        sys.stderr.flush()
+
+    return self._client.send(obs_action=req_observer_action)
+
+  def observer_act(self, action):
+    """Send a single observer action. A shortcut for `observer_actions`."""
+    if action and action.ListFields():  # Skip no-ops.
+      return self.observer_actions(
+          sc_pb.RequestObserverAction(actions=[action]))
+
   def chat(self, message):
     """Send chat message as a broadcast."""
     if message:
