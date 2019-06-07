@@ -321,6 +321,7 @@ class SC2Env(environment.Base):
              aif.use_raw_units or
              require_raw),
         show_cloaked=aif.show_cloaked,
+        show_burrowed_shadows=aif.show_burrowed_shadows,
         show_placeholders=aif.show_placeholders,
         raw_affects_selection=True,
         raw_crop_to_playable_area=aif.raw_crop_to_playable_area,

@@ -117,6 +117,7 @@ def main(unused_argv):
   interface.raw_crop_to_playable_area = True
   interface.score = True
   interface.show_cloaked = True
+  interface.show_burrowed_shadows = True
   interface.show_placeholders = True
   if FLAGS.feature_screen_size and FLAGS.feature_minimap_size:
     interface.feature_layer.width = 24

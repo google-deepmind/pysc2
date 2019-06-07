@@ -484,6 +484,7 @@ class AgentInterfaceFormat(object):
       use_unit_counts=False,
       use_camera_position=False,
       show_cloaked=False,
+      show_burrowed_shadows=False,
       show_placeholders=False,
       hide_specific_actions=True,
       action_delay_fn=None,
@@ -523,6 +524,9 @@ class AgentInterfaceFormat(object):
       use_camera_position: Whether to include the camera's position (in minimap
           coordinates) in the observations.
       show_cloaked: Whether to show limited information for cloaked units.
+      show_burrowed_shadows: Whether to show limited information for burrowed
+          units that leave a shadow on the ground (ie widow mines and moving
+          roaches and infestors).
       show_placeholders: Whether to show buildings that are queued for
           construction.
       hide_specific_actions: [bool] Some actions (eg cancel) have many
@@ -617,6 +621,7 @@ class AgentInterfaceFormat(object):
     self._use_unit_counts = use_unit_counts
     self._use_camera_position = use_camera_position
     self._show_cloaked = show_cloaked
+    self._show_burrowed_shadows = show_burrowed_shadows
     self._show_placeholders = show_placeholders
     self._hide_specific_actions = hide_specific_actions
     self._action_delay_fn = action_delay_fn
@@ -686,6 +691,10 @@ class AgentInterfaceFormat(object):
   @property
   def show_cloaked(self):
     return self._show_cloaked
+
+  @property
+  def show_burrowed_shadows(self):
+    return self._show_burrowed_shadows
 
   @property
   def show_placeholders(self):
