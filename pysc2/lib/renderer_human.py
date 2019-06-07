@@ -1202,7 +1202,7 @@ class RendererHuman(object):
       for pos in effect.pos:
         p = point.Point.build(pos)
         # pygame alpha transparency doesn't work, so just draw thin circles.
-        for r in range(1, effect.radius * 3):
+        for r in range(1, int(effect.radius * 3)):
           surf.draw_circle(color[r % 3], p, r / 3, thickness=2)
         if name:
           surf.write_world(self._font_small, colors.white, p, name)
