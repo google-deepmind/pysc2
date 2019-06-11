@@ -1549,17 +1549,22 @@ class Features(object):
       if a.ability_id not in actions.ABILITY_IDS:
         logging.warning("Unknown ability %s seen as available.", a.ability_id)
         continue
+      found_applicable = False
       for func in actions.ABILITY_IDS[a.ability_id]:
         if func.function_type in actions.POINT_REQUIRED_FUNCS[a.requires_point]:
           if func.general_id == 0 or not hide_specific_actions:
             available_actions.add(func.id)
+            found_applicable = True
           if func.general_id != 0:  # Always offer generic actions.
             for general_func in actions.ABILITY_IDS[func.general_id]:
               if general_func.function_type is func.function_type:
                 # Only the right type. Don't want to expose the general action
                 # to minimap if only the screen version is available.
                 available_actions.add(general_func.id)
+                found_applicable = True
                 break
+      if not found_applicable:
+        raise ValueError("Failed to find applicable action for {}".format(a))
     return list(available_actions)
 
   @sw.decorate
