@@ -316,11 +316,11 @@ class RemoteController(object):
       return self.observer_actions(
           sc_pb.RequestObserverAction(actions=[action]))
 
-  def chat(self, message):
+  def chat(self, message, channel=sc_pb.ActionChat.Broadcast):
     """Send chat message as a broadcast."""
     if message:
       action_chat = sc_pb.ActionChat(
-          channel=sc_pb.ActionChat.Broadcast, message=message)
+          channel=channel, message=message)
       action = sc_pb.Action(action_chat=action_chat)
       return self.act(action)
 
