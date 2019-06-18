@@ -19,39 +19,41 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
-import pprint
-import re
 import sys
 
 from absl import app
 from absl import flags
-import deepdiff
 from pysc2 import run_configs
+from pysc2.lib import image_differencer
+from pysc2.lib import proto_diff
 from pysc2.lib import replay
 from pysc2.lib import stopwatch
 
-from google.protobuf import json_format
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
 FLAGS = flags.FLAGS
 
 flags.DEFINE_bool("diff", False, "Whether to diff the observations.")
-flags.DEFINE_bool("truncate", False, "Whether to truncate the diffs.")
+flags.DEFINE_integer("truncate", 0,
+                     "Number of characters to truncate diff values to, or 0 "
+                     "for no truncation.")
 
 flags.DEFINE_integer("step_mul", 8, "Game steps per observation.")
 flags.DEFINE_integer("count", 100000, "How many observations to run.")
 flags.DEFINE_string("replay", None, "Name of a replay to show.")
 
 
-def truncate(obj):
-  if isinstance(obj, str):
-    return obj[:47] + "..." if len(obj) > 50 else obj
-  if isinstance(obj, dict):
-    return {k: truncate(v) for k, v in obj.items()}
-  if isinstance(obj, list):
-    return [truncate(v) for v in obj]
-  return obj
+def _clear_non_deterministic_fields(obs):
+  for unit in obs.observation.raw_data.units:
+    unit.ClearField("tag")
+    for order in unit.orders:
+      order.ClearField("target_unit_tag")
+
+  for action in obs.actions:
+    if action.HasField("action_raw"):
+      if action.action_raw.HasField("unit_command"):
+        action.action_raw.unit_command.ClearField("target_unit_tag")
 
 
 def main(argv):
@@ -117,9 +119,11 @@ def main(argv):
           obs.append(controller.observe())
 
       if FLAGS.diff:
-        obs_dict = [json_format.MessageToDict(o) for o in obs]
-        diffs = {i: deepdiff.DeepDiff(obs_dict[0], o, significant_digits=3)
-                 for i, o in enumerate(obs_dict[1:], 1)}
+        for o in obs:
+          _clear_non_deterministic_fields(o)
+
+        diffs = {i: proto_diff.compute_diff(obs[0], o)
+                 for i, o in enumerate(obs[1:], 1)}
         if any(diffs.values()):
           print((" Diff on step: %s " %
                  obs[0].observation.game_loop).center(80, "-"))
@@ -127,14 +131,10 @@ def main(argv):
             if diff:
               print(version_names[i])
               diff_counts[i] += 1
-              if FLAGS.truncate:
-                diff = truncate(diff)
-              pprint.pprint(diff)
-              print()
-              for _, vals in diff.items():
-                for k in vals.keys():
-                  k = re.sub(r"\d+", "i", k)  # Merge array indices.
-                  diff_paths[k] += 1
+              print(diff.report([image_differencer.image_differencer],
+                                truncate_to=FLAGS.truncate))
+              for path in diff.all_diffs():
+                diff_paths[path.with_anonymous_array_indices()] += 1
 
       if obs[0].player_result:
         break
