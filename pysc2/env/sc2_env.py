@@ -449,6 +449,9 @@ class SC2Env(environment.Base):
   def map_name(self):
     return self._map_name
 
+  def static_data(self):
+    return self._controllers[0].data()
+
   def observation_spec(self):
     """Look at Features for full specs."""
     return tuple(f.observation_spec() for f in self._features)
