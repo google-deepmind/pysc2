@@ -26,6 +26,7 @@ from absl import flags
 from pysc2 import run_configs
 from pysc2.lib import image_differencer
 from pysc2.lib import proto_diff
+from pysc2.lib import remote_controller
 from pysc2.lib import replay
 from pysc2.lib import stopwatch
 
@@ -56,13 +57,19 @@ def _clear_non_deterministic_fields(obs):
         action.action_raw.unit_command.ClearField("target_unit_tag")
 
 
+def _is_remote(arg):
+  return ":" in arg
+
+
 def main(argv):
   """Compare the observations from multiple binaries."""
-  if not argv:
+  if len(argv) <= 1:
     sys.exit(
-        "Please specify binaries to run. The version must match the replay.")
+        "Please specify binaries to run / to connect to. For binaries to run, "
+        "specify the executable name. For remote connections, specify "
+        "<hostname>:<port>. The version must match the replay.")
 
-  version_names = argv[1:]
+  targets = argv[1:]
 
   interface = sc_pb.InterfaceOptions()
   interface.raw = True
@@ -84,19 +91,27 @@ def main(argv):
   start_replay = sc_pb.RequestStartReplay(
       replay_data=replay_data,
       options=interface,
-      observed_player_id=1)
+      observed_player_id=1,
+      realtime=False)
   version = replay.get_replay_version(replay_data)
 
-  versions = [version._replace(binary=b) for b in version_names]
-  timers = [stopwatch.StopWatch() for _ in versions]
-
+  timers = []
+  controllers = []
   procs = []
-  for v, t in zip(versions, timers):
-    with t("launch"):
-      procs.append(run_configs.get(version=v).start(want_rgb=False))
-  controllers = [p.controller for p in procs]
+  for target in targets:
+    timer = stopwatch.StopWatch()
+    timers.append(timer)
+    with timer("launch"):
+      if _is_remote(target):
+        host, port = target.split(":")
+        controllers.append(remote_controller.RemoteController(host, int(port)))
+      else:
+        proc = run_configs.get(
+            version=version._replace(binary=target)).start(want_rgb=False)
+        procs.append(proc)
+        controllers.append(proc.controller)
 
-  diff_counts = [0] * len(versions)
+  diff_counts = [0] * len(controllers)
   diff_paths = collections.Counter()
 
   try:
@@ -129,7 +144,7 @@ def main(argv):
                  obs[0].observation.game_loop).center(80, "-"))
           for i, diff in diffs.items():
             if diff:
-              print(version_names[i])
+              print(targets[i])
               diff_counts[i] += 1
               print(diff.report([image_differencer.image_differencer],
                                 truncate_to=FLAGS.truncate))
@@ -141,13 +156,16 @@ def main(argv):
   except KeyboardInterrupt:
     pass
   finally:
+    for c in controllers:
+      c.quit()
+      c.close()
+
     for p in procs:
-      p.controller.quit()
       p.close()
 
   if FLAGS.diff:
-    print(" Diff Counts by binary ".center(80, "-"))
-    for v, count in zip(versions, diff_counts):
+    print(" Diff Counts by target ".center(80, "-"))
+    for v, count in zip(targets, diff_counts):
       print(" %5d %s" % (count, v.binary))
     print()
 
@@ -157,8 +175,8 @@ def main(argv):
     print()
 
   print(" Timings ".center(80, "-"))
-  for v, t in zip(versions, timers):
-    print(v.binary)
+  for v, t in zip(targets, timers):
+    print(v)
     print(t)
 
 
