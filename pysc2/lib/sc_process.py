@@ -36,6 +36,7 @@ flags.DEFINE_bool(
 flags.DEFINE_bool(
     "sc2_verbose_mp", False, "Enable SC2 verbose multiplayer logging.")
 flags.DEFINE_bool("sc2_gdb", False, "Run SC2 in gdb.")
+flags.DEFINE_bool("sc2_strace", False, "Run SC2 in strace.")
 flags.DEFINE_integer("sc2_port", None,
                      "If set, connect to the instance on "
                      "localhost:sc2_port instead of launching one.")
@@ -124,6 +125,10 @@ class StarcraftProcess(object):
       print("\n")
       args = ["gdb", args[0]]
       timeout_seconds = 3600 * 6
+    elif FLAGS.sc2_strace:
+      strace_out = "/tmp/sc2-strace.txt"
+      print("Launching in strace. Redirecting output to", strace_out)
+      args = ["strace", "-f", "-o", strace_out] + args
     else:
       logging.info("Launching SC2: %s", " ".join(args))
 
