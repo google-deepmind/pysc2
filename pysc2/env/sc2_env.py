@@ -569,21 +569,25 @@ class SC2Env(environment.Base):
     """Apply action delays to the requested actions, if configured to."""
     assert not self._realtime
     actions_now = []
-    for action, delay_fn, delayed_actions in zip(
+    for actions_for_player, delay_fn, delayed_actions in zip(
         actions, self._action_delay_fns, self._delayed_actions):
-      delay = delay_fn() if delay_fn else 1
-      if delay > 1 and action.ListFields():  # Skip no-ops.
-        game_loop = self._episode_steps + delay - 1
+      actions_now_for_player = []
 
-        # Randomized delays mean that 2 delay actions can be reversed.
-        # Make sure that doesn't happen.
-        if delayed_actions:
-          game_loop = max(game_loop, delayed_actions[-1].game_loop)
+      for action in actions_for_player:
+        delay = delay_fn() if delay_fn else 1
+        if delay > 1 and action.ListFields():  # Skip no-ops.
+          game_loop = self._episode_steps + delay - 1
 
-        delayed_actions.append(_DelayedAction(game_loop, action))
-        actions_now.append(None)  # Don't send an action this frame.
-      else:
-        actions_now.append(action)
+          # Randomized delays mean that 2 delay actions can be reversed.
+          # Make sure that doesn't happen.
+          if delayed_actions:
+            game_loop = max(game_loop, delayed_actions[-1].game_loop)
+
+          # Don't send an action this frame.
+          delayed_actions.append(_DelayedAction(game_loop, action))
+        else:
+          actions_now_for_player.append(action)
+      actions_now.append(actions_now_for_player)
 
     return actions_now
 
