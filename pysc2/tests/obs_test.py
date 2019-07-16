@@ -72,13 +72,19 @@ def setup(**kwargs):
   def decorator(func):
     @functools.wraps(func)
     def _setup(self):
-      try:
+      def test_in_game():
         print((" %s: Starting game " % func.__name__).center(80, "-"))
         self.start_game(**kwargs)
         func(self)
+
+      def test_in_replay():
         self.start_replay()
         print((" %s: Starting replay " % func.__name__).center(80, "-"))
         func(self)
+
+      try:
+        test_in_game()
+        test_in_replay()
       finally:
         self.close()
     return _setup
