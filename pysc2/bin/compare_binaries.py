@@ -129,18 +129,20 @@ def main(argv):
       with t("data"):
         static_data.append(controller.data_raw())
 
-      if FLAGS.diff:
-        diffs = {i: proto_diff.compute_diff(static_data[0], d)
-                 for i, d in enumerate(static_data[1:], 1)}
-        if any(diffs.values()):
-          print(" Diff in static data ".center(80, "-"))
-          for i, diff in diffs.items():
-            if diff:
-              print(targets[i])
-              diff_counts[i] += 1
-              print(diff.report(truncate_to=FLAGS.truncate))
-              for path in diff.all_diffs():
-                diff_paths[path.with_anonymous_array_indices()] += 1
+    if FLAGS.diff:
+      diffs = {i: proto_diff.compute_diff(static_data[0], d)
+               for i, d in enumerate(static_data[1:], 1)}
+      if any(diffs.values()):
+        print(" Diff in static data ".center(80, "-"))
+        for i, diff in diffs.items():
+          if diff:
+            print(targets[i])
+            diff_counts[i] += 1
+            print(diff.report(truncate_to=FLAGS.truncate))
+            for path in diff.all_diffs():
+              diff_paths[path.with_anonymous_array_indices()] += 1
+      else:
+        print("No diffs in static data.")
 
     # Run some steps, checking speed and diffing the observations.
     for _ in range(FLAGS.count):
