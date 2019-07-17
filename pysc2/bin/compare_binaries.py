@@ -123,6 +123,26 @@ def main(argv):
       with t("start_replay"):
         controller.start_replay(start_replay)
 
+    # Check the static data.
+    static_data = []
+    for controller, t in zip(controllers, timers):
+      with t("data"):
+        static_data.append(controller.data_raw())
+
+      if FLAGS.diff:
+        diffs = {i: proto_diff.compute_diff(static_data[0], d)
+                 for i, d in enumerate(static_data[1:], 1)}
+        if any(diffs.values()):
+          print(" Diff in static data ".center(80, "-"))
+          for i, diff in diffs.items():
+            if diff:
+              print(targets[i])
+              diff_counts[i] += 1
+              print(diff.report(truncate_to=FLAGS.truncate))
+              for path in diff.all_diffs():
+                diff_paths[path.with_anonymous_array_indices()] += 1
+
+    # Run some steps, checking speed and diffing the observations.
     for _ in range(FLAGS.count):
       for controller, t in zip(controllers, timers):
         with t("step"):
@@ -165,13 +185,13 @@ def main(argv):
 
   if FLAGS.diff:
     print(" Diff Counts by target ".center(80, "-"))
-    for v, count in zip(targets, diff_counts):
-      print(" %5d %s" % (count, v.binary))
+    for target, count in zip(targets, diff_counts):
+      print(" %5d %s" % (count, target))
     print()
 
     print(" Diff Counts by observation path ".center(80, "-"))
-    for v, count in diff_paths.most_common(100):
-      print(" %5d %s" % (count, v))
+    for path, count in diff_paths.most_common(100):
+      print(" %5d %s" % (count, path))
     print()
 
   print(" Timings ".center(80, "-"))
