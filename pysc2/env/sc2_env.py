@@ -505,7 +505,7 @@ class SC2Env(environment.Base):
     self._state = environment.StepType.FIRST
     if self._realtime:
       self._last_step_time = time.time()
-      self._last_act_game_loop = [None] * self._num_agents
+      self._last_obs_game_loop = None
       self._action_delays = [[0] * NUM_ACTION_DELAY_BUCKETS] * self._num_agents
 
     return self._observe(target_game_loop=0)
@@ -539,13 +539,6 @@ class SC2Env(environment.Base):
                        for c, a in zip(self._controllers, actions))
 
     self._state = environment.StepType.MID
-
-    if self._realtime:
-      for i, (action, obs) in enumerate(zip(actions, self._obs)):
-        for a in action:
-          if a.ListFields() and self._last_act_game_loop[i] is None:
-            self._last_act_game_loop[i] = obs.observation.game_loop
-
     return self._step(step_mul)
 
   def _step(self, step_mul=None):
@@ -650,24 +643,22 @@ class SC2Env(environment.Base):
 
     if self._realtime:
       # Track delays on executed actions.
-      for i, obs in enumerate(self._obs):
-        for action in obs.actions:
-          if action.HasField("game_loop") and (
-              self._last_act_game_loop[i] is not None):
-
-            delay = action.game_loop - self._last_act_game_loop[i]
-
-            # Delay zero is impossible (in that an action cannot possibly
-            # execute on the same game loop as the observation which was used
-            # to generate it), but we can see a delay of zero in this logic -
-            # when another action is issued before an in-flight action is
-            # executed. It is non-trivial to link issued to executed actions,
-            # hence we simply ignore zero delays here.
-            if delay:
-              num_slots = len(self._action_delays[i])
-              delay = min(delay, num_slots - 1)  # Cap to num buckets.
-              self._action_delays[i][delay] += 1
-              self._last_act_game_loop[i] = None
+      # Note that this will underestimate e.g. action sent, new observation
+      # taken before action executes, action executes, observation taken
+      # with action. This is difficult to avoid without changing the SC2
+      # binary - e.g. send the observation game loop with each action,
+      # return them in the observation action proto.
+      if self._last_obs_game_loop is not None:
+        for i, obs in enumerate(self._obs):
+          for action in obs.actions:
+            if action.HasField("game_loop"):
+              delay = action.game_loop - self._last_obs_game_loop
+              if delay > 0:
+                num_slots = len(self._action_delays[i])
+                delay = min(delay, num_slots - 1)  # Cap to num buckets.
+                self._action_delays[i][delay] += 1
+                break
+      self._last_obs_game_loop = game_loop
 
   def _observe(self, target_game_loop):
     self._get_observations(target_game_loop)
