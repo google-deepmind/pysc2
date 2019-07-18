@@ -122,6 +122,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
 
     map_inst = map_name and maps.get(map_name)
     self._map_name = map_name
+    self._game_info = None
 
     self._num_agents = 1
     self._discount = discount
@@ -170,6 +171,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
 
     # We don't own the SC2 process, we shouldn't call quit in the super class.
     self._controllers = None
+    self._game_info = None
 
     super(RemoteSC2Env, self).close()
 
@@ -198,13 +200,14 @@ class RemoteSC2Env(sc2_env.SC2Env):
     logging.info("Joining game.")
     self._controllers[0].join_game(join)
 
-    game_info = self._controllers[0].game_info()
+    self._game_info = [self._controllers[0].game_info()]
 
     if not self._map_name:
-      self._map_name = game_info.map_name
+      self._map_name = self._game_info[0].map_name
 
     self._features = [features.features_from_game_info(
-        game_info=game_info, agent_interface_format=agent_interface_format)]
+        game_info=self._game_info[0],
+        agent_interface_format=agent_interface_format)]
 
     self._in_game = True
     logging.info("Game joined.")

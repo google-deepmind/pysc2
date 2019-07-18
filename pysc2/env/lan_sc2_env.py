@@ -293,6 +293,7 @@ class LanSC2Env(sc2_env.SC2Env):
     self._ensure_available_actions = False
     self._discount_zero_after_timeout = False
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
+    self._game_info = None
     self._action_delay_fns = [None]
 
     interface = self._get_interface(
@@ -346,8 +347,9 @@ class LanSC2Env(sc2_env.SC2Env):
     self._controllers[0].save_map(settings["map_path"], settings["map_data"])
     self._controllers[0].join_game(join)
 
+    self._game_info = [self._controllers[0].game_info()]
     self._features = [features.features_from_game_info(
-        game_info=self._controllers[0].game_info(),
+        game_info=self._game_info[0],
         agent_interface_format=agent_interface_format)]
 
   def _restart(self):

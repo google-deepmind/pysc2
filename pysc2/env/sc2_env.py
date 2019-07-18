@@ -263,6 +263,7 @@ class SC2Env(environment.Base):
 
     self._run_config = run_configs.get(version=version)
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
+    self._game_info = None
 
     if agent_interface_format is None:
       raise ValueError("Please specify agent_interface_format.")
@@ -433,8 +434,8 @@ class SC2Env(environment.Base):
     self._parallel.run((c.join_game, join)
                        for c, join in zip(self._controllers, join_reqs))
 
-    game_info = self._parallel.run(c.game_info for c in self._controllers)
-    for g, interface in zip(game_info, self._interface_options):
+    self._game_info = self._parallel.run(c.game_info for c in self._controllers)
+    for g, interface in zip(self._game_info, self._interface_options):
       if g.options.render != interface.render:
         logging.warning(
             "Actual interface options don't match requested options:\n"
@@ -443,11 +444,16 @@ class SC2Env(environment.Base):
     self._features = [
         features.features_from_game_info(
             game_info=g, agent_interface_format=aif, map_name=self._map_name)
-        for g, aif in zip(game_info, self._interface_formats)]
+        for g, aif in zip(self._game_info, self._interface_formats)]
 
   @property
   def map_name(self):
     return self._map_name
+
+  @property
+  def game_info(self):
+    """A list of ResponseGameInfo, one per agent."""
+    return self._game_info
 
   def static_data(self):
     return self._controllers[0].data()
@@ -764,6 +770,8 @@ class SC2Env(environment.Base):
     if hasattr(self, "_ports") and self._ports:
       portspicker.return_ports(self._ports)
       self._ports = None
+
+    self._game_info = None
 
 
 def crop_and_deduplicate_names(names):
