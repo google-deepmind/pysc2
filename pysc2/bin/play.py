@@ -47,6 +47,8 @@ point_flag.DEFINE_point("feature_screen_size", "84",
                         "Resolution for screen feature layers.")
 point_flag.DEFINE_point("feature_minimap_size", "64",
                         "Resolution for minimap feature layers.")
+flags.DEFINE_integer("feature_camera_width", 24,
+                     "Width of the feature layer camera.")
 point_flag.DEFINE_point("rgb_screen_size", "256,192",
                         "Resolution for rendered screen.")
 point_flag.DEFINE_point("rgb_minimap_size", "128",
@@ -120,7 +122,7 @@ def main(unused_argv):
   interface.show_burrowed_shadows = True
   interface.show_placeholders = True
   if FLAGS.feature_screen_size and FLAGS.feature_minimap_size:
-    interface.feature_layer.width = 24
+    interface.feature_layer.width = FLAGS.feature_camera_width
     FLAGS.feature_screen_size.assign_to(interface.feature_layer.resolution)
     FLAGS.feature_minimap_size.assign_to(
         interface.feature_layer.minimap_resolution)
