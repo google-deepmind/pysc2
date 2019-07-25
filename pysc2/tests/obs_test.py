@@ -117,8 +117,11 @@ class ObsTest(absltest.TestCase):
     for c in self._controllers:  # Serial due to a race condition on Windows.
       c.save_map(map_inst.path, self._map_data)
 
-    self._interface = sc_pb.InterfaceOptions(
-        raw=True, score=False, show_cloaked=show_cloaked)
+    self._interface = sc_pb.InterfaceOptions()
+    self._interface.raw = True
+    self._interface.raw_crop_to_playable_area = True
+    self._interface.show_cloaked = show_cloaked
+    self._interface.score = False
     self._interface.feature_layer.width = 24
     self._interface.feature_layer.resolution.x = 64
     self._interface.feature_layer.resolution.y = 64
@@ -192,8 +195,8 @@ class ObsTest(absltest.TestCase):
   @only_in_game
   def move_camera(self, x, y):
     action = sc_pb.Action()
-    action.action_feature_layer.camera_move.center_minimap.x = x
-    action.action_feature_layer.camera_move.center_minimap.y = y
+    action.action_raw.camera_move.center_world_space.x = x
+    action.action_raw.camera_move.center_world_space.y = y
     return self._parallel.run((c.act, action) for c in self._controllers)
 
   @only_in_game
@@ -270,8 +273,8 @@ class ObsTest(absltest.TestCase):
     self.god()
 
     # Create some sentries.
-    self.create_unit(unit_type=units.Protoss.Sentry, owner=1, pos=(50, 50))
-    self.create_unit(unit_type=units.Protoss.Sentry, owner=2, pos=(50, 48))
+    self.create_unit(unit_type=units.Protoss.Sentry, owner=1, pos=(30, 30))
+    self.create_unit(unit_type=units.Protoss.Sentry, owner=2, pos=(30, 28))
 
     self.step()
     obs = self.observe()
@@ -297,7 +300,7 @@ class ObsTest(absltest.TestCase):
     self.assertFalse(p2.is_hallucination)
 
     # Create an observer so the opponent has detection.
-    self.create_unit(unit_type=units.Protoss.Observer, owner=2, pos=(48, 50))
+    self.create_unit(unit_type=units.Protoss.Observer, owner=2, pos=(28, 30))
 
     self.step()
     obs = self.observe()
@@ -316,8 +319,8 @@ class ObsTest(absltest.TestCase):
     self.move_camera(32, 32)
 
     # Create some units. One cloaked, one to see it without detection.
-    self.create_unit(unit_type=units.Protoss.DarkTemplar, owner=1, pos=(50, 50))
-    self.create_unit(unit_type=units.Protoss.Sentry, owner=2, pos=(48, 50))
+    self.create_unit(unit_type=units.Protoss.DarkTemplar, owner=1, pos=(30, 30))
+    self.create_unit(unit_type=units.Protoss.Sentry, owner=2, pos=(28, 30))
 
     self.step(16)
     obs = self.observe()
@@ -339,7 +342,7 @@ class ObsTest(absltest.TestCase):
                        unit_hit_points=0, unit_shields=0, cloaked=0)
 
     # Create an observer so the opponent has detection.
-    self.create_unit(unit_type=units.Protoss.Observer, owner=2, pos=(48, 48))
+    self.create_unit(unit_type=units.Protoss.Observer, owner=2, pos=(28, 28))
 
     self.step(16)  # It takes a few frames for the observer to detect.
     obs = self.observe()
@@ -368,8 +371,8 @@ class ObsTest(absltest.TestCase):
     self.move_camera(32, 32)
 
     # Create some units. One cloaked, one to see it without detection.
-    self.create_unit(unit_type=units.Protoss.DarkTemplar, owner=1, pos=(50, 50))
-    self.create_unit(unit_type=units.Protoss.Sentry, owner=2, pos=(48, 50))
+    self.create_unit(unit_type=units.Protoss.DarkTemplar, owner=1, pos=(30, 30))
+    self.create_unit(unit_type=units.Protoss.Sentry, owner=2, pos=(28, 30))
 
     self.step(16)
     obs = self.observe()
@@ -392,7 +395,7 @@ class ObsTest(absltest.TestCase):
                        unit_hit_points=0, unit_shields=0, cloaked=1)
 
     # Create an observer so the opponent has detection.
-    self.create_unit(unit_type=units.Protoss.Observer, owner=2, pos=(48, 48))
+    self.create_unit(unit_type=units.Protoss.Observer, owner=2, pos=(28, 28))
 
     self.step(16)  # It takes a few frames for the observer to detect.
     obs = self.observe()
@@ -415,8 +418,8 @@ class ObsTest(absltest.TestCase):
 
   @setup()
   def test_pos(self):
-    self.create_unit(unit_type=units.Protoss.Archon, owner=1, pos=(40, 50))
-    self.create_unit(unit_type=units.Protoss.Observer, owner=1, pos=(60, 50))
+    self.create_unit(unit_type=units.Protoss.Archon, owner=1, pos=(20, 30))
+    self.create_unit(unit_type=units.Protoss.Observer, owner=1, pos=(40, 30))
 
     self.step()
     obs = self.observe()
@@ -424,14 +427,14 @@ class ObsTest(absltest.TestCase):
     archon = get_unit(obs[0], unit_type=units.Protoss.Archon)
     observer = get_unit(obs[0], unit_type=units.Protoss.Observer)
 
-    self.assert_point(archon.pos, (40, 50))
-    self.assert_point(observer.pos, (60, 50))
+    self.assert_point(archon.pos, (20, 30))
+    self.assert_point(observer.pos, (40, 30))
     self.assertLess(archon.pos.z, observer.pos.z)  # The observer flies.
     self.assertGreater(archon.radius, observer.radius)
 
     # Move them towards the center, make sure they move.
     self.raw_unit_command(0, "Move_screen", (archon.tag, observer.tag),
-                          (50, 45))
+                          (30, 25))
 
     self.step(40)
     obs2 = self.observe()
@@ -439,8 +442,8 @@ class ObsTest(absltest.TestCase):
     archon2 = get_unit(obs2[0], unit_type=units.Protoss.Archon)
     observer2 = get_unit(obs2[0], unit_type=units.Protoss.Observer)
 
-    self.assertGreater(archon2.pos.x, 40)
-    self.assertLess(observer2.pos.x, 60)
+    self.assertGreater(archon2.pos.x, 20)
+    self.assertLess(observer2.pos.x, 40)
     self.assertLess(archon2.pos.z, observer2.pos.z)
 
   @setup()
@@ -451,8 +454,8 @@ class ObsTest(absltest.TestCase):
       self.assert_unit(unit, display_type=display_type, alliance=alliance,
                        cloak=cloak)
 
-    self.create_unit(unit_type=units.Protoss.Sentry, owner=1, pos=(50, 52))
-    self.create_unit(unit_type=units.Protoss.DarkTemplar, owner=1, pos=(52, 52))
+    self.create_unit(unit_type=units.Protoss.Sentry, owner=1, pos=(30, 32))
+    self.create_unit(unit_type=units.Protoss.DarkTemplar, owner=1, pos=(32, 32))
 
     self.step()
     obs = self.observe()
@@ -493,9 +496,9 @@ class ObsTest(absltest.TestCase):
     self.move_camera(32, 32)
 
     # Create some sentries.
-    self.create_unit(unit_type=units.Protoss.Sentry, owner=1, pos=(50, 50))
-    self.create_unit(unit_type=units.Protoss.Stalker, owner=1, pos=(48, 50))
-    self.create_unit(unit_type=units.Protoss.Phoenix, owner=2, pos=(50, 48))
+    self.create_unit(unit_type=units.Protoss.Sentry, owner=1, pos=(30, 30))
+    self.create_unit(unit_type=units.Protoss.Stalker, owner=1, pos=(28, 30))
+    self.create_unit(unit_type=units.Protoss.Phoenix, owner=2, pos=(30, 28))
 
     self.step()
     obs = self.observe()
@@ -531,14 +534,14 @@ class ObsTest(absltest.TestCase):
     # Both players should see the shield.
     e = get_effect_proto(obs[0], features.Effects.GuardianShield)
     self.assertIsNotNone(e)
-    self.assert_point(e.pos[0], (50, 50))
+    self.assert_point(e.pos[0], (30, 30))
     self.assertEqual(e.alliance, sc_raw.Self)
     self.assertEqual(e.owner, 1)
     self.assertGreater(e.radius, 3)
 
     e = get_effect_proto(obs[1], features.Effects.GuardianShield)
     self.assertIsNotNone(e)
-    self.assert_point(e.pos[0], (50, 50))
+    self.assert_point(e.pos[0], (30, 30))
     self.assertEqual(e.alliance, sc_raw.Enemy)
     self.assertEqual(e.owner, 1)
     self.assertGreater(e.radius, 3)
@@ -565,9 +568,9 @@ class ObsTest(absltest.TestCase):
     raw1 = transformed_obs1["raw_effects"]
     e = get_effect_obs(raw1, features.Effects.GuardianShield)
     self.assertIsNotNone(e)
-    # Not located at (50, 50) due to map shape and minimap coords.
-    self.assertGreater(e.x, 40)
-    self.assertGreater(e.y, 40)
+    # Not located at (30, 30) due to map shape and minimap coords.
+    self.assertGreater(e.x, 20)
+    self.assertGreater(e.y, 20)
     self.assertEqual(e.alliance, sc_raw.Self)
     self.assertEqual(e.owner, 1)
     self.assertGreater(e.radius, 3)
