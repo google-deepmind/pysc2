@@ -1255,7 +1255,9 @@ class RendererHuman(object):
         align="right")
     surf.write_screen(
         self._font_large, colors.green * 0.8, (-0.2, 1.2),
-        "FPS: O:%.1f, R:%.1f" % (
+        "APM: %d, EPM: %d, FPS: O:%.1f, R:%.1f" % (
+            obs.score.score_details.current_apm,
+            obs.score.score_details.current_effective_apm,
             len(times) / (sum(times) or 1),
             len(self._render_times) / (sum(self._render_times) or 1)),
         align="right")
