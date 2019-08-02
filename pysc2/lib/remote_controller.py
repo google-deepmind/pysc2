@@ -268,6 +268,12 @@ class RemoteController(object):
     else:
       self._last_obs = obs
 
+    if FLAGS.sc2_log_actions and obs.actions:
+      sys.stderr.write(" Executed actions ".center(60, "<") + "\n")
+      for action in obs.actions:
+        sys.stderr.write(str(action))
+      sys.stderr.flush()
+
     return obs
 
   def available_maps(self):
@@ -286,10 +292,11 @@ class RemoteController(object):
   @sw.decorate
   def actions(self, req_action):
     """Send a `sc_pb.RequestAction`, which may include multiple actions."""
-    if FLAGS.sc2_log_actions:
+    if FLAGS.sc2_log_actions and req_action.actions:
+      sys.stderr.write(" Sending actions ".center(60, ">") + "\n")
       for action in req_action.actions:
         sys.stderr.write(str(action))
-        sys.stderr.flush()
+      sys.stderr.flush()
 
     return self._client.send(action=req_action)
 
@@ -303,10 +310,11 @@ class RemoteController(object):
   @sw.decorate
   def observer_actions(self, req_observer_action):
     """Send a `sc_pb.RequestObserverAction`."""
-    if FLAGS.sc2_log_actions:
+    if FLAGS.sc2_log_actions and req_observer_action.actions:
+      sys.stderr.write(" Sending observer actions ".center(60, ">") + "\n")
       for action in req_observer_action.actions:
         sys.stderr.write(str(action))
-        sys.stderr.flush()
+      sys.stderr.flush()
 
     return self._client.send(obs_action=req_observer_action)
 
