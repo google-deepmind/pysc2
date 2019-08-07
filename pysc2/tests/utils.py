@@ -117,7 +117,7 @@ class GameReplayTestCase(TestCase):
       return _setup
     return decorator
 
-  def start_game(self, show_cloaked=True, disable_fog=False):
+  def start_game(self, show_cloaked=True, disable_fog=False, players=2):
     """Start a multiplayer game with options."""
     self._disable_fog = disable_fog
     run_config = run_configs.get()
@@ -125,13 +125,14 @@ class GameReplayTestCase(TestCase):
     map_inst = maps.get("Flat64")
     self._map_data = map_inst.data(run_config)
 
-    self._ports = portspicker.pick_unused_ports(4)
+    self._ports = portspicker.pick_unused_ports(4) if players == 2 else []
     self._sc2_procs = [run_config.start(extra_ports=self._ports, want_rgb=False)
-                       for _ in range(2)]
+                       for _ in range(players)]
     self._controllers = [p.controller for p in self._sc2_procs]
 
-    for c in self._controllers:  # Serial due to a race condition on Windows.
-      c.save_map(map_inst.path, self._map_data)
+    if players == 2:
+      for c in self._controllers:  # Serial due to a race condition on Windows.
+        c.save_map(map_inst.path, self._map_data)
 
     self._interface = sc_pb.InterfaceOptions()
     self._interface.raw = True
@@ -147,16 +148,21 @@ class GameReplayTestCase(TestCase):
     create = sc_pb.RequestCreateGame(
         random_seed=1, disable_fog=self._disable_fog,
         local_map=sc_pb.LocalMap(map_path=map_inst.path))
-    create.player_setup.add(type=sc_pb.Participant)
-    create.player_setup.add(type=sc_pb.Participant)
+    for _ in range(players):
+      create.player_setup.add(type=sc_pb.Participant)
+    if players == 1:
+      create.local_map.map_data = self._map_data
+      create.player_setup.add(type=sc_pb.Computer, race=sc_common.Random,
+                              difficulty=sc_pb.VeryEasy)
 
     join = sc_pb.RequestJoinGame(race=sc_common.Protoss,
                                  options=self._interface)
-    join.shared_port = 0  # unused
-    join.server_ports.game_port = self._ports[0]
-    join.server_ports.base_port = self._ports[1]
-    join.client_ports.add(game_port=self._ports[2],
-                          base_port=self._ports[3])
+    if players == 2:
+      join.shared_port = 0  # unused
+      join.server_ports.game_port = self._ports[0]
+      join.server_ports.base_port = self._ports[1]
+      join.client_ports.add(game_port=self._ports[2],
+                            base_port=self._ports[3])
 
     self._controllers[0].create_game(create)
     self._parallel.run((c.join_game, join) for c in self._controllers)
