@@ -151,6 +151,14 @@ class NamedNumpyArray(np.ndarray):
     indices = self._indices(indices)
     obj = super(NamedNumpyArray, self).__getitem__(indices)
 
+    if (isinstance(indices, np.ndarray) and len(indices.shape) > 1 and
+        indices.dtype == bool):
+      # Is this a multi-dimensional mask, eg: obj[obj == 5] ?
+      # Multi-dimensional masks return a single dimensional array, and it's
+      # unclear what it means for the result to have names, so return a normal
+      # numpy array.
+      return np.array(obj)
+
     if isinstance(obj, np.ndarray):  # If this is a view, index the names too.
       if not isinstance(indices, tuple):
         indices = (indices,)
@@ -178,8 +186,11 @@ class NamedNumpyArray(np.ndarray):
                          key=lambda item: item[1])
           names = np.array(names, dtype=object)  # Support full numpy slicing.
           sliced = names[index]  # Actually slice it.
-          sliced = {n: j for j, (n, _) in enumerate(sliced)}  # Reindex.
-          new_names.append(sliced)
+          indexed = {n: j for j, (n, _) in enumerate(sliced)}  # Reindex.
+          if len(sliced) != len(indexed):
+            # Names aren't unique, so drop the names for this dimension.
+            indexed = None
+          new_names.append(indexed)
         else:
           raise TypeError("Unknown index: %s; %s" % (type(index), index))
         dim += 1

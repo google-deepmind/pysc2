@@ -64,8 +64,7 @@ class BadNamedTuple(collections.namedtuple("BadNamedTuple", ["a", "b"])):
 class NamedArrayTest(parameterized.TestCase):
 
   def assertArrayEqual(self, a, b):
-    # np.testing.assert_array_equal does indexing we don't support yet.
-    np.testing.assert_array_equal(np.array(a), np.array(b))
+    np.testing.assert_array_equal(a, b)
 
   @parameterized.named_parameters(
       ("none", None),
@@ -130,6 +129,9 @@ class NamedArrayTest(parameterized.TestCase):
     self.assertArrayEqual(a[np.array([0, 2])], [1, 6])
     self.assertEqual(a[[1, 2]].b, 3)
     self.assertEqual(a[[2, 0]].c, 6)
+    with self.assertRaises(TypeError):
+      # Duplicates lead to unnamed dimensions.
+      a[[0, 0]].a  # pylint: disable=pointless-statement
 
     a[1] = 4
     self.assertEqual(a[1], 4)
@@ -179,13 +181,16 @@ class NamedArrayTest(parameterized.TestCase):
     self.assertArrayEqual(a[::-1].a[0], 1)
     self.assertArrayEqual(a[::-1].b, [6, 8])
     self.assertArrayEqual(a[[0, 0]], [[1, 3], [1, 3]])
-    self.assertArrayEqual(a[[0, 0]].a, [1, 3])
+    with self.assertRaises(TypeError):
+      a[[0, 0]].a  # pylint: disable=pointless-statement
     self.assertEqual(a[0, 1], 3)
     self.assertEqual(a[(0, 1)], 3)
     self.assertEqual(a["a", 0], 1)
     self.assertEqual(a["b", 0], 6)
     self.assertEqual(a["b", 1], 8)
     self.assertEqual(a.a[0], 1)
+    self.assertArrayEqual(a[a > 2], [3, 6, 8])
+    self.assertArrayEqual(a[a % 3 == 0], [3, 6])
     with self.assertRaises(TypeError):
       a[0].a  # pylint: disable=pointless-statement
 
@@ -197,8 +202,18 @@ class NamedArrayTest(parameterized.TestCase):
     self.assertEqual(a[0, "b"], 3)
     self.assertEqual(a[1, "b"], 8)
     self.assertEqual(a[0].a, 1)
+    self.assertArrayEqual(a[a > 2], [3, 6, 8])
+    self.assertArrayEqual(a[a % 3 == 0], [3, 6])
     with self.assertRaises(TypeError):
       a.a  # pylint: disable=pointless-statement
+
+  def test_masking(self):
+    a = named_array.NamedNumpyArray([[1, 2, 3, 4], [5, 6, 7, 8]],
+                                    [None, list("abcd")])
+    self.assertArrayEqual(a[a > 2], [3, 4, 5, 6, 7, 8])
+    self.assertArrayEqual(a[a < 4], [1, 2, 3])
+    self.assertArrayEqual(a[a % 2 == 0], [2, 4, 6, 8])
+    self.assertArrayEqual(a[a % 3 == 0], [3, 6])
 
   def test_slicing(self):
     a = named_array.NamedNumpyArray([1, 2, 3, 4, 5], list("abcde"))
