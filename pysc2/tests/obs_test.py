@@ -20,6 +20,7 @@ from __future__ import print_function
 
 from absl.testing import absltest
 
+from pysc2.lib import actions
 from pysc2.lib import buffs
 from pysc2.lib import features
 from pysc2.lib import units
@@ -27,6 +28,13 @@ from pysc2.tests import utils
 
 from s2clientprotocol import debug_pb2 as sc_debug
 from s2clientprotocol import raw_pb2 as sc_raw
+
+
+# It seems the time from issuing an action until it has an effect is 2 frames.
+# It'd be nice if that was faster, and it is 1 in single-player, but in
+# multi-player it seems it needs to be propagated to the host and back, which
+# takes 2 steps minimum. Unfortunately this also includes camera moves.
+EXPECTED_ACTION_DELAY = 2
 
 
 class ObsTest(utils.GameReplayTestCase):
@@ -457,6 +465,76 @@ class ObsTest(utils.GameReplayTestCase):
       self.assert_unit(other, display_type=sc_raw.Visible, is_active=True)
       self.assertLen(own.orders, 1)
       self.assertEmpty(other.orders)
+
+  @utils.GameReplayTestCase.setup()
+  def test_action_delay(self):
+    self.observe()
+    self.create_unit(unit_type=units.Protoss.Zealot, owner=1, pos=(32, 32))
+
+    self.step(16)
+    obs1 = self.observe()
+    self.assertLen(obs1[0].actions, 0)
+
+    zealot1 = utils.get_unit(obs1[0], unit_type=units.Protoss.Zealot, owner=1)
+    self.assertLen(zealot1.orders, 0)
+
+    self.raw_unit_command(0, "Move_screen", zealot1.tag, (30, 30))
+
+    # If the delay is taken down to 1, remove this first step of verifying the
+    # actions length is 0.
+    self.assertEqual(EXPECTED_ACTION_DELAY, 2)
+
+    self.step(1)
+    obs2 = self.observe()
+    self.assertLen(obs2[0].action_errors, 0)
+    self.assertLen(obs2[0].actions, 0)
+
+    self.step(1)
+    obs2 = self.observe()
+    self.assertLen(obs2[0].action_errors, 0)
+    self.assertGreaterEqual(len(obs2[0].actions), 1)
+    for action in obs2[0].actions:
+      if action.HasField("action_raw"):
+        break
+    else:
+      self.assertFalse("No raw action found")
+
+    self.assertEqual(action.game_loop, obs1[0].observation.game_loop+1)  # pylint: disable=undefined-loop-variable
+    unit_command = action.action_raw.unit_command  # pylint: disable=undefined-loop-variable
+    self.assertEqual(unit_command.ability_id,
+                     actions.FUNCTIONS.Move_Move_screen.ability_id)
+    self.assert_point(unit_command.target_world_space_pos, (30, 30))
+    self.assertEqual(unit_command.unit_tags[0], zealot1.tag)
+
+    zealot2 = utils.get_unit(obs2[0], unit_type=units.Protoss.Zealot, owner=1)
+    self.assertLen(zealot2.orders, 1)
+    self.assertEqual(zealot2.orders[0].ability_id,
+                     actions.FUNCTIONS.Move_Move_screen.ability_id)
+    self.assert_point(zealot2.orders[0].target_world_space_pos, (30, 30))
+
+  @utils.GameReplayTestCase.setup()
+  def test_camera_movement_delay(self):
+    obs1 = self.observe()
+    screen1 = self._features.transform_obs(obs1[0])["feature_screen"]
+    nexus1 = utils.xy_locs(screen1.unit_type == units.Protoss.Nexus)
+
+    self.step(1)
+    obs2 = self.observe()
+    screen2 = self._features.transform_obs(obs2[0])["feature_screen"]
+    nexus2 = utils.xy_locs(screen2.unit_type == units.Protoss.Nexus)
+
+    self.assertEqual(nexus1, nexus2)  # Same place.
+
+    loc = obs1[0].observation.raw_data.player.camera
+    self.move_camera(loc.x + 3, loc.y + 3)
+
+    self.step(EXPECTED_ACTION_DELAY)
+
+    obs3 = self.observe()
+    screen3 = self._features.transform_obs(obs3[0])["feature_screen"]
+    nexus3 = utils.xy_locs(screen3.unit_type == units.Protoss.Nexus)
+
+    self.assertNotEqual(nexus1, nexus3)  # Different location due to camera.
 
 
 if __name__ == "__main__":
