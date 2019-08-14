@@ -338,7 +338,7 @@ class RemoteController(object):
     """Disconnect from a multiplayer game."""
     return self._client.send(leave_game=sc_pb.RequestLeaveGame())
 
-  @valid_status(Status.in_game, Status.ended)
+  @valid_status(Status.in_game, Status.in_replay, Status.ended)
   @sw.decorate
   def save_replay(self):
     """Save a replay, returning the data."""
