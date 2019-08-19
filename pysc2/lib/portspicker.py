@@ -21,8 +21,15 @@ import time
 import portpicker
 
 
-def pick_unused_ports(num_ports, retry_interval_secs=3, retry_attempts=5):
+# The set of ports returned by pick_contiguous_unused_ports and not by
+# the underlying portpicker.
+_contiguous_ports = set()
+
+
+def pick_unused_ports(num_ports, retry_interval_secs=1, retry_attempts=5):
   """Reserves and returns a list of `num_ports` unused ports."""
+  if num_ports <= 0:
+    raise ValueError("Number of ports, must be >= 1, got: %s" % num_ports)
   ports = set()
   for _ in range(retry_attempts):
     ports.update(
@@ -42,17 +49,20 @@ def pick_unused_ports(num_ports, retry_interval_secs=3, retry_attempts=5):
 
 def pick_contiguous_unused_ports(
     num_ports,
-    retry_interval_secs=3,
+    retry_interval_secs=1,
     retry_attempts=5):
   """Reserves and returns a list of `num_ports` contiguous unused ports."""
+  if num_ports <= 0:
+    raise ValueError("Number of ports, must be >= 1, got: %s" % num_ports)
   for _ in range(retry_attempts):
     start_port = portpicker.pick_unused_port()
     if start_port is not None:
       ports = [start_port + p for p in range(num_ports)]
       if all(portpicker.is_port_free(p) for p in ports):
+        _contiguous_ports.update(ports[1:])
         return ports
       else:
-        return_ports(ports)
+        return_ports(start_port)
 
     time.sleep(retry_interval_secs)
 
@@ -62,4 +72,7 @@ def pick_contiguous_unused_ports(
 def return_ports(ports):
   """Returns previously reserved ports so that may be reused."""
   for port in ports:
-    portpicker.return_port(port)
+    if port in _contiguous_ports:
+      _contiguous_ports.discard(port)
+    else:
+      portpicker.return_port(port)
