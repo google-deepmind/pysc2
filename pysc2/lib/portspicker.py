@@ -62,7 +62,7 @@ def pick_contiguous_unused_ports(
         _contiguous_ports.update(ports[1:])
         return ports
       else:
-        return_ports(start_port)
+        portpicker.return_port(start_port)
 
     time.sleep(retry_interval_secs)
 
