@@ -31,7 +31,7 @@ class PortsTest(parameterized.TestCase):
     self.assertLen(reserved, num_ports)
     portspicker.return_ports(reserved)
 
-  @parameterized.parameters(range(1, 10))
+  @parameterized.parameters(range(2, 5))
   def testContiguousReservation(self, num_ports):
     reserved = portspicker.pick_contiguous_unused_ports(num_ports)
     self.assertLen(reserved, num_ports)
