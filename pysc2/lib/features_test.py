@@ -459,6 +459,38 @@ class FeaturesTest(absltest.TestCase):
           self.assertEqual(func_call, func_call2, msg=sc2_action)
         self.assertEqual(sc2_action, sc2_action2)
 
+  def testRawActionUnitTags(self):
+    feats = features.Features(
+        features.AgentInterfaceFormat(
+            use_raw_units=True,
+            action_space=actions.ActionSpace.RAW),
+        map_size=point.Point(100, 100))
+
+    tags = [numpy.random.randint(2**20, 2**24) for _ in range(10)]
+    ntags = numpy.array(tags, dtype=numpy.int64)
+    tag = tags[0]
+    ntag = numpy.array(tag, dtype=numpy.int64)
+
+    def transform(fn, *args):
+      func_call = actions.RAW_FUNCTIONS[fn]("now", *args)
+      proto = feats.transform_action(None, func_call, skip_available=True)
+      return proto.action_raw.unit_command
+
+    self.assertEqual(transform("Attack_pt", tag, [15, 20]).unit_tags, [tag])
+    self.assertEqual(transform("Attack_pt", ntag, [15, 20]).unit_tags, [tag])
+    self.assertEqual(transform("Attack_pt", [tag], [15, 20]).unit_tags, [tag])
+    self.assertEqual(transform("Attack_pt", [ntag], [15, 20]).unit_tags, [tag])
+    self.assertEqual(transform("Attack_pt", tags, [15, 20]).unit_tags, tags)
+    self.assertEqual(transform("Attack_pt", ntags, [15, 20]).unit_tags, tags)
+   # Weird, but needed for backwards compatibility
+    self.assertEqual(transform("Attack_pt", [tags], [15, 20]).unit_tags, tags)
+    self.assertEqual(transform("Attack_pt", [ntags], [15, 20]).unit_tags, tags)
+
+    self.assertEqual(transform("Attack_unit", tag, tag).target_unit_tag, tag)
+    self.assertEqual(transform("Attack_unit", tag, ntag).target_unit_tag, tag)
+    self.assertEqual(transform("Attack_unit", tag, [tag]).target_unit_tag, tag)
+    self.assertEqual(transform("Attack_unit", tag, [ntag]).target_unit_tag, tag)
+
   def testCanPickleSpecs(self):
     feats = features.Features(features.AgentInterfaceFormat(
         feature_dimensions=SQUARE_DIMENSIONS))

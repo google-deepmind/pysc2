@@ -205,7 +205,7 @@ def raw_autocast(action, ability_id, unit_tags):
 
 
 class ArgumentType(collections.namedtuple(
-    "ArgumentType", ["id", "name", "sizes", "fn", "values"])):
+    "ArgumentType", ["id", "name", "sizes", "fn", "values", "count"])):
   """Represents a single argument type.
 
   Attributes:
@@ -216,6 +216,7 @@ class ArgumentType(collections.namedtuple(
         meaningful to be set in the protos to send to the game.
     values: An enum representing the values this argument type could hold. None
         if this isn't an enum argument type.
+    count: Number of valid values. Only useful for unit_tags.
   """
   __slots__ = ()
 
@@ -232,25 +233,34 @@ class ArgumentType(collections.namedtuple(
     del names  # unused
 
     def factory(i, name):
-      return cls(i, name, (len(real),), lambda a: real[a[0]], values)
+      return cls(i, name, (len(real),), lambda a: real[a[0]], values, None)
     return factory
 
   @classmethod
   def scalar(cls, value):
     """Create an ArgumentType with a single scalar in range(value)."""
-    return lambda i, name: cls(i, name, (value,), lambda a: a[0], None)
+    return lambda i, name: cls(i, name, (value,), lambda a: a[0], None, None)
 
   @classmethod
   def point(cls):  # No range because it's unknown at this time.
     """Create an ArgumentType that is represented by a point.Point."""
     def factory(i, name):
-      return cls(i, name, (0, 0), lambda a: point.Point(*a).floor(), None)
+      return cls(i, name, (0, 0), lambda a: point.Point(*a).floor(), None, None)
     return factory
 
   @classmethod
   def spec(cls, id_, name, sizes):
     """Create an ArgumentType to be used in ValidActions."""
-    return cls(id_, name, sizes, None, None)
+    return cls(id_, name, sizes, None, None, None)
+
+  @classmethod
+  def unit_tags(cls, count):
+    """Create an ArgumentType with a list of unbounded ints."""
+    def clean(arg):
+      if isinstance(arg, list) and len(arg) == 1 and isinstance(arg[0], list):
+        arg = arg[0]  # Support [[list, of, tags]].
+      return arg[:count]
+    return lambda i, name: cls(i, name, (count,), clean, None, count)
 
 
 class Arguments(collections.namedtuple("Arguments", [
@@ -396,8 +406,8 @@ TYPES = Arguments.types(
 RAW_TYPES = RawArguments.types(
     world=ArgumentType.point(),
     queued=ArgumentType.enum(QUEUED_OPTIONS, Queued),
-    unit_tags=ArgumentType.scalar(512),
-    target_unit_tag=ArgumentType.scalar(512),
+    unit_tags=ArgumentType.unit_tags(512),
+    target_unit_tag=ArgumentType.unit_tags(1),
 )
 
 
@@ -1742,6 +1752,20 @@ RAW_ABILITY_ID_TO_FUNC_ID = {k: min(f.id for f in v)  # pylint: disable=g-comple
                              for k, v in six.iteritems(RAW_ABILITY_IDS)}
 
 
+def numpy_to_python(val):
+  """Convert numpy types to their corresponding python types."""
+  if isinstance(val, (int, float)):
+    return val
+  if isinstance(val, six.string_types):
+    return val
+  if (isinstance(val, numpy.number) or
+      isinstance(val, numpy.ndarray) and not val.shape):  # numpy.array(1)
+    return val.item()
+  if isinstance(val, (list, tuple, numpy.ndarray)):
+    return [numpy_to_python(v) for v in val]
+  raise ValueError("Unknown value. Type: %s, repr: %s" % (type(val), repr(val)))
+
+
 class FunctionCall(collections.namedtuple(
     "FunctionCall", ["function", "arguments"])):
   """Represents a function call action.
@@ -1774,6 +1798,7 @@ class FunctionCall(collections.namedtuple(
     func = RAW_FUNCTIONS[function] if raw else FUNCTIONS[function]
     args = []
     for arg, arg_type in zip(arguments, func.args):
+      arg = numpy_to_python(arg)
       if arg_type.values:  # Allow enum values by name or int.
         if isinstance(arg, six.string_types):
           try:
@@ -1782,17 +1807,21 @@ class FunctionCall(collections.namedtuple(
             raise KeyError("Unknown argument value: %s, valid values: %s" % (
                 arg, [v.name for v in arg_type.values]))
         else:
-          if isinstance(arg, (list, tuple)):
+          if isinstance(arg, list):
             arg = arg[0]
           try:
             args.append([arg_type.values(arg)])
           except ValueError:
             raise ValueError("Unknown argument value: %s, valid values: %s" % (
                 arg, list(arg_type.values)))
-      elif isinstance(arg, (int, numpy.int64)):  # Allow bare ints.
+      elif isinstance(arg, int):  # Allow bare ints.
         args.append([arg])
-      else:  # Allow tuples or iterators.
-        args.append(list(arg))
+      elif isinstance(arg, list):
+        args.append(arg)
+      else:
+        raise ValueError(
+            "Unknown argument value type: %s, expected int or list of ints, or "
+            "their numpy equivalents. Value: %s" % (type(arg), arg))
     return cls(func.id, args)
 
   @classmethod

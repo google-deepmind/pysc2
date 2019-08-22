@@ -195,3 +195,26 @@ class DefeatRoaches(base_agent.BaseAgent):
       return FUNCTIONS.select_army("select")
 
     return FUNCTIONS.no_op()
+
+
+class DefeatRoachesRaw(base_agent.BaseAgent):
+  """An agent specifically for solving DefeatRoaches using raw actions."""
+
+  def setup(self, obs_spec, action_spec):
+    super(DefeatRoachesRaw, self).setup(obs_spec, action_spec)
+    if "raw_units" not in obs_spec:
+      raise Exception("This agent requires the raw_units observation.")
+
+  def step(self, obs):
+    super(DefeatRoachesRaw, self).step(obs)
+    marines = [unit.tag for unit in obs.observation.raw_units
+               if unit.alliance == _PLAYER_SELF]
+    roaches = [unit for unit in obs.observation.raw_units
+               if unit.alliance == _PLAYER_ENEMY]
+
+    if marines and roaches:
+      # Find the roach with max y coord.
+      target = sorted(roaches, key=lambda r: r.y)[0].tag
+      return RAW_FUNCTIONS.Attack_unit("now", marines, target)
+
+    return FUNCTIONS.no_op()

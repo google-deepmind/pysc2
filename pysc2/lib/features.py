@@ -434,7 +434,7 @@ class Dimensions(object):
   Both screen and minimap must be specified. Sizes must be positive.
   Screen size must be greater than or equal to minimap size in both dimensions.
 
-  Args:
+  Attributes:
     screen: A (width, height) int tuple or a single int to be used for both.
     minimap: A (width, height) int tuple or a single int to be used for both.
   """
@@ -970,6 +970,7 @@ class Features(object):
     if self._raw:
       self._valid_functions = _init_valid_raw_functions(
           aif.raw_resolution, aif.max_selected_units)
+      self._raw_tags = []
     else:
       self._valid_functions = _init_valid_functions(aif.action_dimensions)
     self._requested_races = requested_races
@@ -1612,6 +1613,14 @@ class Features(object):
     # Args are valid?
     aif = self._agent_interface_format
     for t, arg in zip(func.args, func_call.arguments):
+      if t.count:
+        if 1 <= len(arg) <= t.count:
+          continue
+        else:
+          raise ValueError(
+              "Wrong number of values for argument of %s, got: %s" % (
+                  func, func_call.arguments))
+
       if t.name in ("screen", "screen2"):
         sizes = aif.action_dimensions.screen
       elif t.name == "minimap":
@@ -1651,11 +1660,10 @@ class Features(object):
         if original_tag == 0:
           logging.warning("Tag not found: %s", original_tag)
         return original_tag
-      if "target_unit_tag"  in kwargs:
-        kwargs["target_unit_tag"] = find_original_tag(kwargs["target_unit_tag"])
-      if "unit_tags"  in kwargs:
-        if not isinstance(kwargs["unit_tags"], (tuple, list, np.ndarray)):
-          kwargs["unit_tags"] = [kwargs["unit_tags"]]
+      if "target_unit_tag" in kwargs:
+        kwargs["target_unit_tag"] = find_original_tag(
+            kwargs["target_unit_tag"][0])
+      if "unit_tags" in kwargs:
         kwargs["unit_tags"] = [find_original_tag(t)
                                for t in kwargs["unit_tags"]]
       actions.RAW_FUNCTIONS[func_id].function_type(**kwargs)

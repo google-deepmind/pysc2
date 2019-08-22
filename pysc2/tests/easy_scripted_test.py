@@ -115,6 +115,22 @@ class TestEasy(utils.TestCase):
     self.assertLessEqual(agent.episodes, agent.reward)
     self.assertEqual(agent.steps, self.steps)
 
+  def test_defeat_roaches_raw(self):
+    with sc2_env.SC2Env(
+        map_name="DefeatRoaches",
+        players=[sc2_env.Agent(sc2_env.Race.terran)],
+        agent_interface_format=sc2_env.AgentInterfaceFormat(
+            action_space=sc2_env.ActionSpace.RAW,  # or: use_raw_actions=True,
+            use_raw_units=True),
+        step_mul=self.step_mul,
+        game_steps_per_episode=100*self.steps * self.step_mul) as env:
+      agent = scripted_agent.DefeatRoachesRaw()
+      run_loop.run_loop([agent], env, self.steps)
+
+    # Get some points
+    self.assertLessEqual(agent.episodes, agent.reward)
+    self.assertEqual(agent.steps, self.steps)
+
 
 if __name__ == "__main__":
   absltest.main()
