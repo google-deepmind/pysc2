@@ -204,6 +204,20 @@ def raw_autocast(action, ability_id, unit_tags):
   action_cmd.unit_tags.extend(unit_tags)
 
 
+def numpy_to_python(val):
+  """Convert numpy types to their corresponding python types."""
+  if isinstance(val, (int, float)):
+    return val
+  if isinstance(val, six.string_types):
+    return val
+  if (isinstance(val, numpy.number) or
+      isinstance(val, numpy.ndarray) and not val.shape):  # numpy.array(1)
+    return val.item()
+  if isinstance(val, (list, tuple, numpy.ndarray)):
+    return [numpy_to_python(v) for v in val]
+  raise ValueError("Unknown value. Type: %s, repr: %s" % (type(val), repr(val)))
+
+
 class ArgumentType(collections.namedtuple(
     "ArgumentType", ["id", "name", "sizes", "fn", "values", "count"])):
   """Represents a single argument type.
@@ -254,13 +268,14 @@ class ArgumentType(collections.namedtuple(
     return cls(id_, name, sizes, None, None, None)
 
   @classmethod
-  def unit_tags(cls, count):
+  def unit_tags(cls, count, size):
     """Create an ArgumentType with a list of unbounded ints."""
     def clean(arg):
+      arg = numpy_to_python(arg)
       if isinstance(arg, list) and len(arg) == 1 and isinstance(arg[0], list):
         arg = arg[0]  # Support [[list, of, tags]].
       return arg[:count]
-    return lambda i, name: cls(i, name, (count,), clean, None, count)
+    return lambda i, name: cls(i, name, (size,), clean, None, count)
 
 
 class Arguments(collections.namedtuple("Arguments", [
@@ -406,8 +421,8 @@ TYPES = Arguments.types(
 RAW_TYPES = RawArguments.types(
     world=ArgumentType.point(),
     queued=ArgumentType.enum(QUEUED_OPTIONS, Queued),
-    unit_tags=ArgumentType.unit_tags(512),
-    target_unit_tag=ArgumentType.unit_tags(1),
+    unit_tags=ArgumentType.unit_tags(512, 512),
+    target_unit_tag=ArgumentType.unit_tags(1, 512),
 )
 
 
@@ -1750,20 +1765,6 @@ RAW_ABILITY_IDS = {k: frozenset(v) for k, v in six.iteritems(RAW_ABILITY_IDS)}
 RAW_FUNCTIONS_AVAILABLE = {f.id: f for f in RAW_FUNCTIONS if f.avail_fn}
 RAW_ABILITY_ID_TO_FUNC_ID = {k: min(f.id for f in v)  # pylint: disable=g-complex-comprehension
                              for k, v in six.iteritems(RAW_ABILITY_IDS)}
-
-
-def numpy_to_python(val):
-  """Convert numpy types to their corresponding python types."""
-  if isinstance(val, (int, float)):
-    return val
-  if isinstance(val, six.string_types):
-    return val
-  if (isinstance(val, numpy.number) or
-      isinstance(val, numpy.ndarray) and not val.shape):  # numpy.array(1)
-    return val.item()
-  if isinstance(val, (list, tuple, numpy.ndarray)):
-    return [numpy_to_python(v) for v in val]
-  raise ValueError("Unknown value. Type: %s, repr: %s" % (type(val), repr(val)))
 
 
 class FunctionCall(collections.namedtuple(
