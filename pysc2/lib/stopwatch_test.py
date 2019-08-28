@@ -118,7 +118,7 @@ class StopwatchTest(absltest.TestCase):
     self.assertNotEqual(round, sw.decorate("name")(round))
 
   def testSpeed(self):
-    count = 1000
+    count = 100
 
     def run():
       for _ in range(count):
