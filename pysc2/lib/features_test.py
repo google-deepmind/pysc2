@@ -297,6 +297,13 @@ class DimensionsTest(absltest.TestCase):
     with self.assertRaises(ValueError):
       features.Dimensions(screen=64, minimap=(-32, -32))
 
+  def testEquality(self):
+    self.assertEqual(features.Dimensions(screen=64, minimap=64),
+                     features.Dimensions(screen=64, minimap=64))
+    self.assertNotEqual(features.Dimensions(screen=64, minimap=64),
+                        features.Dimensions(screen=64, minimap=32))
+    self.assertNotEqual(features.Dimensions(screen=64, minimap=64), None)
+
 
 class TestParseAgentInterfaceFormat(parameterized.TestCase):
 

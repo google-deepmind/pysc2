@@ -460,7 +460,8 @@ class Dimensions(object):
     return "Dimensions(screen={}, minimap={})".format(self.screen, self.minimap)
 
   def __eq__(self, other):
-    return self.screen == other.screen and self.minimap == other.minimap
+    return (isinstance(other, Dimensions) and self.screen == other.screen and
+            self.minimap == other.minimap)
 
   def __ne__(self, other):
     return not self == other
