@@ -25,7 +25,7 @@ def summarize_array_diffs(lhs, rhs):
   result = []
   indices = np.transpose(np.nonzero(lhs - rhs))
   for row in indices:
-    index = list(np.array([e]) for e in row.tolist())
+    index = tuple(np.array([e]) for e in row.tolist())
     lhs_element = lhs[index]
     rhs_element = rhs[index]
     result.append("{}: {} -> {}".format(

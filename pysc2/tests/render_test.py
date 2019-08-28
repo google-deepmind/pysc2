@@ -86,11 +86,11 @@ class TestRender(utils.TestCase):
         rgb_screen = features.Feature.unpack_rgb_image(obs.render_data.map)
         rgb_minimap = features.Feature.unpack_rgb_image(obs.render_data.minimap)
         fl_screen = np.stack(
-            or_zeros(f.unpack(obs), interface.feature_layer.resolution)
-            for f in features.SCREEN_FEATURES)
+            [or_zeros(f.unpack(obs), interface.feature_layer.resolution)
+             for f in features.SCREEN_FEATURES])
         fl_minimap = np.stack(
-            or_zeros(f.unpack(obs), interface.feature_layer.minimap_resolution)
-            for f in features.MINIMAP_FEATURES)
+            [or_zeros(f.unpack(obs), interface.feature_layer.minimap_resolution)
+             for f in features.MINIMAP_FEATURES])
 
         # Right shapes.
         self.assertEqual(rgb_screen.shape, (256, 256, 3))

@@ -1150,15 +1150,15 @@ class Features(object):
     if aif.feature_dimensions:
       with sw("feature_screen"):
         out["feature_screen"] = named_array.NamedNumpyArray(
-            np.stack(or_zeros(f.unpack(obs.observation),
-                              aif.feature_dimensions.screen)
-                     for f in SCREEN_FEATURES),
+            np.stack([or_zeros(f.unpack(obs.observation),
+                               aif.feature_dimensions.screen)
+                      for f in SCREEN_FEATURES]),
             names=[ScreenFeatures, None, None])
       with sw("feature_minimap"):
         out["feature_minimap"] = named_array.NamedNumpyArray(
-            np.stack(or_zeros(f.unpack(obs.observation),
-                              aif.feature_dimensions.minimap)
-                     for f in MINIMAP_FEATURES),
+            np.stack([or_zeros(f.unpack(obs.observation),
+                               aif.feature_dimensions.minimap)
+                      for f in MINIMAP_FEATURES]),
             names=[MinimapFeatures, None, None])
 
     if aif.rgb_dimensions:
