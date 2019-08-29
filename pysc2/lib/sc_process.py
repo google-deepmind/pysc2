@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from absl import logging
 import os
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -98,16 +99,17 @@ class StarcraftProcess(object):
     ]
     if ":" in self._host:
       args += ["-ipv6"]
-    if full_screen:
-      args += ["-displayMode", "1"]
-    else:
-      args += [
-          "-displayMode", "0",
-          "-windowwidth", str(window_size[0]),
-          "-windowheight", str(window_size[1]),
-          "-windowx", str(window_loc[0]),
-          "-windowy", str(window_loc[1]),
-      ]
+    if platform.system() != "Linux":
+      if full_screen:
+        args += ["-displayMode", "1"]
+      else:
+        args += [
+            "-displayMode", "0",
+            "-windowwidth", str(window_size[0]),
+            "-windowheight", str(window_size[1]),
+            "-windowx", str(window_loc[0]),
+            "-windowy", str(window_loc[1]),
+        ]
 
     if verbose or FLAGS.sc2_verbose:
       args += ["-verbose"]
