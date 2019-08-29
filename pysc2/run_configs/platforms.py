@@ -161,10 +161,12 @@ class MacOS(LocalBase):
 class Linux(LocalBase):
   """Config to run on Linux."""
 
-  known_mesa = [  # In priority order
-      "libOSMesa.so",
-      "libOSMesa.so.8",  # Ubuntu 16.04
-      "libOSMesa.so.6",  # Ubuntu 14.04
+  known_gl_libs = [  # In priority order. Prefer hardware rendering.
+      ("-eglpath", "libEGL.so"),
+      ("-eglpath", "libEGL.so.1"),
+      ("-osmesapath", "libOSMesa.so"),
+      ("-osmesapath", "libOSMesa.so.8"),  # Ubuntu 16.04
+      ("-osmesapath", "libOSMesa.so.6"),  # Ubuntu 14.04
   ]
 
   def __init__(self, version=None):
@@ -189,17 +191,15 @@ class Linux(LocalBase):
       # fails if you ask to use a library that doesn't exist.
       libs = subprocess.check_output(["/sbin/ldconfig", "-p"]).decode()
       libs = {lib.strip().split()[0] for lib in libs.split("\n") if lib}
-      if "libEGL.so" in libs:  # Prefer hardware rendering.
-        extra_args += ["-eglpath", "libEGL.so"]
+      for arg, lib_name in self.known_gl_libs:
+        if lib_name in libs:
+          extra_args += [arg, lib_name]
+          break
       else:
-        for mesa_lib in self.known_mesa:  # Look for a software renderer.
-          if mesa_lib in libs:
-            extra_args += ["-osmesapath", mesa_lib]
-            break
-        else:
-          logging.info(
-              "No GL library found, so RGB rendering will be disabled. "
-              "For software rendering install libosmesa.")
+        extra_args += ["-headlessNoRender"]
+        logging.info(
+            "No GL library found, so RGB rendering will be disabled. "
+            "For software rendering install libosmesa.")
 
     return super(Linux, self).start(
         want_rgb=want_rgb, extra_args=extra_args, **kwargs)
