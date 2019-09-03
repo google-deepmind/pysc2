@@ -43,6 +43,7 @@ ladder_seasons = [
     "Ladder2018Season4",
     "Ladder2019Season1",
     "Ladder2019Season2",
+    "Ladder2019Season3",
 ]
 
 for name in ladder_seasons:
@@ -57,7 +58,7 @@ ladder_maps = [
     (Ladder2017Season4, "Abyssal Reef LE", 2),
     (Ladder2018Season3, "Acid Plant LE", 2),
     (Ladder2017Season3, "Acolyte LE", 2),
-    (Ladder2019Season2, "Acropolis LE", 2),
+    (Ladder2019Season3, "Acropolis LE", 2),
     (Ladder2017Season4, "Ascension to Aiur LE", 2),
     (Ladder2019Season1, "Automaton LE", 2),
     (Ladder2018Season1, "Backwater LE", 2),
@@ -71,8 +72,10 @@ ladder_maps = [
     (Ladder2019Season2, "Cyber Forest LE", 2),
     (Ladder2018Season2, "Darkness Sanctuary LE", 4),
     (Ladder2017Season2, "Defender's Landing LE", 2),
+    (Ladder2019Season3, "Disco Bloodbath LE", 2),
     (Ladder2018Season3, "Dreamcatcher LE", 2),
     (Ladder2018Season1, "Eastwatch LE", 2),
+    (Ladder2019Season3, "Ephemeron LE", 2),
     (Ladder2018Season3, "Fracture LE", 2),
     (Ladder2017Season3, "Frost LE", 2),
     (Ladder2017Season1, "Honorgrounds LE", 4),
@@ -92,8 +95,11 @@ ladder_maps = [
     (Ladder2018Season2, "Redshift LE", 2),
     (Ladder2017Season2, "Sequencer LE", 2),
     (Ladder2018Season4, "Stasis LE", 2),
-    (Ladder2019Season2, "Thunderbird LE", 2),
+    (Ladder2019Season3, "Thunderbird LE", 2),
+    (Ladder2019Season3, "Triton LE", 2),
     (Ladder2019Season2, "Turbo Cruise '84 LE", 2),
+    (Ladder2019Season3, "Winter's Gate LE", 2),
+    (Ladder2019Season3, "World of Sleepers LE", 2),
     (Ladder2019Season1, "Year Zero LE", 2),
 
     # Disabled due to being renamed to Neo Seoul
