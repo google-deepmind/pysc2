@@ -44,6 +44,7 @@ class Buffs(enum.IntEnum):
   GravitonBeam = 5
   GuardianShield = 18
   ImmortalOverload = 102
+  InhibitorZoneTemporalField = 289
   LockOn = 116
   LurkerHoldFire = 136
   LurkerHoldFireB = 137

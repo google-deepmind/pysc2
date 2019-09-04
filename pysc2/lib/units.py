@@ -67,13 +67,17 @@ class Neutral(enum.IntEnum):
   DestructibleRockEx1DiagonalHugeBLUR = 641
   DestructibleRockEx1DiagonalHugeULBR = 640
   DestructibleRockEx1HorizontalHuge = 643
+  DestructibleRockEx1VerticalHuge = 642
   Dog = 336
+  InhibitorZoneMedium = 1958
+  InhibitorZoneSmall = 1957
   KarakFemale = 324
   LabBot = 661
   LabMineralField = 665
   LabMineralField750 = 666
   Lyote = 321
   MineralField = 341
+  MineralField450 = 1961
   MineralField750 = 483
   ProtossVespeneGeyser = 608
   PurifierMineralField = 884
@@ -104,6 +108,7 @@ class Protoss(enum.IntEnum):
   AdeptPhaseShift = 801
   Archon = 141
   Assimilator = 61
+  AssimilatorRich = 1955
   Carrier = 79
   Colossus = 4
   CyberneticsCore = 72
@@ -189,6 +194,7 @@ class Terran(enum.IntEnum):
   Reactor = 6
   Reaper = 49
   Refinery = 20
+  RefineryRich = 1960
   RepairDrone = 1913
   SCV = 45
   SensorTower = 25
@@ -234,6 +240,7 @@ class Zerg(enum.IntEnum):
   DroneBurrowed = 116
   EvolutionChamber = 90
   Extractor = 88
+  ExtractorRich = 1956
   GreaterSpire = 102
   Hatchery = 86
   Hive = 101
