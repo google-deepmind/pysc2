@@ -38,6 +38,7 @@ from pysc2.lib import point
 from pysc2.lib import protocol
 from pysc2.lib import remote_controller
 from pysc2.lib import replay
+from pysc2.lib import static_data
 
 from pysc2.lib import gfile
 from s2clientprotocol import common_pb2 as sc_common
@@ -114,6 +115,13 @@ class ReplayStats(object):
   def __str__(self):
     len_sorted_dict = lambda s: (len(s), sorted_dict_str(s))
     len_sorted_list = lambda s: (len(s), sorted(s))
+
+    new_abilities = ((set(self.valid_abilities.keys())
+                      | set(self.made_abilities.keys()))
+                     - set(static_data.ABILITIES))
+    new_units = set(self.unit_ids) - set(static_data.UNIT_TYPES)
+    new_buffs = set(self.buffs) - set(static_data.BUFFS)
+    new_upgrades = set(self.upgrades) - set(static_data.UPGRADES)
     return "\n\n".join((
         "Replays: %s, Steps total: %s" % (self.replays, self.steps),
         "Camera move: %s, Select pt: %s, Select rect: %s, Control group: %s" % (
@@ -122,12 +130,16 @@ class ReplayStats(object):
         "Maps: %s\n%s" % len_sorted_dict(self.maps),
         "Races: %s\n%s" % len_sorted_dict(self.races),
         "Unit ids: %s\n%s" % len_sorted_dict(self.unit_ids),
+        "New units: %s \n%s" % len_sorted_list(new_units),
         "Valid abilities: %s\n%s" % len_sorted_dict(self.valid_abilities),
         "Made abilities: %s\n%s" % len_sorted_dict(self.made_abilities),
+        "New abilities: %s\n%s" % len_sorted_list(new_abilities),
         "Valid actions: %s\n%s" % len_sorted_dict(self.valid_actions),
         "Made actions: %s\n%s" % len_sorted_dict(self.made_actions),
         "Buffs: %s\n%s" % len_sorted_dict(self.buffs),
+        "New buffs: %s\n%s" % len_sorted_list(new_buffs),
         "Upgrades: %s\n%s" % len_sorted_dict(self.upgrades),
+        "New upgrades: %s\n%s" % len_sorted_list(new_upgrades),
         "Effects: %s\n%s" % len_sorted_dict(self.effects),
         "Crashing replays: %s\n%s" % len_sorted_list(self.crashing_replays),
         "Invalid replays: %s\n%s" % len_sorted_list(self.invalid_replays),
