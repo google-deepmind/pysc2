@@ -37,6 +37,7 @@ from pysc2.lib import features
 from pysc2.lib import point
 from pysc2.lib import protocol
 from pysc2.lib import remote_controller
+from pysc2.lib import replay
 
 from pysc2.lib import gfile
 from s2clientprotocol import common_pb2 as sc_common
@@ -190,7 +191,8 @@ class ReplayProcessor(multiprocessing.Process):
       self._print("Starting up a new SC2 instance.")
       self._update_stage("launch")
       try:
-        with self.run_config.start() as controller:
+        with self.run_config.start(
+            want_rgb=interface.HasField("render")) as controller:
           self._print("SC2 Started successfully.")
           ping = controller.ping()
           for _ in range(300):
@@ -355,7 +357,6 @@ def main(unused_argv):
 
   stats_queue = multiprocessing.Queue()
   stats_thread = threading.Thread(target=stats_printer, args=(stats_queue,))
-  stats_thread.start()
   try:
     # For some reason buffering everything into a JoinableQueue makes the
     # program not exit, so save it into a list then slowly fill it into the
@@ -364,7 +365,19 @@ def main(unused_argv):
     # The replay_queue.join below succeeds without doing any work, and exits.
     print("Getting replay list:", FLAGS.replays)
     replay_list = sorted(run_config.replay_paths(FLAGS.replays))
-    print(len(replay_list), "replays found.\n")
+    print(len(replay_list), "replays found.")
+    if not replay_list:
+      return
+
+    if not FLAGS["sc2_version"].present:  # ie not set explicitly.
+      version = replay.get_replay_version(
+          run_config.replay_data(replay_list[0]))
+      run_config = run_configs.get(version=version)
+      print("Assuming version:", version.game_version)
+
+    print()
+
+    stats_thread.start()
     replay_queue = multiprocessing.JoinableQueue(FLAGS.parallel * 10)
     replay_queue_thread = threading.Thread(target=replay_queue_filler,
                                            args=(replay_queue, replay_list))
@@ -382,7 +395,8 @@ def main(unused_argv):
     print("Caught KeyboardInterrupt, exiting.")
   finally:
     stats_queue.put(None)  # Tell the stats_thread to print and exit.
-    stats_thread.join()
+    if stats_thread.is_alive():
+      stats_thread.join()
 
 
 if __name__ == "__main__":
