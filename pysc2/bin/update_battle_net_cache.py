@@ -69,8 +69,13 @@ def update_battle_net_cache(replays, bnet_base):
   test_looks_like_battle_net(bnet_base)
 
   downloaded = 0
+  failed = set()
   for replay_path in replays:
-    archive = mpyq.MPQArchive(replay_path)
+    try:
+      archive = mpyq.MPQArchive(replay_path)
+    except ValueError:
+      print("Failed to parse replay:", replay_path)
+      continue
     extracted = archive.extract()
     contents = archive.header["user_data_header"]["content"]
     header = s2versions.latest().decode_replay_header(contents)
@@ -81,19 +86,26 @@ def update_battle_net_cache(replays, bnet_base):
                      extracted.get(b"replay.details.backup"))
     details = prot.decode_replay_details(details_bytes)
 
-    map_handle = details["m_cacheHandles"][-1]
-    # server = map_handle[4:8].decode("utf-8").strip("\x00 ")
-    map_hash = binascii.b2a_hex(map_handle[8:]).decode("utf8")
-    file_type = map_handle[0:4].decode("utf8")
+    for map_handle in details["m_cacheHandles"]:
+      # server = map_handle[4:8].decode("utf-8").strip("\x00 ")
+      map_hash = binascii.b2a_hex(map_handle[8:]).decode("utf8")
+      file_type = map_handle[0:4].decode("utf8")
 
-    cache_path = os.path.join(bnet_base, "Cache", map_hash[0:2], map_hash[2:4],
-                              "%s.%s" % (map_hash, file_type))
+      cache_path = os.path.join(
+          bnet_base, "Cache", map_hash[0:2], map_hash[2:4],
+          "%s.%s" % (map_hash, file_type))
 
-    if True or not os.path.exists(cache_path):
-      mkdirs(os.path.dirname(cache_path))
       url = DEPOT_URL_TEMPLATE.format(hash=map_hash, type=file_type)
-      urllib.request.urlretrieve(url, cache_path)
-      downloaded += 1
+      if not os.path.exists(cache_path) and url not in failed:
+        mkdirs(os.path.dirname(cache_path))
+        print(url)
+        try:
+          urllib.request.urlretrieve(url, cache_path)
+        except urllib.error.HTTPError as e:
+          print("Download failed:", e)
+          failed.add(url)
+        else:
+          downloaded += 1
   return downloaded
 
 
