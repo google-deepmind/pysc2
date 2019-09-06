@@ -39,6 +39,7 @@ class Upgrades(enum.IntEnum):
   CorvidReactor = 22
   CycloneRapidFireLaunchers = 291
   DrillingClaws = 122
+  EnhancedShockwaves = 296
   ExtendedThermalLance = 50
   GlialReconstitution = 2
   GraviticBooster = 48
