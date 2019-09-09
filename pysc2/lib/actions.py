@@ -329,7 +329,7 @@ class RawArguments(collections.namedtuple("RawArguments", [
     unit_tags: Which units should execute this action.
     target_unit_tag: The target unit of this action.
   """
-  ___slots__ = ()
+  __slots__ = ()
 
   @classmethod
   def types(cls, **kwargs):
