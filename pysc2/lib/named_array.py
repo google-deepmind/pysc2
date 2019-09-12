@@ -166,17 +166,21 @@ class NamedNumpyArray(np.ndarray):
       dim = 0
       for i, index in enumerate(indices):
         if isinstance(index, numbers.Integral):
-          pass  # Drop this dimension's names.
+          dim += 1  # Drop this dimension's names.
         elif index is Ellipsis:
           # Copy all the dimensions' names through.
-          end = len(self.shape) - len(indices) + i
-          for j in range(dim, end + 1):
+          end = len(self.shape) - len(indices) + i + 1
+          for j in range(dim, end):
             new_names.append(self._index_names[j])
           dim = end
+        elif index is np.newaxis:  # Add an unnamed dimension.
+          new_names.append(None)
+          # Don't modify dim, as we're still working on the same one.
         elif (self._index_names[dim] is None or
               (isinstance(index, slice) and index == _NULL_SLICE)):
           # Keep unnamed dimensions or ones where the slice is a no-op.
           new_names.append(self._index_names[dim])
+          dim += 1
         elif isinstance(index, (slice, list, np.ndarray)):
           if isinstance(index, np.ndarray) and len(index.shape) > 1:
             raise TypeError("What does it mean to index into a named array by "
@@ -191,9 +195,9 @@ class NamedNumpyArray(np.ndarray):
             # Names aren't unique, so drop the names for this dimension.
             indexed = None
           new_names.append(indexed)
+          dim += 1
         else:
           raise TypeError("Unknown index: %s; %s" % (type(index), index))
-        dim += 1
       obj._index_names = new_names + self._index_names[dim:]
       if len(obj._index_names) != len(obj.shape):
         raise IndexError("Names don't match object shape: %s != %s" % (
@@ -250,10 +254,12 @@ class NamedNumpyArray(np.ndarray):
       for i, index in enumerate(indices):
         if index is Ellipsis:
           out.append(index)
-          dim = len(self.shape) - len(indices) + i
+          dim = len(self.shape) - len(indices) + i + 1
+        elif index is np.newaxis:
+          out.append(None)
         else:
           out.append(self._get_index(dim, index))
-        dim += 1
+          dim += 1
       return tuple(out)
     else:
       return self._get_index(0, indices)

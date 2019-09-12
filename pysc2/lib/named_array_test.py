@@ -110,6 +110,21 @@ class NamedArrayTest(parameterized.TestCase):
     with self.assertRaises(KeyError):
       a["d"]  # pylint: disable=pointless-statement
 
+    # New axis = None
+    self.assertArrayEqual(a, [1, 3, 6])
+    self.assertArrayEqual(a[np.newaxis], [[1, 3, 6]])
+    self.assertArrayEqual(a[None], [[1, 3, 6]])
+    self.assertArrayEqual(a[None, :], [[1, 3, 6]])
+    self.assertArrayEqual(a[:, None], [[1], [3], [6]])
+    self.assertArrayEqual(a[None, :, None], [[[1], [3], [6]]])
+    self.assertArrayEqual(a[None, a % 3 == 0, None], [[[3], [6]]])
+    self.assertArrayEqual(a[None][None], [[[1, 3, 6]]])
+    self.assertArrayEqual(a[None][0], [1, 3, 6])
+    self.assertEqual(a[None, 0], 1)
+    self.assertEqual(a[None, "a"], 1)
+    self.assertEqual(a[None][0].a, 1)
+    self.assertEqual(a[None][0, "b"], 3)
+
     # range slicing
     self.assertArrayEqual(a[0:2], [1, 3])
     self.assertArrayEqual(a[1:3], [3, 6])
@@ -194,6 +209,22 @@ class NamedArrayTest(parameterized.TestCase):
     with self.assertRaises(TypeError):
       a[0].a  # pylint: disable=pointless-statement
 
+    # New axis = None
+    self.assertArrayEqual(a, [[1, 3], [6, 8]])
+    self.assertArrayEqual(a[np.newaxis], [[[1, 3], [6, 8]]])
+    self.assertArrayEqual(a[None], [[[1, 3], [6, 8]]])
+    self.assertArrayEqual(a[None, :], [[[1, 3], [6, 8]]])
+    self.assertArrayEqual(a[None, "a"], [[1, 3]])
+    self.assertArrayEqual(a[:, None], [[[1, 3]], [[6, 8]]])
+    self.assertArrayEqual(a[None, :, None], [[[[1, 3]], [[6, 8]]]])
+    self.assertArrayEqual(a[None, 0, None], [[[1, 3]]])
+    self.assertArrayEqual(a[None, "a", None], [[[1, 3]]])
+    self.assertArrayEqual(a[None][None], [[[[1, 3], [6, 8]]]])
+    self.assertArrayEqual(a[None][0], [[1, 3], [6, 8]])
+    self.assertArrayEqual(a[None][0].a, [1, 3])
+    self.assertEqual(a[None][0].a[0], 1)
+    self.assertEqual(a[None][0, "b", 1], 8)
+
   def test_named_array_multi_second(self):
     a = named_array.NamedNumpyArray([[1, 3], [6, 8]], [None, ["a", "b"]])
     self.assertArrayEqual(a[0], [1, 3])
@@ -206,6 +237,7 @@ class NamedArrayTest(parameterized.TestCase):
     self.assertArrayEqual(a[a % 3 == 0], [3, 6])
     with self.assertRaises(TypeError):
       a.a  # pylint: disable=pointless-statement
+    self.assertArrayEqual(a[None, :, "a"], [[1, 6]])
 
   def test_masking(self):
     a = named_array.NamedNumpyArray([[1, 2, 3, 4], [5, 6, 7, 8]],
