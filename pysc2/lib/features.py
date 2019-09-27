@@ -1058,7 +1058,6 @@ class Features(object):
         "multi_select": (0, len(UnitLayer)),
         "player": (len(Player),),
         "production_queue": (0, len(ProductionQueue)),
-        "radar": (0, len(Radar)),
         "score_cumulative": (len(ScoreCumulative),),
         "score_by_category": (len(ScoreByCategory), len(ScoreCategories)),
         "score_by_vital": (len(ScoreByVital), len(ScoreVitals)),
@@ -1093,6 +1092,9 @@ class Features(object):
     if aif.use_raw_units:
       obs_spec["raw_units"] = (0, len(FeatureUnit))
       obs_spec["raw_effects"] = (0, len(EffectPos))
+
+    if aif.use_feature_units or aif.use_raw_units:
+      obs_spec["radar"] = (0, len(Radar))
 
     obs_spec["upgrades"] = (0,)
 
@@ -1526,12 +1528,13 @@ class Features(object):
         if player_id != player.player_id:
           out["away_race_requested"] = np.array((race,), dtype=np.int32)
 
-    def transform_radar(radar):
-      p = self._world_to_minimap_px.fwd_pt(point.Point.build(radar.pos))
-      return p.x, p.y, radar.radius
-    out["radar"] = named_array.NamedNumpyArray(
-        list(map(transform_radar, obs.observation.raw_data.radar)),
-        [None, Radar], dtype=np.int32)
+    if aif.use_feature_units or aif.use_raw_units:
+      def transform_radar(radar):
+        p = self._world_to_minimap_px.fwd_pt(point.Point.build(radar.pos))
+        return p.x, p.y, radar.radius
+      out["radar"] = named_array.NamedNumpyArray(
+          list(map(transform_radar, obs.observation.raw_data.radar)),
+          [None, Radar], dtype=np.int32)
 
     # Send the entire proto as well (in a function, so it isn't copied).
     if self._send_observation_proto:
