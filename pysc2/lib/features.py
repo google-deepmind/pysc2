@@ -216,6 +216,9 @@ class FeatureUnit(enum.IntEnum):
   attack_upgrade_level = 43
   armor_upgrade_level = 44
   shield_upgrade_level = 45
+  rally_x_0 = 46
+  rally_y_0 = 47
+  rally_tag_0 = 48
 
 
 class EffectPos(enum.IntEnum):
@@ -1347,6 +1350,9 @@ class Features(object):
           u.attack_upgrade_level,
           u.armor_upgrade_level,
           u.shield_upgrade_level,
+          u.rally_targets[0].point.x if len(u.rally_targets) >= 1 else 0,
+          u.rally_targets[0].point.y if len(u.rally_targets) >= 1 else 0,
+          u.rally_targets[0].tag if len(u.rally_targets) >= 1 else 0,
       ]
       return features
 
