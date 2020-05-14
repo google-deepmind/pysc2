@@ -151,7 +151,7 @@ $ python -m pysc2.bin.play --map Simple64
 ```
 
 In the UI, hit `?` for a list of the hotkeys. The most basic ones are: `F4` to
-quit, `F5` to restart, `F9` to save a replay, and `Pgup`/`Pgdn` to control the
+quit, `F5` to restart, `F8` to save a replay, and `Pgup`/`Pgdn` to control the
 speed of the game. Otherwise use the mouse for selection and keyboard for
 commands listed on the left.
 
