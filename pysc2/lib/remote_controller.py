@@ -36,7 +36,7 @@ from s2clientprotocol import sc2api_pb2 as sc_pb
 flags.DEFINE_bool("sc2_log_actions", False,
                   ("Print all the actions sent to SC2. If you want observations"
                    " as well, consider using `sc2_verbose_protocol`."))
-flags.DEFINE_integer("sc2_timeout", 120,
+flags.DEFINE_integer("sc2_timeout", 360,
                      "Timeout to connect and wait for rpc responses.")
 FLAGS = flags.FLAGS
 
