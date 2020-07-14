@@ -300,8 +300,7 @@ class Feature(collections.namedtuple(
 
   @sw.decorate
   def color(self, plane):
-    if self.clip:
-      plane = np.clip(plane, 0, self.scale - 1)
+    plane = np.clip(plane, 0, self.scale - 1)
     return self.palette[plane]
 
 
