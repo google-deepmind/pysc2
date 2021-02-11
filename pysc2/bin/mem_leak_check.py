@@ -91,9 +91,9 @@ def main(unused_argv):
   episode = 1
 
   def add(s):
-    cpu_times = process.cpu_times()
+    cpu_times = process.cpu_times()  # pytype: disable=wrong-arg-count
     cpu = cpu_times.user + cpu_times.system
-    mem = process.memory_info().rss / 2 ** 20  # In Mb
+    mem = process.memory_info().rss / 2 ** 20  # In Mb  # pytype: disable=wrong-arg-count
     step = Timestep(episode, time.time() - start, cpu, mem, s)
     print(step)
     timeline.append(step)

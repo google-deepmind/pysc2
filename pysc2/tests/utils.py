@@ -85,7 +85,7 @@ def xy_locs(mask):
 def only_in_game(func):
   @functools.wraps(func)
   def decorator(self, *args, **kwargs):
-    if self.in_game:
+    if self.in_game:  # pytype: disable=attribute-error
       return func(self, *args, **kwargs)
   return decorator
 
@@ -220,7 +220,7 @@ class GameReplayTestCase(TestCase):
     action = sc_pb.Action()
     action.action_raw.camera_move.center_world_space.x = x
     action.action_raw.camera_move.center_world_space.y = y
-    return self._parallel.run((c.act, action) for c in self._controllers)
+    return self._parallel.run((c.act, action) for c in self._controllers)  # pytype: disable=attribute-error
 
   @only_in_game
   def raw_unit_command(self, player, ability_id, unit_tags, pos=None,
@@ -240,13 +240,13 @@ class GameReplayTestCase(TestCase):
       cmd.target_world_space_pos.y = pos[1]
     elif target:
       cmd.target_unit_tag = target
-    response = self._controllers[player].act(action)
+    response = self._controllers[player].act(action)  # pytype: disable=attribute-error
     for result in response.result:
       self.assertEqual(result, sc_error.Success)
 
   @only_in_game
   def debug(self, player=0, **kwargs):
-    self._controllers[player].debug([sc_debug.DebugCommand(**kwargs)])
+    self._controllers[player].debug([sc_debug.DebugCommand(**kwargs)])  # pytype: disable=attribute-error
 
   def god(self):
     """Stop the units from killing each other so we can observe them."""
