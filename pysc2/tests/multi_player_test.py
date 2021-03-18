@@ -120,6 +120,7 @@ class TestMultiplayer(utils.TestCase):
       for p in sc2_procs:
         p.close()
       portspicker.return_ports(ports)
+      parallel.shutdown()
 
 
 if __name__ == "__main__":
