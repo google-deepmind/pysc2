@@ -61,12 +61,14 @@ class RunParallelTest(absltest.TestCase):
     self.assertListEqual(out, [0])
     out = pool.run([lambda: 1, lambda: 2, lambda: "asdf", lambda: {1: 2}])
     self.assertListEqual(out, [1, 2, "asdf", {1: 2}])
+    pool.shutdown()
 
   def test_run_in_parallel(self):
     b = Barrier(3)
     pool = run_parallel.RunParallel()
     out = pool.run([b.wait, b.wait, b.wait])
-    self.assertItemsEqual(out, [0, 1, 2])
+    self.assertCountEqual(out, [0, 1, 2])
+    pool.shutdown()
 
   def test_avoids_deadlock(self):
     b = Barrier(2)
@@ -75,6 +77,7 @@ class RunParallelTest(absltest.TestCase):
       pool.run([int, b.wait, bad])
     # Release the thread waiting on the barrier so the process can exit cleanly.
     b.clear()
+    pool.shutdown()
 
   def test_exception(self):
     pool = run_parallel.RunParallel()
@@ -85,11 +88,13 @@ class RunParallelTest(absltest.TestCase):
       pool.run([bad])
     with self.assertRaises(ValueError):
       pool.run([int, bad])
+    pool.shutdown()
 
   def test_partial(self):
     pool = run_parallel.RunParallel()
     out = pool.run((max, 0, i - 2) for i in range(5))
     self.assertListEqual(out, [0, 0, 0, 1, 2])
+    pool.shutdown()
 
 
 if __name__ == "__main__":

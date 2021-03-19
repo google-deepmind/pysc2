@@ -19,11 +19,10 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
+import enum
 from absl import logging
 import random
 import time
-
-import enum
 
 from pysc2 import maps
 from pysc2 import run_configs
@@ -644,8 +643,9 @@ class SC2Env(environment.Base):
           ("The game didn't advance to the expected game loop. "
            "Expected: %s, got: %s") % (target_game_loop, game_loop))
     elif game_loop > target_game_loop and target_game_loop > 0:
-      logging.warn("Received observation %d step(s) late: %d rather than %d.",
-                   game_loop - target_game_loop, game_loop, target_game_loop)
+      logging.warning(
+          "Received observation %d step(s) late: %d rather than %d.",
+          game_loop - target_game_loop, game_loop, target_game_loop)
 
     if self._realtime:
       # Track delays on executed actions.
@@ -770,6 +770,10 @@ class SC2Env(environment.Base):
     if hasattr(self, "_ports") and self._ports:
       portspicker.return_ports(self._ports)
       self._ports = None
+
+    if hasattr(self, "_parallel") and self._parallel is not None:
+      self._parallel.shutdown()
+      self._parallel = None
 
     self._game_info = None
 

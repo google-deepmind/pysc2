@@ -62,7 +62,7 @@ class TestHostRemoteAgent(utils.TestCase):
       with host_remote_agent.VsAgent() as game:
         game.create_game("Simple64")
         controllers = [
-            remote_controller.RemoteController(
+            remote_controller.RemoteController(  # pylint:disable=g-complex-comprehension
                 host=host,
                 port=host_port)
             for host, host_port in zip(game.hosts, game.host_ports)]
@@ -86,6 +86,8 @@ class TestHostRemoteAgent(utils.TestCase):
 
         parallel.run(c.leave for c in controllers)
         parallel.run(c.close for c in controllers)
+
+    parallel.shutdown()
 
 
 if __name__ == "__main__":

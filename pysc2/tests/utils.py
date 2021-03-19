@@ -206,13 +206,15 @@ class GameReplayTestCase(TestCase):
     if hasattr(self, "_ports") and self._ports:
       portspicker.return_ports(self._ports)
       self._ports = None
-    self._parallel = None
+    if hasattr(self, "_parallel") and self._parallel is not None:
+      self._parallel.shutdown()
+      self._parallel = None
 
   def step(self, count=4):
     return self._parallel.run((c.step, count) for c in self._controllers)
 
   def observe(self, disable_fog=False):
-    return self._parallel.run((c.observe, disable_fog)
+    return self._parallel.run((c.observe, disable_fog)  # pytype: disable=attribute-error
                               for c in self._controllers)  # pytype: disable=attribute-error
 
   @only_in_game

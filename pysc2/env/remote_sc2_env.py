@@ -168,6 +168,9 @@ class RemoteSC2Env(sc2_env.SC2Env):
       self._in_game = False
       logging.info("Left game.")
     self._controllers[0].close()
+    if hasattr(self, "_parallel") and self._parallel is not None:
+      self._parallel.shutdown()
+      self._parallel = None
 
     # We don't own the SC2 process, we shouldn't call quit in the super class.
     self._controllers = None

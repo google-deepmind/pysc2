@@ -365,4 +365,7 @@ class LanSC2Env(sc2_env.SC2Env):
       self._udp_sock.close()
       self._udp_sock = None
     self._run_config = None
+    if hasattr(self, "_parallel") and self._parallel is not None:
+      self._parallel.shutdown()
+      self._parallel = None
     super(LanSC2Env, self).close()
