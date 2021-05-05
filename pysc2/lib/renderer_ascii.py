@@ -13,7 +13,6 @@
 # limitations under the License.
 """Give a crude ascii rendering of the feature_screen."""
 
-from future.builtins import range  # pylint: disable=redefined-builtin
 
 from pysc2.lib import units
 

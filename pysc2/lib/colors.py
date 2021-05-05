@@ -17,7 +17,6 @@ import collections
 import math
 import random
 
-from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy
 
 from pysc2.lib import static_data

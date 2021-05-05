@@ -56,7 +56,6 @@ setup(
         'absl-py>=0.1.0',
         'deepdiff',
         'enum34',
-        'future',
         'futures; python_version == "2.7"',
         'mock',
         'mpyq',

@@ -16,7 +16,6 @@
 
 from absl.testing import absltest
 from absl.testing import parameterized
-from future.builtins import range  # pylint: disable=redefined-builtin
 
 from pysc2.agents import random_agent
 from pysc2.env import run_loop

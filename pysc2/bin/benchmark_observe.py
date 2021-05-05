@@ -18,7 +18,6 @@ import time
 
 from absl import app
 from absl import flags
-from future.builtins import range  # pylint: disable=redefined-builtin
 
 from pysc2 import maps
 from pysc2 import run_configs

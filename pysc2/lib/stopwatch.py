@@ -21,8 +21,6 @@ import sys
 import threading
 import time
 
-from future.builtins import range  # pylint: disable=redefined-builtin
-
 
 class Stat(object):
   """A set of statistics about a single value series."""

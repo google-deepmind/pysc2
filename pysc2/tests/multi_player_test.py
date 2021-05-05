@@ -18,7 +18,6 @@ from absl import logging
 import os
 
 from absl.testing import absltest
-from future.builtins import range  # pylint: disable=redefined-builtin
 
 from pysc2 import maps
 from pysc2 import run_configs

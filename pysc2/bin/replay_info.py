@@ -18,7 +18,6 @@ import os
 
 from absl import app
 from absl import flags
-from future.builtins import str  # pylint: disable=redefined-builtin
 
 from pysc2 import run_configs
 from pysc2.lib import remote_controller

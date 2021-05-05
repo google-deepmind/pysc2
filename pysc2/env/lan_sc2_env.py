@@ -28,7 +28,6 @@ import subprocess
 import threading
 import time
 
-from future.builtins import range  # pylint: disable=redefined-builtin
 from pysc2 import run_configs
 from pysc2.env import sc2_env
 from pysc2.lib import features

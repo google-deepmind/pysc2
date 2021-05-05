@@ -15,7 +15,6 @@
 """Benchmark the ping rate of SC2."""
 
 from absl.testing import absltest
-from future.builtins import range  # pylint: disable=redefined-builtin
 
 from pysc2 import run_configs
 from pysc2.lib import stopwatch

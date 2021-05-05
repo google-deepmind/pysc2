@@ -17,7 +17,6 @@
 import os
 
 from absl.testing import absltest
-from future.builtins import range  # pylint: disable=redefined-builtin
 
 import mock
 from pysc2.lib import stopwatch

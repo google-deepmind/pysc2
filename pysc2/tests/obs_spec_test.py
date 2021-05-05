@@ -15,7 +15,6 @@
 """Verify that the observations match the observation spec."""
 
 from absl.testing import absltest
-from future.builtins import range  # pylint: disable=redefined-builtin
 
 from pysc2.agents import random_agent
 from pysc2.env import sc2_env

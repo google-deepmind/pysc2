@@ -15,7 +15,6 @@
 """Test that two built in bots can be watched by an observer."""
 
 from absl.testing import absltest
-from future.builtins import range  # pylint: disable=redefined-builtin
 
 from pysc2 import maps
 from pysc2 import run_configs

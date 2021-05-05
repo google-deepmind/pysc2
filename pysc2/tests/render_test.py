@@ -15,7 +15,6 @@
 """Verify that the game renders rgb pixels."""
 
 from absl.testing import absltest
-from future.builtins import range  # pylint: disable=redefined-builtin
 
 import numpy as np
 

@@ -15,7 +15,6 @@
 """Tests for the point library."""
 
 from absl.testing import absltest
-from future.builtins import int  # pylint: disable=redefined-builtin
 
 from pysc2.lib import point
 

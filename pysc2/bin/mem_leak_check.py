@@ -23,7 +23,6 @@ import time
 
 from absl import app
 from absl import flags
-from future.builtins import range  # pylint: disable=redefined-builtin
 
 try:
   import psutil

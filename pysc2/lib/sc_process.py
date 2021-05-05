@@ -22,7 +22,6 @@ import tempfile
 import time
 
 from absl import flags
-from future.builtins import range  # pylint: disable=redefined-builtin
 
 import portpicker
 from pysc2.lib import remote_controller

@@ -19,7 +19,6 @@ import pickle
 
 from absl.testing import absltest
 from absl.testing import parameterized
-from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy
 from pysc2.lib import actions
 from pysc2.lib import features

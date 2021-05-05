@@ -28,7 +28,6 @@ import subprocess
 import threading
 import time
 
-from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy as np
 import pygame
 from pysc2.lib import buffs
