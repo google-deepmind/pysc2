@@ -14,10 +14,6 @@
 # limitations under the License.
 """Generate the list of versions for run_configs."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl import app
 import requests
 

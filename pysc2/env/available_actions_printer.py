@@ -13,10 +13,6 @@
 # limitations under the License.
 """An env wrapper to print the available actions."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from pysc2.env import base_env_wrapper
 
 

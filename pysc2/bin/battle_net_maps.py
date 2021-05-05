@@ -14,10 +14,6 @@
 # limitations under the License.
 """Print the list of available maps according to the game."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl import app
 
 from pysc2 import run_configs

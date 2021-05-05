@@ -14,10 +14,6 @@
 # limitations under the License.
 """Benchmark observation times."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl import app
 from absl import flags
 from pysc2 import run_configs

@@ -16,10 +16,6 @@
 Check pysc2/bin/play_vs_agent.py for documentation.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import binascii
 import collections
 import hashlib

@@ -23,10 +23,6 @@ something in `a` and return something in `c`. It's better to use the Chain
 transform to create `a_to_c`.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import numbers
 
 from pysc2.lib import point

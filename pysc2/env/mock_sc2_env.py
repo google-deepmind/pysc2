@@ -13,10 +13,6 @@
 # limitations under the License.
 """Mocking the Starcraft II environment."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import numpy as np
 from pysc2.env import environment
 from pysc2.env import sc2_env

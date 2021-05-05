@@ -17,10 +17,6 @@
 This can then e.g. be passed to features.transform_obs.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import math
 
 import numpy as np

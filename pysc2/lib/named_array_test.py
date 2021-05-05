@@ -14,10 +14,6 @@
 # limitations under the License.
 """Tests for lib.named_array."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import collections
 import enum
 import pickle

@@ -14,10 +14,6 @@
 # limitations under the License.
 """Test that some of the maps work."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import functools
 from absl import logging
 import os

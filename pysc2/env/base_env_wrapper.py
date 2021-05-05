@@ -13,10 +13,6 @@
 # limitations under the License.
 """A base env wrapper so we don't need to override everything every time."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from pysc2.env import environment
 
 

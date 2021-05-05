@@ -14,10 +14,6 @@
 # limitations under the License.
 """Tests for image_differencer.py."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl.testing import absltest
 import numpy as np
 from pysc2.lib import image_differencer

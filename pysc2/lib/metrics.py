@@ -13,10 +13,6 @@
 # limitations under the License.
 """Interface for tracking the number and/or latency of episodes and steps."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 
 class _EventTimer(object):
   """Example event timer to measure step and observation times."""

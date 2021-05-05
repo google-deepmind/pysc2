@@ -14,10 +14,6 @@
 # limitations under the License.
 """Verify that the game renders rgb pixels."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl.testing import absltest
 from future.builtins import range  # pylint: disable=redefined-builtin
 

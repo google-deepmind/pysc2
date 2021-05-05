@@ -14,10 +14,6 @@
 # limitations under the License.
 """Solve the nm_easy map using a fixed policy by reading the feature layers."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl.testing import absltest
 
 from pysc2.agents import scripted_agent

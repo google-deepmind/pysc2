@@ -17,10 +17,6 @@ Refer to the map descriptions here:
 http://wiki.teamliquid.net/starcraft2/Maps/Ladder_Maps/Legacy_of_the_Void
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import re
 
 from pysc2.maps import lib

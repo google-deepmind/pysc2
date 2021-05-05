@@ -14,10 +14,6 @@
 # limitations under the License.
 """Benchmark the ping rate of SC2."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl.testing import absltest
 from future.builtins import range  # pylint: disable=redefined-builtin
 

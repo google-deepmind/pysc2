@@ -17,10 +17,6 @@ This is mainly intended for use where the functions have a barrier and none will
 return until all have been called.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from concurrent import futures
 import functools
 

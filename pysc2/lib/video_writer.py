@@ -13,10 +13,6 @@
 # limitations under the License.
 """Write a video based on a numpy array."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import skvideo.io
 
 

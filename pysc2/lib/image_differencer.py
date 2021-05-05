@@ -14,10 +14,6 @@
 # limitations under the License.
 """Compare the observations from multiple binaries."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from pysc2.lib import features
 from pysc2.lib import np_util
 from pysc2.lib import proto_diff

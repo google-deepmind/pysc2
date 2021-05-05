@@ -14,10 +14,6 @@
 """A Starcraft II environment."""
 # pylint: disable=g-complex-comprehension
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import collections
 import enum
 from absl import logging

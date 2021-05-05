@@ -18,10 +18,6 @@ Here we verify that the observations processed by replays match the original
 observations of the gameplay.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl.testing import absltest
 from future.builtins import range  # pylint: disable=redefined-builtin
 

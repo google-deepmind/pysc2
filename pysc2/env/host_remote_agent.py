@@ -13,10 +13,6 @@
 # limitations under the License.
 """Creates SC2 processes and games for remote agents to connect into."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.lib import portspicker

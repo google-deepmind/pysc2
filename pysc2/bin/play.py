@@ -14,10 +14,6 @@
 # limitations under the License.
 """Run SC2 to play a game or a replay."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import getpass
 import platform
 import sys

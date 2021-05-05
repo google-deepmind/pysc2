@@ -14,10 +14,6 @@
 # limitations under the License.
 """Tests for lib.run_parallel."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import threading
 
 from absl.testing import absltest

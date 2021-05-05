@@ -14,10 +14,6 @@
 # limitations under the License.
 """Test that every version in run_configs actually runs."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl import logging
 
 from absl.testing import absltest

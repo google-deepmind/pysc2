@@ -14,10 +14,6 @@
 # limitations under the License.
 """Verify that we blow up if SC2 thinks we did something wrong."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl.testing import absltest
 
 from pysc2 import maps

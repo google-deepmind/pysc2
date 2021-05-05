@@ -13,10 +13,6 @@
 # limitations under the License.
 """Configs for how to run SC2 from a normal install on various platforms."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import copy
 from absl import logging
 import os

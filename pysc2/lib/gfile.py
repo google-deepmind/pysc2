@@ -17,10 +17,6 @@ A more complete public version of gfile:
 https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/platform/gfile.py
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 
 # pylint: disable=invalid-name

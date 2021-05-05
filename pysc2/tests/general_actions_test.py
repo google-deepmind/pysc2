@@ -14,10 +14,6 @@
 # limitations under the License.
 """Verify that the general ids in stable ids match what we expect."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl.testing import absltest
 from pysc2 import maps
 from pysc2 import run_configs

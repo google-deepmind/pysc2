@@ -13,10 +13,6 @@
 # limitations under the License.
 """Controllers take actions and generates observations in proto format."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import copy
 import functools
 from absl import logging

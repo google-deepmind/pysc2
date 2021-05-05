@@ -28,10 +28,6 @@ import the maps lib and use `get`. Using `get` from this lib will work, but only
 if you've imported the map module somewhere.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl import logging
 import os
 

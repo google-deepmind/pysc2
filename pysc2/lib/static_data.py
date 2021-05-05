@@ -13,10 +13,6 @@
 # limitations under the License.
 """Expose static data in a more useful form than the raw protos."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import six
 
 

@@ -17,10 +17,6 @@
 Run as: python -m pysc2.bin.run_tests
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl.testing import absltest
 
 import pysc2

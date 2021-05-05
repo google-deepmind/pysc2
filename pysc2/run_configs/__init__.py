@@ -13,10 +13,6 @@
 # limitations under the License.
 """Configs for various ways to run starcraft."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl import flags
 
 from pysc2.lib import sc_process

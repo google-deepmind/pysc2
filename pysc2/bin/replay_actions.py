@@ -14,10 +14,6 @@
 # limitations under the License.
 """Dump out stats about all the actions that are in use in a set of replays."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import collections
 import multiprocessing
 import os

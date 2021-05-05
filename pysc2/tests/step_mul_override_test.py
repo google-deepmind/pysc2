@@ -14,10 +14,6 @@
 # limitations under the License.
 """Test that stepping without observing works correctly for multiple players."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl.testing import absltest
 
 from pysc2.env import sc2_env

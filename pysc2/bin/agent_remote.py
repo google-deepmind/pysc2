@@ -41,10 +41,6 @@ Mac/Win and Linux. For these reasons, prefer play_vs_agent which runs the
 instance next to the agent, and tunnels the lan actions instead.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import getpass
 import importlib
 from absl import logging

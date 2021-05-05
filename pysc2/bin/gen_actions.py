@@ -14,10 +14,6 @@
 # limitations under the License.
 """Generate the action definitions for actions.py."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import itertools
 
 from absl import app

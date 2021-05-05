@@ -23,10 +23,6 @@ Your subclass will be implicitly registered as a map that can be constructed by
 name, as long as it is imported somewhere.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from pysc2.maps import ladder
 from pysc2.maps import lib
 from pysc2.maps import melee

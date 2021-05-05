@@ -14,10 +14,6 @@
 # limitations under the License.
 """Test for memory leaks."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 # pylint: disable=g-import-not-at-top
 
 import collections
