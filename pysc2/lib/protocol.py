@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import contextlib
+import enum
 import itertools
 from absl import logging
 import os
@@ -26,7 +27,6 @@ import sys
 import time
 
 from absl import flags
-import enum
 from pysc2.lib import stopwatch
 import websocket
 
@@ -46,10 +46,10 @@ sw = stopwatch.sw
 Status = enum.Enum("Status", sc_pb.Status.items())  # pylint: disable=invalid-name
 
 
-MAX_WIDTH = int(os.getenv("COLUMNS", 200))  # Get your TTY width.
+MAX_WIDTH = int(os.getenv("COLUMNS", "200"))  # Get your TTY width.
 
 
-class ConnectionError(Exception):
+class ConnectionError(Exception):  # pylint: disable=redefined-builtin
   """Failed to read/write a message, details in the error string."""
   pass
 

@@ -19,11 +19,11 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
+import enum
 import pickle
 
 from absl.testing import absltest
 from absl.testing import parameterized
-import enum
 import numpy as np
 
 from pysc2.lib import named_array

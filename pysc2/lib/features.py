@@ -19,10 +19,10 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
+import enum
 from absl import logging
 import random
 
-import enum
 import numpy as np
 import six
 from pysc2.lib import actions

@@ -117,7 +117,7 @@ class TestObservationSpec(utils.TestCase):
         time_steps = env.step(actions)
 
   def check_observation_matches_spec(self, obs, obs_spec):
-    self.assertItemsEqual(obs_spec.keys(), obs.keys())
+    self.assertCountEqual(obs_spec.keys(), obs.keys())
     for k, o in six.iteritems(obs):
       if k == "map_name":
         self.assertIsInstance(o, str)

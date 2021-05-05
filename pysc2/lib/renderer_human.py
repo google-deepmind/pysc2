@@ -19,22 +19,22 @@ from __future__ import print_function
 
 import collections
 import ctypes
+import enum
 import functools
 import itertools
 from absl import logging
 import math
 import os
 import platform
+import queue
 import re
 import subprocess
 import threading
 import time
 
-import enum
 from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy as np
 import pygame
-import queue
 from pysc2.lib import buffs
 from pysc2.lib import colors
 from pysc2.lib import features

@@ -21,10 +21,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import enum
 import numbers
 import re
 
-import enum
 from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy as np
 import six

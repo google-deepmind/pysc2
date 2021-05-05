@@ -36,7 +36,7 @@ def get_units(obs, filter_fn=None, owner=None, unit_type=None, tag=None):
   """Return a dict of units that match the filter."""
   if unit_type and not isinstance(unit_type, (list, tuple)):
     unit_type = (unit_type,)
-  return {u.tag: u for u in obs.observation.raw_data.units
+  return {u.tag: u for u in obs.observation.raw_data.units  # pylint: disable=g-complex-comprehension
           if ((filter_fn is None or filter_fn(u)) and
               (owner is None or u.owner == owner) and
               (unit_type is None or u.unit_type in unit_type) and

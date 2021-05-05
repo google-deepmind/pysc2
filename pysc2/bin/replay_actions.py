@@ -21,6 +21,7 @@ from __future__ import print_function
 import collections
 import multiprocessing
 import os
+import queue
 import signal
 import sys
 import threading
@@ -29,7 +30,6 @@ import time
 from absl import app
 from absl import flags
 from future.builtins import range  # pylint: disable=redefined-builtin
-import queue
 import six
 
 from pysc2 import run_configs

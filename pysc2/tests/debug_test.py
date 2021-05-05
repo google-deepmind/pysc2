@@ -76,7 +76,7 @@ class DebugTest(absltest.TestCase):
       obs = controller.observe()
 
       marines = get_marines(obs)
-      self.assertEqual(5, len(marines))
+      self.assertLen(marines, 5)
 
       tags = sorted(marines.keys())
 
@@ -93,7 +93,7 @@ class DebugTest(absltest.TestCase):
       obs = controller.observe()
 
       marines = get_marines(obs)
-      self.assertEqual(4, len(marines))
+      self.assertLen(marines, 4)
       self.assertNotIn(tags[0], marines)
       self.assertEqual(marines[tags[1]].health, 5)
 

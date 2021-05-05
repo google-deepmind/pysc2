@@ -18,9 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
+import enum
 import numbers
 
-import enum
 import numpy
 import six
 from pysc2.lib import point
