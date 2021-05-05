@@ -14,7 +14,6 @@
 """Define a flag type for points."""
 
 from absl import flags
-import six
 
 from pysc2.lib import point
 
@@ -33,7 +32,7 @@ class PointParser(flags.ArgumentParser):
       args = [argument]
     elif isinstance(argument, (list, tuple)):
       args = argument
-    elif isinstance(argument, six.string_types):
+    elif isinstance(argument, str):
       args = argument.split(",")
     else:
       raise ValueError(

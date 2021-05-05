@@ -20,7 +20,6 @@ from absl import logging
 import random
 
 import numpy as np
-import six
 from pysc2.lib import actions
 from pysc2.lib import colors
 from pysc2.lib import named_array
@@ -313,7 +312,7 @@ class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
 
   def __new__(cls, **kwargs):
     feats = {}
-    for name, (scale, type_, palette, clip) in six.iteritems(kwargs):
+    for name, (scale, type_, palette, clip) in kwargs.items():
       feats[name] = Feature(
           index=ScreenFeatures._fields.index(name),
           name=name,
@@ -335,7 +334,7 @@ class MinimapFeatures(collections.namedtuple("MinimapFeatures", [
 
   def __new__(cls, **kwargs):
     feats = {}
-    for name, (scale, type_, palette) in six.iteritems(kwargs):
+    for name, (scale, type_, palette) in kwargs.items():
       feats[name] = Feature(
           index=MinimapFeatures._fields.index(name),
           name=name,
@@ -1543,7 +1542,7 @@ class Features(object):
     """Return the list of available action ids."""
     available_actions = set()
     hide_specific_actions = self._agent_interface_format.hide_specific_actions
-    for i, func in six.iteritems(actions.FUNCTIONS_AVAILABLE):
+    for i, func in actions.FUNCTIONS_AVAILABLE.items():
       if func.avail_fn(obs):
         available_actions.add(i)
     for a in obs.abilities:

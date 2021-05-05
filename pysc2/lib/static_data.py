@@ -13,8 +13,6 @@
 # limitations under the License.
 """Expose static data in a more useful form than the raw protos."""
 
-import six
-
 
 class StaticData(object):
   """Expose static data in a more useful form than the raw protos."""
@@ -29,7 +27,7 @@ class StaticData(object):
                                for a in data.abilities
                                if a.remaps_to_ability_id}
 
-    for a in six.itervalues(self._abilities):
+    for a in self._abilities.values():
       a.hotkey = a.hotkey.lower()
 
   @property

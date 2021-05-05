@@ -67,7 +67,6 @@ setup(
         'requests',
         's2clientprotocol>=4.10.1.75800.0',
         's2protocol',
-        'six',
         'sk-video',
         'websocket-client',
         'whichcraft',

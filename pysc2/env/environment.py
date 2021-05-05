@@ -17,8 +17,6 @@ import abc
 import collections
 import enum
 
-import six
-
 
 class TimeStep(collections.namedtuple(
     'TimeStep', ['step_type', 'reward', 'discount', 'observation'])):
@@ -62,8 +60,7 @@ class StepType(enum.IntEnum):
   LAST = 2
 
 
-@six.add_metaclass(abc.ABCMeta)
-class Base(object):  # pytype: disable=ignored-abstractmethod
+class Base(metaclass=abc.ABCMeta):  # pytype: disable=ignored-abstractmethod
   """Abstract base class for Python RL environments."""
 
   @abc.abstractmethod

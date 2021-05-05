@@ -18,7 +18,6 @@ import enum
 import numbers
 
 import numpy
-import six
 from pysc2.lib import point
 
 from s2clientprotocol import spatial_pb2 as sc_spatial
@@ -204,7 +203,7 @@ def numpy_to_python(val):
   """Convert numpy types to their corresponding python types."""
   if isinstance(val, (int, float)):
     return val
-  if isinstance(val, six.string_types):
+  if isinstance(val, str):
     return val
   if (isinstance(val, numpy.number) or
       isinstance(val, numpy.ndarray) and not val.shape):  # numpy.array(1)
@@ -305,7 +304,7 @@ class Arguments(collections.namedtuple("Arguments", [
   def types(cls, **kwargs):
     """Create an Arguments of the possible Types."""
     named = {name: factory(Arguments._fields.index(name), name)
-             for name, factory in six.iteritems(kwargs)}
+             for name, factory in kwargs.items()}
     return cls(**named)
 
   def __reduce__(self):
@@ -331,7 +330,7 @@ class RawArguments(collections.namedtuple("RawArguments", [
   def types(cls, **kwargs):
     """Create an Arguments of the possible Types."""
     named = {name: factory(RawArguments._fields.index(name), name)
-             for name, factory in six.iteritems(kwargs)}
+             for name, factory in kwargs.items()}
     return cls(**named)
 
   def __reduce__(self):
@@ -1174,7 +1173,7 @@ ABILITY_IDS = collections.defaultdict(set)  # {ability_id: {funcs}}
 for _func in FUNCTIONS:
   if _func.ability_id >= 0:
     ABILITY_IDS[_func.ability_id].add(_func)
-ABILITY_IDS = {k: frozenset(v) for k, v in six.iteritems(ABILITY_IDS)}
+ABILITY_IDS = {k: frozenset(v) for k, v in ABILITY_IDS.items()}
 FUNCTIONS_AVAILABLE = {f.id: f for f in FUNCTIONS if f.avail_fn}
 
 
@@ -1759,10 +1758,10 @@ RAW_ABILITY_IDS = collections.defaultdict(set)  # {ability_id: {funcs}}
 for _func in RAW_FUNCTIONS:
   if _func.ability_id >= 0:
     RAW_ABILITY_IDS[_func.ability_id].add(_func)
-RAW_ABILITY_IDS = {k: frozenset(v) for k, v in six.iteritems(RAW_ABILITY_IDS)}
+RAW_ABILITY_IDS = {k: frozenset(v) for k, v in RAW_ABILITY_IDS.items()}
 RAW_FUNCTIONS_AVAILABLE = {f.id: f for f in RAW_FUNCTIONS if f.avail_fn}
 RAW_ABILITY_ID_TO_FUNC_ID = {k: min(f.id for f in v)  # pylint: disable=g-complex-comprehension
-                             for k, v in six.iteritems(RAW_ABILITY_IDS)}
+                             for k, v in RAW_ABILITY_IDS.items()}
 
 
 class FunctionCall(collections.namedtuple(
@@ -1799,7 +1798,7 @@ class FunctionCall(collections.namedtuple(
     for arg, arg_type in zip(arguments, func.args):
       arg = numpy_to_python(arg)
       if arg_type.values:  # Allow enum values by name or int.
-        if isinstance(arg, six.string_types):
+        if isinstance(arg, str):
           try:
             args.append([arg_type.values[arg]])
           except KeyError:

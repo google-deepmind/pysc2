@@ -23,7 +23,6 @@ import re
 
 from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy as np
-import six
 
 
 class NamedDict(dict):
@@ -106,7 +105,7 @@ class NamedNumpyArray(np.ndarray):
                              "a namedtuple, or IntEnum.")
         elif isinstance(o, (list, tuple)):
           for n in o:
-            if not isinstance(n, six.string_types):
+            if not isinstance(n, str):
               raise ValueError(
                   "Bad name, must be a list of strings, not %s" % type(n))
         else:
@@ -262,7 +261,7 @@ class NamedNumpyArray(np.ndarray):
 
   def _get_index(self, dim, index):
     """Turn a string into a real index, otherwise return the index."""
-    if isinstance(index, six.string_types):
+    if isinstance(index, str):
       try:
         return self._index_names[dim][index]
       except KeyError:

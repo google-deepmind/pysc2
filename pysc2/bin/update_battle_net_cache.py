@@ -19,12 +19,12 @@ Adapted from https://github.com/ggtracker/sc2reader .
 
 import binascii
 import os
+import urllib
 
 from absl import app
 from absl import flags
 import mpyq
 from s2protocol import versions as s2versions
-from six.moves import urllib
 
 from pysc2 import run_configs
 

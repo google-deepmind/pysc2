@@ -18,7 +18,6 @@ import itertools
 
 from absl import app
 from absl import flags
-import six
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.lib import static_data
@@ -79,7 +78,7 @@ def generate_csv(data):
       "remap_to",
       "mismatch",
   ]))
-  for ability in sorted(six.itervalues(data.abilities),
+  for ability in sorted(data.abilities.values(),
                         key=lambda a: sort_key(data, a)):
     ab_id = ability.ability_id
     if ab_id in skip_abilities or (ab_id not in data.general_abilities and
@@ -131,7 +130,7 @@ def generate_py_abilities(data):
     print("    Function.ability(%s)," % ", ".join(str(v) for v in args))
 
   func_ids = itertools.count(12)  # Leave room for the ui funcs.
-  for ability in sorted(six.itervalues(data.abilities),
+  for ability in sorted(data.abilities.values(),
                         key=lambda a: sort_key(data, a)):
     ab_id = ability.ability_id
     if ab_id in skip_abilities or (ab_id not in data.general_abilities and

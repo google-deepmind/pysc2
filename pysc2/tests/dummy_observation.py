@@ -20,7 +20,6 @@ This can then e.g. be passed to features.transform_obs.
 import math
 
 import numpy as np
-import six
 from pysc2.lib import features
 
 from s2clientprotocol import raw_pb2
@@ -201,7 +200,7 @@ class Builder(object):
     """Update some or all of the fields in the PlayerCommon data."""
 
     args = dict(locals())
-    for key, value in six.iteritems(args):
+    for key, value in args.items():
       if value is not None and key != 'self':
         setattr(self._player_common, key, value)
     return self
@@ -227,7 +226,7 @@ class Builder(object):
     """Update some or all of the fields in the ScoreDetails data."""
 
     args = dict(locals())
-    for key, value in six.iteritems(args):
+    for key, value in args.items():
       if value is not None and key != 'self':
         setattr(self._score_details, key, value)
     return self

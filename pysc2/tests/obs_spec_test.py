@@ -16,7 +16,6 @@
 
 from absl.testing import absltest
 from future.builtins import range  # pylint: disable=redefined-builtin
-import six
 
 from pysc2.agents import random_agent
 from pysc2.env import sc2_env
@@ -114,7 +113,7 @@ class TestObservationSpec(utils.TestCase):
 
   def check_observation_matches_spec(self, obs, obs_spec):
     self.assertCountEqual(obs_spec.keys(), obs.keys())
-    for k, o in six.iteritems(obs):
+    for k, o in obs.items():
       if k == "map_name":
         self.assertIsInstance(o, str)
         continue

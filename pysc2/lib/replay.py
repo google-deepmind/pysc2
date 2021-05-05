@@ -14,15 +14,15 @@
 # limitations under the License.
 """Utilities for replays."""
 
+import io
 import json
 import mpyq
-import six
 
 from pysc2.run_configs import lib as run_configs_lib
 
 
 def get_replay_version(replay_data):
-  replay_io = six.BytesIO()
+  replay_io = io.BytesIO()
   replay_io.write(replay_data)
   replay_io.seek(0)
   archive = mpyq.MPQArchive(replay_io).extract()

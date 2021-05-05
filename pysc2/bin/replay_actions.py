@@ -26,7 +26,6 @@ import time
 from absl import app
 from absl import flags
 from future.builtins import range  # pylint: disable=redefined-builtin
-import six
 
 from pysc2 import run_configs
 from pysc2.lib import features
@@ -86,7 +85,7 @@ class ReplayStats(object):
   def merge(self, other):
     """Merge another ReplayStats into this one."""
     def merge_dict(a, b):
-      for k, v in six.iteritems(b):
+      for k, v in b.items():
         a[k] += v
 
     self.replays += other.replays

@@ -21,7 +21,6 @@ from absl.testing import absltest
 from absl.testing import parameterized
 from future.builtins import range  # pylint: disable=redefined-builtin
 import numpy
-import six
 from pysc2.lib import actions
 from pysc2.lib import features
 from pysc2.lib import point
@@ -392,7 +391,7 @@ class FeaturesTest(absltest.TestCase):
       self.assertEqual(i, f.id, "id doesn't match for %s" % f.id)
 
   def testAllVersionsOfAnAbilityHaveTheSameGeneral(self):
-    for ability_id, funcs in six.iteritems(actions.ABILITY_IDS):
+    for ability_id, funcs in actions.ABILITY_IDS.items():
       self.assertLen({f.general_id for f in funcs}, 1,
                      "Multiple generals for %s" % ability_id)
 

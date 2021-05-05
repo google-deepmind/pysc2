@@ -22,7 +22,6 @@ import threading
 import time
 
 from future.builtins import range  # pylint: disable=redefined-builtin
-import six
 
 
 class Stat(object):
@@ -242,7 +241,7 @@ class StopWatch(object):
     return self._times
 
   def merge(self, other):
-    for k, v in six.iteritems(other.times):
+    for k, v in other.times.items():
       self._times[k].merge(v)
 
   @staticmethod
@@ -262,7 +261,7 @@ class StopWatch(object):
     """Return a string representation of the timings."""
     if not self._times:
       return ""
-    total = sum(s.sum for k, s in six.iteritems(self._times) if "." not in k)
+    total = sum(s.sum for k, s in self._times.items() if "." not in k)
     table = [["", "% total", "sum", "avg", "dev", "min", "max", "num"]]
     for k, v in sorted(self._times.items()):
       percent = 100 * v.sum / (total or 1)
