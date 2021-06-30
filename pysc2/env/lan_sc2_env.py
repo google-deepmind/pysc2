@@ -22,6 +22,7 @@ import hashlib
 import json
 from absl import logging
 import os
+import shutil
 import socket
 import struct
 import subprocess
@@ -32,7 +33,6 @@ from pysc2 import run_configs
 from pysc2.env import sc2_env
 from pysc2.lib import features
 from pysc2.lib import run_parallel
-import whichcraft
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
@@ -175,7 +175,7 @@ def forward_ports(remote_host, local_host, local_listen_ports,
   if ":" in local_host and not local_host.startswith("["):
     local_host = "[%s]" % local_host
 
-  ssh = whichcraft.which("ssh") or whichcraft.which("plink")
+  ssh = shutil.which("ssh") or shutil.which("plink")
   if not ssh:
     raise ValueError("Couldn't find an ssh client.")
 

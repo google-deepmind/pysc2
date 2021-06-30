@@ -67,7 +67,6 @@ setup(
         's2protocol',
         'sk-video',
         'websocket-client',
-        'whichcraft',
     ],
     entry_points={
         'console_scripts': [
