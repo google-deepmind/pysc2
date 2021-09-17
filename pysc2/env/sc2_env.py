@@ -15,13 +15,13 @@
 # pylint: disable=g-complex-comprehension
 
 import collections
-import enum
 from absl import logging
 import random
 import time
 
 from pysc2 import maps
 from pysc2 import run_configs
+from pysc2.env import enums
 from pysc2.env import environment
 from pysc2.lib import actions as actions_lib
 from pysc2.lib import features
@@ -31,7 +31,6 @@ from pysc2.lib import renderer_human
 from pysc2.lib import run_parallel
 from pysc2.lib import stopwatch
 
-from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 sw = stopwatch.sw
@@ -44,35 +43,9 @@ possible_results = {
 }
 
 
-class Race(enum.IntEnum):
-  random = sc_common.Random
-  protoss = sc_common.Protoss
-  terran = sc_common.Terran
-  zerg = sc_common.Zerg
-
-
-class Difficulty(enum.IntEnum):
-  """Bot difficulties."""
-  very_easy = sc_pb.VeryEasy
-  easy = sc_pb.Easy
-  medium = sc_pb.Medium
-  medium_hard = sc_pb.MediumHard
-  hard = sc_pb.Hard
-  harder = sc_pb.Harder
-  very_hard = sc_pb.VeryHard
-  cheat_vision = sc_pb.CheatVision
-  cheat_money = sc_pb.CheatMoney
-  cheat_insane = sc_pb.CheatInsane
-
-
-class BotBuild(enum.IntEnum):
-  """Bot build strategies."""
-  random = sc_pb.RandomBuild
-  rush = sc_pb.Rush
-  timing = sc_pb.Timing
-  power = sc_pb.Power
-  macro = sc_pb.Macro
-  air = sc_pb.Air
+Race = enums.Race
+Difficulty = enums.Difficulty
+BotBuild = enums.BotBuild
 
 
 # Re-export these names to make it easy to construct the environment.
