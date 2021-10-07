@@ -22,8 +22,10 @@ from pysc2.lib import units
 from pysc2.tests import dummy_observation
 
 from s2clientprotocol import common_pb2
+from s2clientprotocol import raw_pb2
+from s2clientprotocol import sc2api_pb2
 
-DUMMY_MAP_SIZE = point.Point(256, 256)
+DUMMY_MAP_SIZE = 256
 
 
 class _TestEnvironment(environment.Base):
@@ -222,9 +224,9 @@ class SC2TestEnv(_TestEnvironment):
       raise ValueError('realtime mode is not supported by the mock env.')
 
     if not players:
-      num_agents = 1
-    else:
-      num_agents = sum(1 for p in players if isinstance(p, sc2_env.Agent))
+      players = [sc2_env.Agent(sc2_env.Race.random)]
+
+    num_agents = sum(1 for p in players if isinstance(p, sc2_env.Agent))
 
     if agent_interface_format is None:
       raise ValueError('Please specify agent_interface_format.')
@@ -237,16 +239,51 @@ class SC2TestEnv(_TestEnvironment):
           'The number of entries in agent_interface_format should '
           'correspond 1-1 with the number of agents.')
 
+    player_info = []
+    for i, p in enumerate(players, start=1):
+      if isinstance(p, sc2_env.Agent):
+        player_info.append(
+            sc2api_pb2.PlayerInfo(
+                player_id=i,
+                type=sc2api_pb2.PlayerType.Participant,
+                race_requested=p.race[0],
+                player_name=p.name))
+      else:
+        player_info.append(
+            sc2api_pb2.PlayerInfo(
+                player_id=i,
+                type=sc2api_pb2.PlayerType.Computer,
+                race_requested=p.race[0],
+                difficulty=p.difficulty,
+                ai_build=p.build[0],
+                player_name=p.difficulty.name))
+
+    self._game_info = []
+    for _ in players:
+      self._game_info.append(
+          sc2api_pb2.ResponseGameInfo(
+              player_info=player_info,
+              start_raw=raw_pb2.StartRaw(
+                  map_size=common_pb2.Size2DI(
+                      x=DUMMY_MAP_SIZE, y=DUMMY_MAP_SIZE))))
+
     self._agent_interface_formats = agent_interface_format
-    self._features = [
-        features.Features(interface_format, map_size=DUMMY_MAP_SIZE)
-        for interface_format in agent_interface_format]
+    self._features = []
+    for interface_format in agent_interface_format:
+      self._features.append(
+          features.Features(
+              interface_format,
+              map_size=point.Point(x=DUMMY_MAP_SIZE, y=DUMMY_MAP_SIZE)))
 
     super(SC2TestEnv, self).__init__(
         num_agents=num_agents,
         action_spec=tuple(f.action_spec() for f in self._features),
         observation_spec=tuple(f.observation_spec() for f in self._features))
     self.episode_length = 10
+
+  @property
+  def game_info(self):
+    return self._game_info
 
   def save_replay(self, *args, **kwargs):
     """Does nothing."""
