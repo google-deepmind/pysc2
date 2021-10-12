@@ -17,7 +17,6 @@ import numpy as np
 from pysc2.env import environment
 from pysc2.env import sc2_env
 from pysc2.lib import features
-from pysc2.lib import point
 from pysc2.lib import units
 from pysc2.tests import dummy_observation
 
@@ -181,9 +180,15 @@ class SC2TestEnv(_TestEnvironment):
       _only_use_kwargs: Don't pass args, only kwargs.
       map_name: Map name. Ignored.
       players: A list of Agent and Bot instances that specify who will play.
-      agent_interface_format: A sequence containing one AgentInterfaceFormat
-        per agent, matching the order of agents specified in the players list.
-        Or a single AgentInterfaceFormat to be used for all agents.
+      agent_interface_format: A sequence containing one AgentInterfaceFormat per
+        agent, matching the order of agents specified in the players list. Or
+        a single AgentInterfaceFormat to be used for all agents. Note that
+        InterfaceOptions may be supplied in place of AgentInterfaceFormat, in
+        which case no action or observation processing will be carried out by
+        PySC2. The sc_pb.ResponseObservation proto will be returned as the
+        observation for the agent and passed actions must be instances of
+        sc_pb.Action. This is intended for agents which use custom environment
+        conversion code.
       discount: Unused.
       discount_zero_after_timeout: Unused.
       visualize: Unused.
@@ -231,7 +236,8 @@ class SC2TestEnv(_TestEnvironment):
     if agent_interface_format is None:
       raise ValueError('Please specify agent_interface_format.')
 
-    if isinstance(agent_interface_format, sc2_env.AgentInterfaceFormat):
+    if isinstance(agent_interface_format,
+                  (sc2_env.AgentInterfaceFormat, sc2api_pb2.InterfaceOptions)):
       agent_interface_format = [agent_interface_format] * num_agents
 
     if len(agent_interface_format) != num_agents:
@@ -239,41 +245,12 @@ class SC2TestEnv(_TestEnvironment):
           'The number of entries in agent_interface_format should '
           'correspond 1-1 with the number of agents.')
 
-    player_info = []
-    for i, p in enumerate(players, start=1):
-      if isinstance(p, sc2_env.Agent):
-        player_info.append(
-            sc2api_pb2.PlayerInfo(
-                player_id=i,
-                type=sc2api_pb2.PlayerType.Participant,
-                race_requested=p.race[0],
-                player_name=p.name))
-      else:
-        player_info.append(
-            sc2api_pb2.PlayerInfo(
-                player_id=i,
-                type=sc2api_pb2.PlayerType.Computer,
-                race_requested=p.race[0],
-                difficulty=p.difficulty,
-                ai_build=p.build[0],
-                player_name=p.difficulty.name))
-
-    self._game_info = []
-    for _ in players:
-      self._game_info.append(
-          sc2api_pb2.ResponseGameInfo(
-              player_info=player_info,
-              start_raw=raw_pb2.StartRaw(
-                  map_size=common_pb2.Size2DI(
-                      x=DUMMY_MAP_SIZE, y=DUMMY_MAP_SIZE))))
-
+    self._game_info = _make_dummy_game_info(players, agent_interface_format)
     self._agent_interface_formats = agent_interface_format
-    self._features = []
-    for interface_format in agent_interface_format:
-      self._features.append(
-          features.Features(
-              interface_format,
-              map_size=point.Point(x=DUMMY_MAP_SIZE, y=DUMMY_MAP_SIZE)))
+    self._features = [
+        features.features_from_game_info(
+            game_info=g, agent_interface_format=aif)
+        for g, aif in zip(self._game_info, self._agent_interface_formats)]
 
     super(SC2TestEnv, self).__init__(
         num_agents=num_agents,
@@ -293,7 +270,8 @@ class SC2TestEnv(_TestEnvironment):
 
     builder = dummy_observation.Builder(obs_spec).game_loop(0)
     aif = self._agent_interface_formats[agent_index]
-    if aif.use_feature_units or aif.use_raw_units:
+    if (isinstance(aif, sc2_env.AgentInterfaceFormat) and
+        (aif.use_feature_units or aif.use_raw_units)):
       feature_units = [
           dummy_observation.FeatureUnit(
               units.Neutral.LabBot,
@@ -314,10 +292,64 @@ class SC2TestEnv(_TestEnvironment):
     observation = features_.transform_obs(response_observation)
 
     # Add bounding box for the minimap camera in top left of feature screen.
-    if 'feature_minimap' in observation:
+    if hasattr(observation, 'feature_minimap'):
       minimap_camera = observation.feature_minimap.camera
       minimap_camera.fill(0)
       height, width = [dim // 2 for dim in minimap_camera.shape]
       minimap_camera[:height, :width].fill(1)
 
     return observation
+
+
+def _make_dummy_game_info(players, interface_formats):
+  """Makes dummy game infos from player and interface format data."""
+  player_info = []
+  for i, p in enumerate(players, start=1):
+    if isinstance(p, sc2_env.Agent):
+      player_info.append(
+          sc2api_pb2.PlayerInfo(
+              player_id=i,
+              type=sc2api_pb2.PlayerType.Participant,
+              race_requested=p.race[0],
+              player_name=p.name))
+    else:
+      player_info.append(
+          sc2api_pb2.PlayerInfo(
+              player_id=i,
+              type=sc2api_pb2.PlayerType.Computer,
+              race_requested=p.race[0],
+              difficulty=p.difficulty,
+              ai_build=p.build[0],
+              player_name=p.difficulty.name))
+
+  game_infos = []
+  for _, interface_format in zip(players, interface_formats):
+    game_info = sc2api_pb2.ResponseGameInfo(
+        player_info=player_info,
+        start_raw=raw_pb2.StartRaw(
+            map_size=common_pb2.Size2DI(x=DUMMY_MAP_SIZE, y=DUMMY_MAP_SIZE)))
+
+    if isinstance(interface_format, sc2api_pb2.InterfaceOptions):
+      game_info.options.CopyFrom(interface_format)
+    else:
+      if interface_format.feature_dimensions is not None:
+        fd = interface_format.feature_dimensions
+        game_info.options.feature_layer.resolution.x = fd.screen.x
+        game_info.options.feature_layer.resolution.y = fd.screen.y
+        game_info.options.feature_layer.minimap_resolution.x = fd.minimap.x
+        game_info.options.feature_layer.minimap_resolution.y = fd.minimap.y
+        game_info.options.feature_layer.width = (
+            interface_format.camera_width_world_units)
+      if interface_format.rgb_dimensions is not None:
+        rd = interface_format.rgb_dimensions
+        game_info.options.render.resolution.x = rd.screen.x
+        game_info.options.render.resolution.y = rd.screen.y
+        game_info.options.render.minimap_resolution.x = rd.minimap.x
+        game_info.options.render.minimap_resolution.y = rd.minimap.y
+        game_info.options.render.width = (
+            interface_format.camera_width_world_units)
+
+    game_infos.append(game_info)
+
+  return game_infos
+

@@ -15,6 +15,7 @@
 # pylint: disable=g-complex-comprehension
 
 import collections
+import copy
 from absl import logging
 import random
 import time
@@ -133,9 +134,15 @@ class SC2Env(environment.Base):
           chosen at random per episode.
       battle_net_map: Whether to use the battle.net versions of the map(s).
       players: A list of Agent and Bot instances that specify who will play.
-      agent_interface_format: A sequence containing one AgentInterfaceFormat
-        per agent, matching the order of agents specified in the players list.
-        Or a single AgentInterfaceFormat to be used for all agents.
+      agent_interface_format: A sequence containing one AgentInterfaceFormat per
+          agent, matching the order of agents specified in the players list. Or
+          a single AgentInterfaceFormat to be used for all agents. Note that
+          InterfaceOptions may be supplied in place of AgentInterfaceFormat, in
+          which case no action or observation processing will be carried out by
+          PySC2. The sc_pb.ResponseObservation proto will be returned as the
+          observation for the agent and passed actions must be instances of
+          sc_pb.Action. This is intended for agents which use custom environment
+          conversion code.
       discount: Returned as part of the observation.
       discount_zero_after_timeout: If True, the discount will be zero
           after the `game_steps_per_episode` timeout.
@@ -232,11 +239,13 @@ class SC2Env(environment.Base):
     self._run_config = run_configs.get(version=version)
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
     self._game_info = None
+    self._requested_races = None
 
     if agent_interface_format is None:
       raise ValueError("Please specify agent_interface_format.")
 
-    if isinstance(agent_interface_format, AgentInterfaceFormat):
+    if isinstance(agent_interface_format,
+                  (AgentInterfaceFormat, sc_pb.InterfaceOptions)):
       agent_interface_format = [agent_interface_format] * self._num_agents
 
     if len(agent_interface_format) != self._num_agents:
@@ -244,9 +253,10 @@ class SC2Env(environment.Base):
           "The number of entries in agent_interface_format should "
           "correspond 1-1 with the number of agents.")
 
-    self._action_delay_fns = [aif.action_delay_fn
-                              for aif in agent_interface_format]
-
+    self._action_delay_fns = [
+        aif.action_delay_fn if isinstance(aif, AgentInterfaceFormat) else None
+        for aif in agent_interface_format
+    ]
     self._interface_formats = agent_interface_format
     self._interface_options = [
         self._get_interface(interface_format, require_raw=visualize and i == 0)
@@ -282,8 +292,16 @@ class SC2Env(environment.Base):
     logging.info("Environment is ready")
 
   @staticmethod
-  def _get_interface(agent_interface_format, require_raw):
-    aif = agent_interface_format
+  def _get_interface(interface_format, require_raw):
+    if isinstance(interface_format, sc_pb.InterfaceOptions):
+      if require_raw and not interface_format.raw:
+        interface_options = copy.deepcopy(interface_format)
+        interface_options.raw = True
+        return interface_options
+      else:
+        return interface_format
+
+    aif = interface_format
     interface = sc_pb.InterfaceOptions(
         raw=(aif.use_feature_units or
              aif.use_unit_counts or
@@ -414,6 +432,12 @@ class SC2Env(environment.Base):
             game_info=g, agent_interface_format=aif, map_name=self._map_name)
         for g, aif in zip(self._game_info, self._interface_formats)]
 
+    self._requested_races = {
+        info.player_id: info.race_requested
+        for info in self._game_info[0].player_info
+        if info.type != sc_pb.Observer
+    }
+
   @property
   def map_name(self):
     return self._map_name
@@ -469,8 +493,7 @@ class SC2Env(environment.Base):
       self._restart()
 
     self._episode_count += 1
-    races = [Race(r).name
-             for _, r in sorted(self._features[0].requested_races.items())]
+    races = [Race(r).name for _, r in sorted(self._requested_races.items())]
     logging.info("Starting episode %s: [%s] on %s",
                  self._episode_count, ", ".join(races), self._map_name)
     self._metrics.increment_episode()
@@ -605,7 +628,7 @@ class SC2Env(environment.Base):
           (parallel_observe, c, f)
           for c, f in zip(self._controllers, self._features)))
 
-    game_loop = self._agent_obs[0].game_loop[0]
+    game_loop = _get_game_loop(self._agent_obs[0])
     if (game_loop < target_game_loop and
         not any(o.player_result for o in self._obs)):
       raise ValueError(
@@ -654,8 +677,7 @@ class SC2Env(environment.Base):
             outcome[i] = possible_results.get(result.result, 0)
 
     if self._score_index >= 0:  # Game score, not win/loss reward.
-      cur_score = [o["score_cumulative"][self._score_index]
-                   for o in self._agent_obs]
+      cur_score = [_get_score(o, self._score_index) for o in self._agent_obs]
       if self._episode_steps == 0:  # First reward is always 0.
         reward = [0] * self._num_agents
       else:
@@ -675,8 +697,9 @@ class SC2Env(environment.Base):
       elif cmd == renderer_human.ActionCmd.QUIT:
         raise KeyboardInterrupt("Quit?")
 
-    self._total_steps += self._agent_obs[0].game_loop[0] - self._episode_steps
-    self._episode_steps = self._agent_obs[0].game_loop[0]
+    game_loop = _get_game_loop(self._agent_obs[0])
+    self._total_steps += game_loop - self._episode_steps
+    self._episode_steps = game_loop
     if self._episode_steps >= self._episode_length:
       self._state = environment.StepType.LAST
       if self._discount_zero_after_timeout:
@@ -691,7 +714,7 @@ class SC2Env(environment.Base):
       logging.info(("Episode %s finished after %s game steps. "
                     "Outcome: %s, reward: %s, score: %s"),
                    self._episode_count, self._episode_steps, outcome, reward,
-                   [o["score_cumulative"][0] for o in self._agent_obs])
+                   [_get_score(o) for o in self._agent_obs])
 
     def zero_on_first_step(value):
       return 0.0 if self._state == environment.StepType.FIRST else value
@@ -787,3 +810,21 @@ def crop_and_deduplicate_names(names):
     raise ValueError("Failed to de-duplicate names")
 
   return recropped
+
+
+def _get_game_loop(agent_obs):
+  if isinstance(agent_obs, sc_pb.ResponseObservation):
+    return agent_obs.observation.game_loop
+  else:
+    return agent_obs.game_loop[0]
+
+
+def _get_score(agent_obs, score_index=0):
+  if isinstance(agent_obs, sc_pb.ResponseObservation):
+    if score_index != 0:
+      raise ValueError(
+          "Non-zero score index isn't supported for passthrough agents, "
+          "currently")
+    return agent_obs.observation.score.score
+  else:
+    return agent_obs["score_cumulative"][score_index]

@@ -819,6 +819,9 @@ def features_from_game_info(game_info, agent_interface_format=None,
     ValueError: if you pass an agent_interface_format that doesn't match
         game_info's resolutions.
   """
+  if isinstance(agent_interface_format, sc_pb.InterfaceOptions):
+    return Passthrough()
+
   if not map_name:
     map_name = game_info.map_name
 
@@ -858,9 +861,9 @@ def features_from_game_info(game_info, agent_interface_format=None,
       raise ValueError("""
 The supplied agent_interface_format doesn't match the resolutions computed from
 the game_info:
-  rgb_dimensions: %s != %s
-  feature_dimensions: %s != %s
-  camera_width_world_units: %s != %s
+  rgb_dimensions: %s vs %s
+  feature_dimensions: %s vs %s
+  camera_width_world_units: %s vs %s
 """ % (aif.rgb_dimensions, rgb_dimensions,
        aif.feature_dimensions, feature_dimensions,
        aif.camera_width_world_units, camera_width_world_units))
@@ -1862,3 +1865,30 @@ class Features(object):
         return actions.RAW_FUNCTIONS.raw_move_camera(coord)
 
     return actions.RAW_FUNCTIONS.no_op()
+
+
+class Passthrough:
+  """Alternative to `Features` which passes actions and observations through."""
+
+  def observation_spec(self):
+    return {}
+
+  def transform_obs(self, observation):
+    return observation
+
+  def action_spec(self):
+    return {}
+
+  def transform_action(self, observation, action, skip_available):
+    del observation
+    del skip_available
+    return action
+
+  def available_actions(self, observation):
+    del observation
+    raise NotImplementedError(
+        "available_actions isn't supported for passthrough")
+
+  def reverse_action(self, action):
+    del action
+    raise NotImplementedError("reverse_action isn't supported for passthrough")

@@ -86,7 +86,8 @@ class RemoteSC2Env(sc2_env.SC2Env):
       race: Race for this agent.
       name: The name of this agent, for saving in the replay.
       agent_interface_format: AgentInterfaceFormat object describing the
-          format of communication between the agent and the environment.
+          format of communication between the agent and the environment, else
+          just InterfaceOptions to use passthrough.
       discount: Returned as part of the observation.
       visualize: Whether to pop up a window showing the camera and feature
           layers. This won't work without access to a window manager.

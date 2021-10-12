@@ -65,7 +65,7 @@ class Env(object):
     self._sc2_proc = run_config.start(want_rgb=False)
     self._controller = self._sc2_proc.controller
     self._summary = []
-    self._features = None  # type: features.Features
+    self._features = None
 
   def close(self):
     self._controller.quit()

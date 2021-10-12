@@ -173,29 +173,33 @@ class TestSC2TestEnv(_TestMixin, absltest.TestCase):
                  sc2_env.Bot(sc2_env.Race.random, sc2_env.Difficulty.easy,
                              sc2_env.BotBuild.random)])
 
-    self.assertLen(env.game_info, 2)
-    for i in range(2):
-      self.assertEqual(
-          env.game_info[i],
-          sc2api_pb2.ResponseGameInfo(
-              start_raw=raw_pb2.StartRaw(
-                  map_size=common_pb2.Size2DI(
-                      x=mock_sc2_env.DUMMY_MAP_SIZE,
-                      y=mock_sc2_env.DUMMY_MAP_SIZE)),
-              player_info=[
-                  sc2api_pb2.PlayerInfo(
-                      player_id=1,
-                      type=sc2api_pb2.PlayerType.Participant,
-                      race_requested=enums.Race.protoss,
-                      player_name='player'),
-                  sc2api_pb2.PlayerInfo(
-                      player_id=2,
-                      type=sc2api_pb2.PlayerType.Computer,
-                      race_requested=enums.Race.random,
-                      difficulty=enums.Difficulty.easy,
-                      ai_build=enums.BotBuild.random,
-                      player_name='easy')
-              ]))
+    self.assertLen(env.game_info, 1)
+    self.assertEqual(
+        env.game_info[0],
+        sc2api_pb2.ResponseGameInfo(
+            start_raw=raw_pb2.StartRaw(
+                map_size=common_pb2.Size2DI(
+                    x=mock_sc2_env.DUMMY_MAP_SIZE,
+                    y=mock_sc2_env.DUMMY_MAP_SIZE)),
+            options=sc2api_pb2.InterfaceOptions(
+                feature_layer=sc2api_pb2.SpatialCameraSetup(
+                    resolution=common_pb2.Size2DI(x=64, y=64),
+                    minimap_resolution=common_pb2.Size2DI(x=32, y=32),
+                    width=24)),
+            player_info=[
+                sc2api_pb2.PlayerInfo(
+                    player_id=1,
+                    type=sc2api_pb2.PlayerType.Participant,
+                    race_requested=enums.Race.protoss,
+                    player_name='player'),
+                sc2api_pb2.PlayerInfo(
+                    player_id=2,
+                    type=sc2api_pb2.PlayerType.Computer,
+                    race_requested=enums.Race.random,
+                    difficulty=enums.Difficulty.easy,
+                    ai_build=enums.BotBuild.random,
+                    player_name='easy')
+            ]))
 
 
 if __name__ == '__main__':
