@@ -1,4 +1,5 @@
 deepdiff
+dm-tree
 mock
 mpyq
 numpy>=1.10.0

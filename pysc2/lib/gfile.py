@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""This is replaces google's gfile used for network storage.
+"""This replaces google's gfile used for network storage.
 
 A more complete public version of gfile:
 https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/platform/gfile.py

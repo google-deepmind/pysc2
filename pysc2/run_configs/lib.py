@@ -119,7 +119,7 @@ class RunConfig(object):
       if gfile.Exists(path):
         with gfile.Open(path, "rb") as f:
           return f.read()
-    raise ValueError("Map '%s' not found." % map_name)
+    raise ValueError(f"Map {map_name} not found in {self.data_dir}/Maps.")
 
   def abs_replay_path(self, replay_path):
     """Return the absolute path to the replay, outside the sandbox."""

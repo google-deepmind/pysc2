@@ -264,6 +264,11 @@ py_library(
 )
 
 py_library(
+    name = "resources",
+    srcs = ["resources.py"],
+)
+
+py_library(
     name = "run_parallel",
     srcs = ["run_parallel.py"],
     srcs_version = "PY3",
