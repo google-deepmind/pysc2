@@ -1,0 +1,10 @@
+action_feature_layer {
+  unit_command {
+    ability_id: 1
+    target_screen_coord {
+      x: 27
+      y: 26
+    }
+    queue_command: false
+  }
+}

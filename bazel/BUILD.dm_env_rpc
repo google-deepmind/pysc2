@@ -1,0 +1,39 @@
+load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
+
+licenses(["notice"])
+
+proto_library(
+    name = "dm_env_rpc_proto",
+    srcs = ["dm_env_rpc/v1/dm_env_rpc.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_googleapis//google/rpc:status_proto",
+        "@com_google_protobuf//:any_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "dm_env_rpc_cc_proto",
+    visibility = ["//visibility:public"],
+    deps = [":dm_env_rpc_proto"],
+)
+
+py_proto_library(
+    name = "dm_env_rpc_pb2",
+    deps = ["@dm_env_rpc_archive//:dm_env_rpc_proto"],
+)
+
+py_proto_library(
+    name = "status_pb2",
+    deps = ["@com_google_googleapis//google/rpc:status_proto"],
+)
+
+py_library(
+    name = "dm_env_rpc",
+    srcs = glob(["dm_env_rpc/**/*.py"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":dm_env_rpc_pb2",
+        ":status_pb2",
+    ],
+)

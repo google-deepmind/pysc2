@@ -1,0 +1,16 @@
+licenses(["notice"])
+
+py_library(
+    name = "dm_env",
+    srcs = [
+        "dm_env/__init__.py",
+        "dm_env/_environment.py",
+        "dm_env/_metadata.py",
+        "dm_env/specs.py",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        #"@funcsigs_archive//:funcsigs",
+        "@six_archive//:six",
+    ],
+)

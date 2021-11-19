@@ -1,0 +1,281 @@
++++ s2clientprotocol/BUILD	2021-11-18 12:14:07.885666323 +0000
+@@ -0,0 +1,255 @@
++load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
++
++package(default_visibility = ["//visibility:public"])
++
++proto_library(
++    name = "common_proto",
++    srcs = ["common.proto"],
++)
++
++cc_proto_library(
++    name = "common_cc_proto",
++    deps = [":common_proto"],
++)
++
++py_proto_library(
++    name = "common_pb2",
++    deps = [":common_proto"],
++)
++
++py_library(
++    name = "common_py_pb2",
++    deps = [":common_pb2"],
++)
++
++proto_library(
++    name = "data_proto",
++    srcs = ["data.proto"],
++    deps = [":common_proto"],
++)
++
++cc_proto_library(
++    name = "data_cc_proto",
++    deps = [":data_proto"],
++)
++
++py_proto_library(
++    name = "data_pb2",
++    deps = [":data_proto"],
++)
++
++py_library(
++    name = "data_py_pb2",
++    deps = [
++        ":common_pb2",
++        ":data_pb2",
++    ],
++)
++
++proto_library(
++    name = "debug_proto",
++    srcs = ["debug.proto"],
++    deps = [":common_proto"],
++)
++
++cc_proto_library(
++    name = "debug_cc_proto",
++    deps = [":debug_proto"],
++)
++
++py_proto_library(
++    name = "debug_pb2",
++    deps = [":debug_proto"],
++)
++
++py_library(
++    name = "debug_py_pb2",
++    deps = [
++        ":common_pb2",
++        ":debug_pb2",
++    ],
++)
++
++proto_library(
++    name = "error_proto",
++    srcs = ["error.proto"],
++)
++
++cc_proto_library(
++    name = "error_cc_proto",
++    deps = [":error_proto"],
++)
++
++py_proto_library(
++    name = "error_pb2",
++    deps = [":error_proto"],
++)
++
++py_library(
++    name = "error_py_pb2",
++    deps = [
++        ":error_pb2",
++    ],
++)
++
++proto_library(
++    name = "query_proto",
++    srcs = ["query.proto"],
++    deps = [
++        ":common_proto",
++        ":error_proto",
++    ],
++)
++
++cc_proto_library(
++    name = "query_cc_proto",
++    deps = [":query_proto"],
++)
++
++py_proto_library(
++    name = "query_pb2",
++    deps = [":query_proto"],
++)
++
++py_library(
++    name = "query_py_pb2",
++    deps = [
++        ":common_pb2",
++        ":error_pb2",
++        ":query_pb2",
++    ],
++)
++
++proto_library(
++    name = "raw_proto",
++    srcs = ["raw.proto"],
++    deps = [":common_proto"],
++)
++
++cc_proto_library(
++    name = "raw_cc_proto",
++    deps = [":raw_proto"],
++)
++
++py_proto_library(
++    name = "raw_pb2",
++    deps = [":raw_proto"],
++)
++
++py_library(
++    name = "raw_py_pb2",
++    deps = [
++        ":common_pb2",
++        ":raw_pb2",
++    ],
++)
++
++proto_library(
++    name = "sc2api_proto",
++    srcs = ["sc2api.proto"],
++    deps = [
++        ":common_proto",
++        ":data_proto",
++        ":debug_proto",
++        ":error_proto",
++        ":query_proto",
++        ":raw_proto",
++        ":score_proto",
++        ":spatial_proto",
++        ":ui_proto",
++    ],
++)
++
++cc_proto_library(
++    name = "sc2api_cc_proto",
++    deps = [":sc2api_proto"],
++)
++
++py_proto_library(
++    name = "sc2api_pb2",
++    deps = [":sc2api_proto"],
++)
++
++py_library(
++    name = "sc2api_py_pb2",
++    deps = [
++        ":common_pb2",
++        ":data_pb2",
++        ":debug_pb2",
++        ":error_pb2",
++        ":query_pb2",
++        ":raw_pb2",
++        ":sc2api_pb2",
++        ":score_pb2",
++        ":spatial_pb2",
++        ":ui_pb2",
++    ],
++)
++
++proto_library(
++    name = "score_proto",
++    srcs = ["score.proto"],
++)
++
++cc_proto_library(
++    name = "score_cc_proto",
++    deps = [":score_proto"],
++)
++
++py_proto_library(
++    name = "score_pb2",
++    deps = [":score_proto"],
++)
++
++py_library(
++    name = "score_py_pb2",
++    deps = [
++        ":score_pb2",
++    ],
++)
++
++proto_library(
++    name = "spatial_proto",
++    srcs = ["spatial.proto"],
++    deps = [":common_proto"],
++)
++
++cc_proto_library(
++    name = "spatial_cc_proto",
++    deps = [":spatial_proto"],
++)
++
++py_proto_library(
++    name = "spatial_pb2",
++    deps = [":spatial_proto"],
++)
++
++py_library(
++    name = "spatial_py_pb2",
++    deps = [
++        ":common_pb2",
++        ":spatial_pb2",
++    ],
++)
++
++proto_library(
++    name = "ui_proto",
++    srcs = ["ui.proto"],
++)
++
++cc_proto_library(
++    name = "ui_cc_proto",
++    deps = [":ui_proto"],
++)
++
++py_proto_library(
++    name = "ui_pb2",
++    deps = [":ui_proto"],
++)
++
++py_library(
++    name = "ui_py_pb2",
++    deps = [
++        ":ui_pb2",
++    ],
++)
+
++++ WORKSPACE	2021-11-18 12:14:07.885666323 +0000
+@@ -0,0 +1,21 @@
++workspace(name = "s2client-proto")
++
++load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
++
++# The protobuf library, for protoc.
++git_repository(
++    name = "com_google_protobuf",
++    remote = "https://github.com/protocolbuffers/protobuf",
++    branch = "master",
++)
++load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
++protobuf_deps()
++
++# GRPC, for the py_proto_library rule.
++git_repository(
++    name = "com_github_grpc_grpc",
++    remote = "https://github.com/grpc/grpc.git",
++    branch = "master",
++)
++load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
++grpc_deps()

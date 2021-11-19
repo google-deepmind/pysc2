@@ -1,0 +1,153 @@
+syntax = "proto2";
+
+package pysc2;
+
+import "s2clientprotocol/common.proto";
+import "s2clientprotocol/sc2api.proto";
+
+message ConverterSettings {
+  message RawSettings {
+    // The resolution of the raw coordinate grid.
+    optional SC2APIProtocol.Size2DI resolution = 1;
+
+    // The maximum number of units which can be observed.
+    optional int32 max_unit_count = 2;
+
+    // The number of features to output for each raw unit.
+    optional int32 num_unit_features = 3;
+
+    // The maximum number of units which can be selected, and so issued with
+    // an action in a single command.
+    optional int32 max_unit_selection_size = 4;
+
+    // Whether to shuffle raw_units observations.
+    optional int32 shuffle_unit_tags = 5;
+
+    // Whether to enable action repeat; the ability to send multiple actions on
+    // the same frame.
+    optional bool enable_action_repeat = 6;
+
+    // Adds "camera_position" and "camera_size" to the observation.
+    optional bool use_camera_position = 7;
+
+    // Adds "camera" to the observation.
+    optional bool camera = 8;
+
+    // Whether to replace all camera-based features based on a virtual camera.
+    optional bool use_virtual_camera = 9;
+
+    message CameraDimensions {
+      optional float left = 1;
+      optional float right = 2;
+      optional float top = 3;
+      optional float bottom = 4;
+    }
+    optional CameraDimensions virtual_camera_dimensions = 10;
+
+    // Effects can be passed to the agents by including them in the list of
+    // units.
+    optional bool add_effects_to_units = 11;
+
+    // Cargo can be passed to the agents by including them in the list of units.
+    optional bool add_cargo_to_units = 12;
+
+    // The native raw interface doesn't care for the camera. This option
+    // masks out apt data for enemies which are offscreen, meaning the agent
+    // needs to be looking at them to collect full data - as a human does.
+    optional bool mask_offscreen_enemies = 13;
+  }
+
+  message VisualSettings {
+    // The resolution of the screen feature planes.
+    optional SC2APIProtocol.Size2DI screen = 1;
+
+    // The screen feature planes to include in the observation.
+    repeated string screen_features = 2;
+  }
+
+  // Which of these message is set to determines the format of actions
+  // expected and the type of observations returned. The raw interface favours
+  // numeric data, the visual interface spatial data.
+  oneof interface_settings {
+    RawSettings raw_settings = 1;
+    VisualSettings visual_settings = 2;
+  }
+
+  // The resolution of the minimap feature planes.
+  optional SC2APIProtocol.Size2DI minimap = 3;
+
+  // The minimap feature planes to include in the observation.
+  repeated string minimap_features = 4;
+
+  // This is the number of action types that are available. It is specified
+  // as part of the converter to provide a consistent view of the game even
+  // when versions change and the number of action types increases.
+  optional int32 num_action_types = 5;
+
+  // This is the number of unit types that are available. It is specified
+  // as part of the converter to provide a consistent view of the game even
+  // when versions change and the number of unit types increases.
+  optional int32 num_unit_types = 6;
+
+  // This is the number of upgrade types that are available. It is specified
+  // as part of the converter to provide a consistent view of the game even
+  // when versions change and the number of upgrade types increases.
+  optional int32 num_upgrade_types = 7;
+
+  // This is the maximum number of upgrades that can be observed in a frame.
+  // It is the length of the upgrades_fixed_length observation.
+  optional int32 max_num_upgrades = 8;
+
+  // The width of the camera view.
+  optional int32 camera_width_world_units = 9;
+
+  // When not in a replay, this MMR will be reflected in the observation.
+  // When in a replay this value is ignored and the MMR of the replay used.
+  optional int32 mmr = 10;
+
+  // Flag to indicate whether the converter is being used for supervised
+  // training. If so, the action chosen on each observation must be passed
+  // in to the converter, and that action will be reflected in the observation.
+  optional bool supervised = 11;
+
+  // Whether to crop the minimal (if visual) or map and resolution (if raw)
+  // down to the playable area such that detail is maximized.
+  optional bool crop_to_playable_area = 12;
+
+  // Flag which determines whether opponent features are added to the
+  // observation. The names of these features all begin `opponent_`. They can
+  // only be made available when the `opponent` observation is passed as part
+  // of the transformed Observation. Note that these observations are only
+  // intended for training; they provide privileged information about the
+  // opponent and so their use in evaluation would be cheating. Obviously this
+  // isn't an issue when connecting to a remote game, such as playing vs a
+  // human over LAN or Battle.net, but care should be taken when evaluating
+  // in a situation when both players are being processed locally.
+  optional bool add_opponent_features = 13;
+}
+
+message EnvironmentInfo {
+  optional SC2APIProtocol.ResponseGameInfo game_info = 1;
+  optional SC2APIProtocol.ResponseReplayInfo replay_info = 2;
+}
+
+message Observation {
+  optional SC2APIProtocol.ResponseObservation player = 1;
+  // Used for opponent's observation during training.
+  optional SC2APIProtocol.ResponseObservation opponent = 2;
+  // Used for supervised learning.
+  optional SC2APIProtocol.RequestAction force_action = 3;
+  optional int32 force_action_delay = 4;
+}
+
+message Action {
+  optional SC2APIProtocol.RequestAction request_action = 1;
+
+  // Game loops after which we would like our next observation.
+  optional int32 delay = 2;
+}
+
+message RecordedEpisode {
+  optional SC2APIProtocol.ResponseGameInfo game_info = 1;
+  repeated Observation observations = 2;
+}

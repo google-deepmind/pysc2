@@ -1,0 +1,12 @@
+deepdiff
+mock
+mpyq
+numpy>=1.10.0
+portpicker>=1.2.0
+psutil
+pygame
+requests
+s2protocol
+sk-video
+typing-extensions
+websocket-client

@@ -1,0 +1,9 @@
+action_feature_layer {
+  unit_selection_point {
+    selection_screen_coord {
+      x: 23
+      y: 16
+    }
+    type: Select
+  }
+}

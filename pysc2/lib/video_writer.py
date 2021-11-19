@@ -13,10 +13,10 @@
 # limitations under the License.
 """Write a video based on a numpy array."""
 
-import skvideo.io
+from skvideo import io
 
 
-class VideoWriter(skvideo.io.FFmpegWriter):
+class VideoWriter(io.FFmpegWriter):
   """Write a video based on a numpy array.
 
   Subclass/wrap FFmpegWriter to make it easy to switch to a different library.

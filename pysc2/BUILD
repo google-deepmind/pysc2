@@ -5,8 +5,3 @@ package(
 licenses(["notice"])
 
 exports_files(["LICENSE"])
-
-filegroup(
-    name = "dummy",
-    visibility = ["//visibility:public"],
-)

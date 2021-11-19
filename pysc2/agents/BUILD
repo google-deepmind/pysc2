@@ -28,7 +28,7 @@ py_library(
     srcs = ["no_op_agent.py"],
     deps = [
         ":base_agent",
-        "@s2client_proto//:sc2api_pb2",
+        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
 

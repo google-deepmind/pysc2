@@ -1,0 +1,6 @@
+action_ui {
+  control_group {
+    action: Recall
+    control_group_index: 2
+  }
+}

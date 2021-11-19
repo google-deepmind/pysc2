@@ -11,7 +11,8 @@ py_library(
     deps = [
         ":point",
         requirement("numpy"),
-        "@s2client_proto//:sc2api_pb2",
+        "@s2client_proto//s2clientprotocol:spatial_py_pb2",
+        "@s2client_proto//s2clientprotocol:ui_py_pb2",
     ],
 )
 
@@ -48,6 +49,7 @@ py_test(
     name = "named_array_test",
     size = "small",
     srcs = ["named_array_test.py"],
+    legacy_create_init = False,
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -71,7 +73,8 @@ py_library(
         ":stopwatch",
         ":transform",
         requirement("numpy"),
-        "@s2client_proto//:sc2api_pb2",
+        "@s2client_proto//s2clientprotocol:raw_py_pb2",
+        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
 
@@ -79,6 +82,7 @@ py_test(
     name = "features_test",
     size = "small",
     srcs = ["features_test.py"],
+    legacy_create_init = False,
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -88,7 +92,7 @@ py_test(
         "@absl_py//absl/testing:absltest",
         "@absl_py//absl/testing:parameterized",
         requirement("numpy"),
-        "@s2client_proto//:sc2api_pb2",
+        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
 
@@ -105,13 +109,14 @@ py_library(
         ":features",
         ":np_util",
         ":proto_diff",
-        "@s2client_proto//:common_pb2",
+        "@s2client_proto//s2clientprotocol:common_py_pb2",
     ],
 )
 
 py_test(
     name = "image_differencer_test",
     srcs = ["image_differencer_test.py"],
+    legacy_create_init = False,
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -119,7 +124,7 @@ py_test(
         ":proto_diff",
         "@absl_py//absl/testing:absltest",
         requirement("numpy"),
-        "@s2client_proto//:common_pb2",
+        "@s2client_proto//s2clientprotocol:common_py_pb2",
     ],
 )
 
@@ -137,7 +142,7 @@ py_library(
         ":stopwatch",
         "@absl_py//absl/flags",
         requirement("websocket-client"),
-        "@s2client_proto//:sc2api_pb2",
+        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
 
@@ -159,6 +164,7 @@ py_library(
 py_test(
     name = "np_util_test",
     srcs = ["np_util_test.py"],
+    legacy_create_init = False,
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -182,6 +188,7 @@ py_test(
     name = "portspicker_test",
     size = "small",
     srcs = ["portspicker_test.py"],
+    legacy_create_init = False,
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -201,13 +208,14 @@ py_library(
 py_test(
     name = "proto_diff_test",
     srcs = ["proto_diff_test.py"],
+    legacy_create_init = False,
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
         ":proto_diff",
         "@absl_py//absl/testing:absltest",
-        "@s2client_proto//:sc2api_pb2",
-        "@s2client_proto//:score_pb2",
+        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
+        "@s2client_proto//s2clientprotocol:score_py_pb2",
     ],
 )
 
@@ -221,7 +229,7 @@ py_library(
         ":stopwatch",
         "@absl_py//absl/flags",
         requirement("websocket-client"),
-        "@s2client_proto//:sc2api_pb2",
+        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
 
@@ -241,7 +249,7 @@ py_library(
         ":video_writer",
         requirement("numpy"),
         requirement("pygame"),
-        "@s2client_proto//:sc2api_pb2",
+        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
 
@@ -265,6 +273,7 @@ py_test(
     name = "run_parallel_test",
     size = "small",
     srcs = ["run_parallel_test.py"],
+    legacy_create_init = False,
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -300,6 +309,7 @@ py_library(
 py_test(
     name = "point_test",
     srcs = ["point_test.py"],
+    legacy_create_init = False,
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -317,6 +327,7 @@ py_library(
 py_test(
     name = "stopwatch_test",
     srcs = ["stopwatch_test.py"],
+    legacy_create_init = False,
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [

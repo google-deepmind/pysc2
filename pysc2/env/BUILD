@@ -2,7 +2,7 @@ load("@my_deps//:requirements.bzl", "requirement")
 
 package(default_visibility = ["//visibility:public"])
 
-licenses(["notice"])  # Apache2 license
+licenses(["notice"])
 
 py_library(
     name = "available_actions_printer",
@@ -23,7 +23,7 @@ py_library(
     srcs = ["enums.py"],
     srcs_version = "PY3",
     deps = [
-        "@s2client_proto//:sc2api_pb2",
+        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
 
@@ -43,7 +43,7 @@ py_library(
         "//pysc2/lib:remote_controller",
         "//pysc2/maps",
         "//pysc2/run_configs",
-        "@s2client_proto//:sc2api_pb2",
+        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
 
@@ -63,7 +63,7 @@ py_library(
         "//pysc2/lib:stopwatch",
         "//pysc2/maps",
         "//pysc2/run_configs",
-        "@s2client_proto//:sc2api_pb2",
+        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
 
@@ -71,6 +71,7 @@ py_test(
     name = "sc2_env_test",
     size = "small",
     srcs = ["sc2_env_test.py"],
+    legacy_create_init = False,
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -91,7 +92,7 @@ py_library(
         "//pysc2/lib:run_parallel",
         "//pysc2/maps",
         "//pysc2/run_configs",
-        "@s2client_proto//:sc2api_pb2",
+        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
 
@@ -104,7 +105,7 @@ py_library(
         "//pysc2/lib:features",
         "//pysc2/lib:run_parallel",
         "//pysc2/run_configs",
-        "@s2client_proto//:sc2api_pb2",
+        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
 
@@ -115,11 +116,11 @@ py_library(
     deps = [
         ":environment",
         ":sc2_env",
-        requirement("numpy"),
         "//pysc2/lib:features",
         "//pysc2/lib:units",
         "//pysc2/tests:dummy_observation",
-        "@s2client_proto//:common_pb2",
+        requirement("numpy"),
+        "@s2client_proto//s2clientprotocol:common_py_pb2",
     ],
 )
 
@@ -127,6 +128,7 @@ py_test(
     name = "mock_sc2_env_test",
     size = "small",
     srcs = ["mock_sc2_env_test.py"],
+    legacy_create_init = False,
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -134,10 +136,10 @@ py_test(
         ":environment",
         ":mock_sc2_env",
         ":sc2_env",
-        "@absl_py//absl/testing:absltest",
+        "//pysc2/lib:features",
         requirement("mock"),
         requirement("numpy"),
-        "//pysc2/lib:features",
+        "@absl_py//absl/testing:absltest",
     ],
 )
 
@@ -145,6 +147,7 @@ py_test(
     name = "mock_sc2_env_comparison_test",
     size = "large",
     srcs = ["mock_sc2_env_comparison_test.py"],
+    legacy_create_init = False,
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [

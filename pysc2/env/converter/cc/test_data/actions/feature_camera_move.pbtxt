@@ -1,0 +1,8 @@
+action_feature_layer {
+  camera_move {
+    center_minimap {
+      x: 33
+      y: 41
+    }
+  }
+}
