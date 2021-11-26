@@ -137,6 +137,84 @@ dm_env_rpc::v1::Tensor UpgradesUint8FixedLength(
   return output;
 }
 
+dm_env_rpc::v1::TensorSpec RawUnitsSpec(int max_unit_count, int num_unit_types,
+                                        int num_unit_features,
+                                        int num_action_types) {
+  dm_env_rpc::v1::TensorSpec spec;
+  spec.set_name("raw_units");
+  spec.set_dtype(dm_env_rpc::v1::DataType::INT32);
+  spec.add_shape(max_unit_count);
+  spec.add_shape(num_unit_features + 2);
+
+  // All mins are 0, as that is what is populated when there is no unit.
+  for (int j = 0; j < max_unit_count; ++j) {
+    for (int i = 0; i < num_unit_features + 2; ++i) {
+      spec.mutable_min()->mutable_int32s()->add_array(0);
+    }
+  }
+
+  // We populate an array with all maxes, then broadcast that into the spec
+  // taking the actual requested number of features into account.
+  std::array<int, 46> max({
+      kMaskedUnitTypeId,                // 0, unit type.
+      SC2APIProtocol::Alliance_MAX,     // 1, alliance.
+      10000,                            // 2, health.
+      1000,                             // 3, shield.
+      200,                              // 4, energy.
+      8,                                // 5, cargo space.
+      100,                              // 6, build progress.
+      255,                              // 7, health ratio.
+      255,                              // 8, shield ratio.
+      255,                              // 9, energy ratio.
+      SC2APIProtocol::DisplayType_MAX,  // 10, display type.
+      16,                               // 11, owner.
+      256,                              // 12, minimap pos x.
+      256,                              // 13, minimap pos y.
+      7,                                // 14, facing.
+      13,                               // 15, minimap radius.
+      SC2APIProtocol::CloakState_MAX,   // 16, cloak state.
+      1,                                // 17, is selected.
+      1,                                // 18, is blip.
+      1,                                // 19, is powered.
+      1800,                             // 20, mineral contents.
+      2250,                             // 21, vespene contents.
+      8,                                // 22, cargo space max.
+      64,                               // 23, assigned harvesters.
+      64,                               // 24, ideal harvesters.
+      50,                               // 25, weapon cooldown.
+      32,                               // 26, orders size.
+      num_action_types - 1,             // 27, order 0.
+      num_action_types - 1,             // 28, order 1.
+      INT_MAX,                          // 29, unit tag.
+      1,                                // 30, is hallucination.
+      MaximumBuffId(),                  // 31, buff 0.
+      MaximumBuffId(),                  // 32, buff 1.
+      42,                               // 33, add-on unit tag. Needs -> uint8.
+      1,                                // 34, is active.
+      1,                                // 35, is on screen.
+      100,                              // 36, order 0 progress.
+      100,                              // 37, order 1 progress.
+      num_action_types - 1,             // 38, order 2.
+      num_action_types - 1,             // 39, order 3.
+      1,                                // 40, in cargo.
+      4000,                             // 41, buff duration remain.
+      4000,                             // 42, buff duration max.
+      3,                                // 43, attack upgrade level.
+      3,                                // 44, armor upgrade level.
+      3,                                // 45, shield upgrade level.
+  });
+
+  for (int j = 0; j < max_unit_count; ++j) {
+    for (int i = 0; i < num_unit_features; ++i) {
+      spec.mutable_max()->mutable_int32s()->add_array(max[i]);
+    }
+    // The extra 2 features.
+    spec.mutable_max()->mutable_int32s()->add_array(1);  // unit selected.
+    spec.mutable_max()->mutable_int32s()->add_array(1);  // unit targetted.
+  }
+  return spec;
+}
+
 dm_env_rpc::v1::Tensor RawUnitsFullVec(
     const absl::flat_hash_set<int64_t>& last_unit_tags,
     const int64_t last_target_unit_tag,

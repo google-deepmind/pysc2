@@ -428,7 +428,8 @@ TEST_P(ConverterTest, ObservationSpec) {
       EXPECT_EQ(v.dtype(), dm_env_rpc::v1::DataType::UINT8) << k;
     } else {
       EXPECT_EQ(v.dtype(), dm_env_rpc::v1::DataType::INT32) << k;
-      if (!absl::StrContains(k, "upgrades_fixed_length")) {
+      if (!absl::StrContains(k, "upgrades_fixed_length") &&
+          !absl::StrContains(k, "raw_units")) {
         EXPECT_FALSE(v.has_min()) << k;
         EXPECT_FALSE(v.has_max()) << k;
       }

@@ -53,8 +53,8 @@ RawConverter::ObservationSpec() const {
   absl::flat_hash_map<std::string, dm_env_rpc::v1::TensorSpec> spec;
   const auto& raw = settings_.raw_settings();
   spec["raw_units"] =
-      TensorSpec("raw_units", dm_env_rpc::v1::DataType::INT32,
-                 {raw.max_unit_count(), raw.num_unit_features() + 2});
+      RawUnitsSpec(raw.max_unit_count(), settings_.num_unit_types(),
+                   raw.num_unit_features(), settings_.num_action_types());
 
   if (raw.use_camera_position()) {
     spec["camera_position"] =

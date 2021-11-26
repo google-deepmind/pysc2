@@ -41,6 +41,10 @@ dm_env_rpc::v1::Tensor Upgrades(const SC2APIProtocol::Observation& obs);
 dm_env_rpc::v1::Tensor UpgradesUint8FixedLength(
     const dm_env_rpc::v1::Tensor& upgrades, int max_num_upgrades);
 
+dm_env_rpc::v1::TensorSpec RawUnitsSpec(int max_unit_count, int num_unit_types,
+                                        int num_unit_features,
+                                        int num_action_types);
+
 dm_env_rpc::v1::Tensor RawUnitsFullVec(
     const absl::flat_hash_set<int64_t>& last_unit_tags,
     const int64_t last_target_unit_tag,
