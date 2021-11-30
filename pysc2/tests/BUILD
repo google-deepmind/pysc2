@@ -1,4 +1,5 @@
 load("@my_deps//:requirements.bzl", "requirement")
+load("//pysc2:build_defs.bzl", "pytype_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -329,7 +330,7 @@ py_test(
     ],
 )
 
-py_library(
+pytype_library(
     name = "utils",
     testonly = 1,
     srcs = ["utils.py"],
@@ -363,7 +364,7 @@ py_test(
     ],
 )
 
-py_library(
+pytype_library(
     name = "__init__",
     srcs = ["__init__.py"],
     srcs_version = "PY3",

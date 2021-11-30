@@ -1,24 +1,25 @@
 load("@my_deps//:requirements.bzl", "requirement")
+load("//pysc2:build_defs.bzl", "pytype_library")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-py_library(
+pytype_library(
     name = "available_actions_printer",
     srcs = ["available_actions_printer.py"],
     srcs_version = "PY3",
     deps = [":base_env_wrapper"],
 )
 
-py_library(
+pytype_library(
     name = "base_env_wrapper",
     srcs = ["base_env_wrapper.py"],
     srcs_version = "PY3",
     deps = [":environment"],
 )
 
-py_library(
+pytype_library(
     name = "enums",
     srcs = ["enums.py"],
     srcs_version = "PY3",
@@ -27,13 +28,13 @@ py_library(
     ],
 )
 
-py_library(
+pytype_library(
     name = "environment",
     srcs = ["environment.py"],
     srcs_version = "PY3",
 )
 
-py_library(
+pytype_library(
     name = "host_remote_agent",
     srcs = ["host_remote_agent.py"],
     srcs_version = "PY3",
@@ -47,7 +48,7 @@ py_library(
     ],
 )
 
-py_library(
+pytype_library(
     name = "sc2_env",
     srcs = ["sc2_env.py"],
     srcs_version = "PY3",
@@ -81,7 +82,7 @@ py_test(
     ],
 )
 
-py_library(
+pytype_library(
     name = "remote_sc2_env",
     srcs = ["remote_sc2_env.py"],
     srcs_version = "PY3",
@@ -96,7 +97,7 @@ py_library(
     ],
 )
 
-py_library(
+pytype_library(
     name = "lan_sc2_env",
     srcs = ["lan_sc2_env.py"],
     srcs_version = "PY3",
@@ -109,7 +110,7 @@ py_library(
     ],
 )
 
-py_library(
+pytype_library(
     name = "mock_sc2_env",
     srcs = ["mock_sc2_env.py"],
     srcs_version = "PY3",
@@ -157,13 +158,13 @@ py_test(
     ],
 )
 
-py_library(
+pytype_library(
     name = "run_loop",
     srcs = ["run_loop.py"],
     srcs_version = "PY3",
 )
 
-py_library(
+pytype_library(
     name = "__init__",
     srcs = ["__init__.py"],
     srcs_version = "PY3",

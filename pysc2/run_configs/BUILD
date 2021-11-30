@@ -1,8 +1,10 @@
+load("//pysc2:build_defs.bzl", "pytype_library")
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0 License
 
-py_library(
+pytype_library(
     name = "run_configs",
     srcs = ["__init__.py"],
     srcs_version = "PY3",
@@ -14,7 +16,7 @@ py_library(
     ],
 )
 
-py_library(
+pytype_library(
     name = "lib",
     srcs = ["lib.py"],
     srcs_version = "PY3",
@@ -23,7 +25,7 @@ py_library(
     ],
 )
 
-py_library(
+pytype_library(
     name = "platforms",
     srcs = ["platforms.py"],
     deps = [

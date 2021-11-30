@@ -1,3 +1,5 @@
+load("//pysc2:build_defs.bzl", "pytype_library")
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache2 license
@@ -9,7 +11,7 @@ filegroup(
     ]),
 )
 
-py_library(
+pytype_library(
     name = "maps",
     srcs = [
         "__init__.py",

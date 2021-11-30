@@ -1,3 +1,5 @@
+load("//pysc2:build_defs.bzl", "pytype_strict_library")
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
@@ -36,7 +38,7 @@ cc_library(
     ],
 )
 
-py_library(
+pytype_strict_library(
     name = "__init__",
     srcs = ["__init__.py"],
 )

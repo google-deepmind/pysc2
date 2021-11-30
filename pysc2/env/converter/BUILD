@@ -1,10 +1,11 @@
 load("@my_deps//:requirements.bzl", "requirement")
+load("//pysc2:build_defs.bzl", "pytype_library", "pytype_strict_library")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-py_library(
+pytype_library(
     name = "converter",
     srcs = ["converter.py"],
     data = ["//pysc2/env/converter/cc/python:converter.so"],
@@ -33,7 +34,7 @@ py_test(
     ],
 )
 
-py_library(
+pytype_library(
     name = "derive_interface_options",
     srcs = ["derive_interface_options.py"],
     srcs_version = "PY3",
@@ -44,7 +45,7 @@ py_library(
     ],
 )
 
-py_library(
+pytype_strict_library(
     name = "__init__",
     srcs = ["__init__.py"],
 )
