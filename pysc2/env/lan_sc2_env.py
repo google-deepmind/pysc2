@@ -20,7 +20,6 @@ import binascii
 import collections
 import hashlib
 import json
-from absl import logging
 import os
 import shutil
 import socket
@@ -29,6 +28,7 @@ import subprocess
 import threading
 import time
 
+from absl import logging
 from pysc2 import run_configs
 from pysc2.env import sc2_env
 from pysc2.lib import features

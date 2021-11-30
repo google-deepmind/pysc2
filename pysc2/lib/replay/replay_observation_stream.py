@@ -15,9 +15,9 @@
 
 import io
 import json
-from absl import logging
 import time
 
+from absl import logging
 import mpyq
 from pysc2 import run_configs
 

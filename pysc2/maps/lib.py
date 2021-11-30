@@ -28,8 +28,9 @@ import the maps lib and use `get`. Using `get` from this lib will work, but only
 if you've imported the map module somewhere.
 """
 
-from absl import logging
 import os
+
+from absl import logging
 
 
 class DuplicateMapError(Exception):

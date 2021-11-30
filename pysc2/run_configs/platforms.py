@@ -14,13 +14,13 @@
 """Configs for how to run SC2 from a normal install on various platforms."""
 
 import copy
-from absl import logging
 import os
 import platform
 import subprocess
 import sys
 
 from absl import flags
+from absl import logging
 
 from pysc2.lib import sc_process
 from pysc2.run_configs import lib

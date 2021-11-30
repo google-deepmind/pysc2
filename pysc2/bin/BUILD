@@ -171,6 +171,7 @@ pytype_binary(
     deps = [
         "@absl_py//absl:app",
         "@absl_py//absl/flags",
+        "@absl_py//absl/logging",
         requirement("portpicker"),
         "//pysc2/agents",  # build_cleaner: keep
         "//pysc2/env:lan_sc2_env",
@@ -201,6 +202,7 @@ pytype_binary(
         "//pysc2/run_configs",
         "@absl_py//absl:app",
         "@absl_py//absl/flags",
+        "@absl_py//absl/logging",
         "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )

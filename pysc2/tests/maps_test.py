@@ -15,10 +15,10 @@
 """Test that some of the maps work."""
 
 import functools
-from absl import logging
 import os
 import random
 
+from absl import logging
 from absl.testing import absltest
 from absl.testing import parameterized
 

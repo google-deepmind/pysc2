@@ -16,9 +16,9 @@
 
 import collections
 import enum
-from absl import logging
 import random
 
+from absl import logging
 import numpy as np
 from pysc2.lib import actions
 from pysc2.lib import colors

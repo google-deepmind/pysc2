@@ -64,6 +64,7 @@ pytype_library(
         "//pysc2/lib:stopwatch",
         "//pysc2/maps",
         "//pysc2/run_configs",
+        "@absl_py//absl/logging",
         "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
@@ -93,6 +94,7 @@ pytype_library(
         "//pysc2/lib:run_parallel",
         "//pysc2/maps",
         "//pysc2/run_configs",
+        "@absl_py//absl/logging",
         "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
@@ -106,6 +108,7 @@ pytype_library(
         "//pysc2/lib:features",
         "//pysc2/lib:run_parallel",
         "//pysc2/run_configs",
+        "@absl_py//absl/logging",
         "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )

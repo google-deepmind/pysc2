@@ -14,9 +14,9 @@
 # limitations under the License.
 """Test that multiplayer works independently of the SC2Env."""
 
-from absl import logging
 import os
 
+from absl import logging
 from absl.testing import absltest
 
 from pysc2 import maps

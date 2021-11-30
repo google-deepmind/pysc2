@@ -35,13 +35,13 @@ opportunity to give ssh a password, so you must use ssh keys for authentication.
 
 import getpass
 import importlib
-from absl import logging
 import platform
 import sys
 import time
 
 from absl import app
 from absl import flags
+from absl import logging
 import portpicker
 
 from pysc2 import maps

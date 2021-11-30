@@ -22,4 +22,7 @@ pytype_library(
     ],
     data = [":map_files"],
     srcs_version = "PY3",
+    deps = [
+        "@absl_py//absl/logging",
+    ],
 )

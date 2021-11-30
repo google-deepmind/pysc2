@@ -61,6 +61,7 @@ pytype_strict_library(
     srcs = ["replay_observation_stream.py"],
     srcs_version = "PY3",
     deps = [
+        "@absl_py//absl/logging",
         requirement("mpyq"),
         "//pysc2/run_configs",
         "@s2client_proto//s2clientprotocol:sc2api_py_pb2",

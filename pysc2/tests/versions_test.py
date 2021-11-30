@@ -14,8 +14,8 @@
 # limitations under the License.
 """Test that every version in run_configs actually runs."""
 
-from absl import logging
 
+from absl import logging
 from absl.testing import absltest
 from pysc2 import maps
 from pysc2 import run_configs

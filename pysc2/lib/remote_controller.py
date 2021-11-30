@@ -15,12 +15,12 @@
 
 import copy
 import functools
-from absl import logging
 import socket
 import sys
 import time
 
 from absl import flags
+from absl import logging
 from pysc2.lib import protocol
 from pysc2.lib import static_data
 from pysc2.lib import stopwatch

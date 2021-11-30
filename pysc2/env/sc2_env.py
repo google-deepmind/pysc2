@@ -16,10 +16,10 @@
 
 import collections
 import copy
-from absl import logging
 import random
 import time
 
+from absl import logging
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.env import enums

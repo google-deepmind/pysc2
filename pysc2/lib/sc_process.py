@@ -13,7 +13,6 @@
 # limitations under the License.
 """Launch the game and set up communication."""
 
-from absl import logging
 import os
 import platform
 import shutil
@@ -22,6 +21,7 @@ import tempfile
 import time
 
 from absl import flags
+from absl import logging
 
 import portpicker
 from pysc2.lib import remote_controller

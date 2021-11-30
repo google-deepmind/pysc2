@@ -18,7 +18,6 @@ import ctypes
 import enum
 import functools
 import itertools
-from absl import logging
 import math
 import os
 import platform
@@ -28,6 +27,7 @@ import subprocess
 import threading
 import time
 
+from absl import logging
 import numpy as np
 import pygame
 from pysc2.lib import buffs

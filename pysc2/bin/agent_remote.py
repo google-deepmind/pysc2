@@ -43,13 +43,13 @@ instance next to the agent, and tunnels the lan actions instead.
 
 import getpass
 import importlib
-from absl import logging
 import platform
 import sys
 import time
 
 from absl import app
 from absl import flags
+from absl import logging
 
 from pysc2 import maps
 from pysc2 import run_configs

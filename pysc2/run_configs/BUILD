@@ -32,5 +32,6 @@ pytype_library(
         ":lib",
         "//pysc2/lib:sc_process",
         "@absl_py//absl/flags",
+        "@absl_py//absl/logging",
     ],
 )

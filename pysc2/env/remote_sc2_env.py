@@ -14,8 +14,8 @@
 """A Starcraft II environment for playing using remote SC2 instances."""
 
 import collections
-from absl import logging
 
+from absl import logging
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.env import sc2_env

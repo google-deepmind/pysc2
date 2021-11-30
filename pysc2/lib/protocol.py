@@ -16,13 +16,13 @@
 import contextlib
 import enum
 import itertools
-from absl import logging
 import os
 import socket
 import sys
 import time
 
 from absl import flags
+from absl import logging
 from pysc2.lib import stopwatch
 import websocket
 
