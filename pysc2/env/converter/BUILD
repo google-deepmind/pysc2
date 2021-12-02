@@ -11,7 +11,7 @@ pytype_library(
     data = ["//pysc2/env/converter/cc/python:converter.so"],
     deps = [
         "//pysc2/env/converter/proto:converter_py_pb2",
-        "@dm_env_archive//:dm_env",
+        "@dm_env_archive//:specs",
         "@dm_env_rpc_archive//:dm_env_rpc",
         "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
