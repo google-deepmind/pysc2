@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """PySC2 environment converter.
 
 This is a thin wrapper around the pybind implementation, supporting dm specs
@@ -51,7 +50,8 @@ class Converter:
   def __init__(self, settings: converter_pb2.ConverterSettings,
                environment_info: converter_pb2.EnvironmentInfo):
     self._converter = converter.MakeConverter(
-        settings=settings, environment_info=environment_info)
+        settings=settings.SerializeToString(),
+        environment_info=environment_info.SerializeToString())
 
   def observation_spec(self) -> Mapping[str, specs.Array]:
     """Returns the observation spec.
@@ -123,5 +123,4 @@ class Converter:
     request_action.ParseFromString(
         transformed.request_action.SerializeToString())
     return converter_pb2.Action(
-        request_action=request_action,
-        delay=transformed.delay)
+        request_action=request_action, delay=transformed.delay)

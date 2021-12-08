@@ -20,6 +20,18 @@
 #include "pybind11_abseil/status_casters.h"
 #include "pybind11_protobuf/native_proto_caster.h"
 
+namespace {
+absl::StatusOr<pysc2::Converter> MakeConverterWrapper(
+    const std::string& settings, const std::string& environment_info) {
+  // Deserialize strings.
+  pysc2::EnvironmentInfo env_info;
+  pysc2::ConverterSettings converter_settings;
+  converter_settings.ParseFromString(settings);
+  env_info.ParseFromString(environment_info);
+  return pysc2::MakeConverter(converter_settings, env_info);
+}
+}  //  namespace
+
 PYBIND11_MODULE(converter, m) {
   pybind11_protobuf::ImportNativeProtoCasters();
   pybind11::google::ImportStatusModule();
@@ -34,6 +46,6 @@ PYBIND11_MODULE(converter, m) {
       .def("ConvertAction", &pysc2::Converter::ConvertAction,
            pybind11::arg("action"));
 
-  m.def("MakeConverter", &pysc2::MakeConverter, pybind11::arg("settings"),
+  m.def("MakeConverter", &MakeConverterWrapper, pybind11::arg("settings"),
         pybind11::arg("environment_info"));
 }
