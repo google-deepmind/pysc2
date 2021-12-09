@@ -84,7 +84,7 @@ def pysc2_create_external_repos(pysc2_repo_name):
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            patches = ["@" + pysc2_archive_name + "//bazel:protobuf.patch"],
+            patches = ["@" + pysc2_repo_name + "//bazel:protobuf.patch"],
             urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.19.1.zip"],
             strip_prefix = "protobuf-3.19.1",
         )
@@ -133,7 +133,7 @@ def pysc2_create_external_repos(pysc2_repo_name):
             name = "s2client_proto",
             urls = ["https://github.com/Blizzard/s2client-proto/archive/refs/heads/master.zip"],
             strip_prefix = "s2client-proto-master",
-            patches = ["@" + pysc2_archive_name + "//bazel:s2clientprotocol.patch"],
+            patches = ["@" + pysc2_repo_name + "//bazel:s2clientprotocol.patch"],
         )
 
     if not native.existing_rule("dm_env_archive"):
@@ -141,7 +141,7 @@ def pysc2_create_external_repos(pysc2_repo_name):
         # proto code which leads to incompatibilities with our our protos.
         http_archive(
             name = "dm_env_archive",
-            build_file = "@" + pysc2_archive_name + "//bazel:BUILD.dm_env",
+            build_file = "@" + pysc2_repo_name + "//bazel:BUILD.dm_env",
             strip_prefix = "dm_env-3c6844db2aa4ed5994b2c45dbfd9f31ad948fbb8",
             urls = ["https://github.com/deepmind/dm_env/archive/3c6844db2aa4ed5994b2c45dbfd9f31ad948fbb8.zip"],
         )
@@ -153,13 +153,13 @@ def pysc2_create_external_repos(pysc2_repo_name):
             name = "dm_env_rpc_archive",
             urls = ["https://github.com/deepmind/dm_env_rpc/archive/refs/heads/master.zip"],
             strip_prefix = "dm_env_rpc-master",
-            build_file = "@" + pysc2_archive_name + "//bazel:BUILD.dm_env_rpc",
+            build_file = "@" + pysc2_repo_name + "//bazel:BUILD.dm_env_rpc",
         )
 
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            patches = ["@" + pysc2_archive_name + "//bazel:grpc.patch"],
+            patches = ["@" + pysc2_repo_name + "//bazel:grpc.patch"],
             strip_prefix = "grpc-master",
             urls = ["https://github.com/grpc/grpc/archive/refs/heads/master.zip"],
         )
