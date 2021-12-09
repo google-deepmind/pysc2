@@ -3,7 +3,7 @@ workspace(name = "pysc2")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 load("//bazel:create_external_repos.bzl", "pysc2_create_external_repos")
-pysc2_create_external_repos()
+pysc2_create_external_repos(pysc2_repo_name = "pysc2")
 
 load("//bazel:setup_external_repos.bzl", "pysc2_setup_external_repos")
 pysc2_setup_external_repos()

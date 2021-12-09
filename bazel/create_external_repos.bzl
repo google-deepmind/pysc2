@@ -16,8 +16,28 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-def pysc2_create_external_repos():
-    """Creates external repos needed by PySC2 and by its consumers."""
+def pysc2_create_external_repos(pysc2_repo_name):
+    """Creates external repos needed by PySC2 and by its consumers.
+
+    Args:
+        pysc2_repo_name: The name of the PySC2 repo, as instantiated in
+          the local WORKSPACE. When executing this function from the pysc2
+          WORKSPACE, this name is "pysc2". But external consumers shouldn't
+          use that name as it leads to Python import problems due to the
+          pysc2/pysc2 subdirectory. Hence a name such as "pysc2_archive"
+          is recommended.
+
+    Example:
+        http_archive(
+            name = "pysc2_archive",
+            # ...
+        )
+
+        load("@pysc2_archive//bazel:create_external_repos.bzl",
+             "pysc2_create_external_repos")
+        pysc2_create_external_repos(pysc2_repo_name = "pysc2_archive")
+    """
+
     if not native.existing_rule("absl_py"):
         # It is important that this isn't named simply 'absl' as the project has a
         # subdirectory named that, and Python module lookup fails if we have absl/absl.
@@ -64,7 +84,7 @@ def pysc2_create_external_repos():
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            patches = ["@pysc2//bazel:protobuf.patch"],
+            patches = ["@" + pysc2_archive_name + "//bazel:protobuf.patch"],
             urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.19.1.zip"],
             strip_prefix = "protobuf-3.19.1",
         )
@@ -113,7 +133,7 @@ def pysc2_create_external_repos():
             name = "s2client_proto",
             urls = ["https://github.com/Blizzard/s2client-proto/archive/refs/heads/master.zip"],
             strip_prefix = "s2client-proto-master",
-            patches = ["@pysc2//bazel:s2clientprotocol.patch"],
+            patches = ["@" + pysc2_archive_name + "//bazel:s2clientprotocol.patch"],
         )
 
     if not native.existing_rule("dm_env_archive"):
@@ -121,7 +141,7 @@ def pysc2_create_external_repos():
         # proto code which leads to incompatibilities with our our protos.
         http_archive(
             name = "dm_env_archive",
-            build_file = "@pysc2//bazel:BUILD.dm_env",
+            build_file = "@" + pysc2_archive_name + "//bazel:BUILD.dm_env",
             strip_prefix = "dm_env-3c6844db2aa4ed5994b2c45dbfd9f31ad948fbb8",
             urls = ["https://github.com/deepmind/dm_env/archive/3c6844db2aa4ed5994b2c45dbfd9f31ad948fbb8.zip"],
         )
@@ -133,13 +153,13 @@ def pysc2_create_external_repos():
             name = "dm_env_rpc_archive",
             urls = ["https://github.com/deepmind/dm_env_rpc/archive/refs/heads/master.zip"],
             strip_prefix = "dm_env_rpc-master",
-            build_file = "@pysc2//bazel:BUILD.dm_env_rpc",
+            build_file = "@" + pysc2_archive_name + "//bazel:BUILD.dm_env_rpc",
         )
 
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            patches = ["@pysc2//bazel:grpc.patch"],
+            patches = ["@" + pysc2_archive_name + "//bazel:grpc.patch"],
             strip_prefix = "grpc-master",
             urls = ["https://github.com/grpc/grpc/archive/refs/heads/master.zip"],
         )
