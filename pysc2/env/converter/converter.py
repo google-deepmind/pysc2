@@ -94,16 +94,20 @@ class Converter:
       A flat mapping of string labels to numpy arrays / or scalars, as
       appropriate.
     """
-    for k, v in self._converter.ConvertObservation(observation).items():
-      try:
-        tensor_utils.unpack_tensor(v)
-      except Exception as e:
-        raise Exception(f'Failed for {k}:{v} - {e}')
+    serialized_converted_obs = self._converter.ConvertObservation(
+        observation.SerializeToString())
 
-    return {
-        k: tensor_utils.unpack_tensor(v)
-        for k, v in self._converter.ConvertObservation(observation).items()
-    }
+    deserialized_converted_obs = {}
+    for k, v in serialized_converted_obs.items():
+      value = dm_env_rpc_pb2.Tensor()
+      value.ParseFromString(v)
+      try:
+        unpacked_value = tensor_utils.unpack_tensor(value)
+        deserialized_converted_obs[k] = unpacked_value
+      except Exception as e:
+        raise Exception(f'Unpacking failed for {k}:{v} - {e}')
+
+    return deserialized_converted_obs
 
   def convert_action(self, action: Mapping[str, Any]) -> converter_pb2.Action:
     """Converts an agent action into an SC2 API action proto.
@@ -117,15 +121,18 @@ class Converter:
     Returns:
       An SC2 API action request + game loop delay.
     """
-    # TODO(b/207106690):
-    # This is necessary at the moment because pybind11 returns wrapped
-    # protos which are not the same class as the native Python proto.
-    # That makes e.g. instanceof checks fail elsewhere in the code.
-    # Once we switch to native_proto_casters.h the problem goes away.
-    transformed = self._converter.ConvertAction(
-        {k: tensor_utils.pack_tensor(v) for k, v in action.items()})
+    # TODO(b/210113354): Remove protos serialization over pybind11 boundary.
+    serialized_action = {
+        k: tensor_utils.pack_tensor(v).SerializeToString()
+        for k, v in action.items()
+    }
+    converted_action_serialized = self._converter.ConvertAction(
+        serialized_action)
+    converted_action = converter_pb2.Action()
+    converted_action.ParseFromString(converted_action_serialized)
+
     request_action = sc2api_pb2.RequestAction()
     request_action.ParseFromString(
-        transformed.request_action.SerializeToString())
+        converted_action.request_action.SerializeToString())
     return converter_pb2.Action(
-        request_action=request_action, delay=transformed.delay)
+        request_action=request_action, delay=converted_action.delay)

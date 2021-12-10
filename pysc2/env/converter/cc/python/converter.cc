@@ -17,6 +17,7 @@
 #include <memory>
 
 #include "absl/status/statusor.h"
+#include "dm_env_rpc/v1/dm_env_rpc.pb.h"
 #include "pysc2/env/converter/proto/converter.pb.h"
 #include "pybind11/pybind11.h"
 #include "pybind11_abseil/absl_casters.h"
@@ -57,15 +58,39 @@ class ConverterWrapper {
     }
     return action_spec;
   }
-  absl::StatusOr<absl::flat_hash_map<std::string, dm_env_rpc::v1::Tensor>>
-  ConvertObservation(const pysc2::Observation& observation) {
-    auto result = converter_.ConvertObservation(observation);
-    return result;
+  absl::StatusOr<absl::flat_hash_map<std::string, pybind11::bytes>>
+  ConvertObservation(const pybind11::bytes& observation) {
+    pysc2::Observation deserialized_obs;
+    absl::flat_hash_map<std::string, pybind11::bytes> serialized_obs;
+    deserialized_obs.ParseFromString(observation);
+    auto converted_obs_or = converter_.ConvertObservation(deserialized_obs);
+    if (!converted_obs_or.ok()) {
+      return converted_obs_or.status();
+    }
+    for (const auto& p : *converted_obs_or) {
+      std::string temp;
+      p.second.SerializeToString(&temp);
+      serialized_obs[p.first] = temp;
+    }
+    return serialized_obs;
   }
-  absl::StatusOr<pysc2::Action> ConvertAction(
-      const absl::flat_hash_map<std::string, dm_env_rpc::v1::Tensor>& action) {
-    auto result = converter_.ConvertAction(action);
-    return result;
+  absl::StatusOr<pybind11::bytes> ConvertAction(
+      const absl::flat_hash_map<std::string, pybind11::bytes>& action) {
+    absl::flat_hash_map<std::string, dm_env_rpc::v1::Tensor>
+        deserialized_action;
+    for (const auto& p : action) {
+      dm_env_rpc::v1::Tensor temp;
+      temp.ParseFromString(p.second);
+      deserialized_action[p.first] = temp;
+    }
+    absl::StatusOr<pysc2::Action> converted_action_or;
+    converted_action_or = converter_.ConvertAction(deserialized_action);
+    if (!converted_action_or.ok()) {
+      return converted_action_or.status();
+    }
+    std::string serialized_action;
+    converted_action_or->SerializeToString(&serialized_action);
+    return serialized_action;
   }
 };
 
