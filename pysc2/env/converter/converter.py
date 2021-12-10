@@ -24,6 +24,7 @@ from dm_env import specs
 from pysc2.env.converter.cc.python import converter
 from pysc2.env.converter.proto import converter_pb2
 
+from dm_env_rpc.v1 import dm_env_rpc_pb2
 from dm_env_rpc.v1 import dm_env_utils
 from dm_env_rpc.v1 import tensor_utils
 from s2clientprotocol import sc2api_pb2
@@ -59,10 +60,12 @@ class Converter:
     This is a flat mapping of string label to dm_env array spec and varies
     with the specified converter settings and instantiated environment info.
     """
-    return {
-        k: dm_env_utils.tensor_spec_to_dm_env_spec(v)
-        for k, v in self._converter.ObservationSpec().items()
-    }
+    spec = {}
+    for k, v in self._converter.ObservationSpec().items():
+      value = dm_env_rpc_pb2.TensorSpec()
+      value.ParseFromString(v)
+      spec[k] = dm_env_utils.tensor_spec_to_dm_env_spec(value)
+    return spec
 
   def action_spec(self) -> Mapping[str, specs.Array]:
     """Returns the action spec.
@@ -70,10 +73,12 @@ class Converter:
     This is a flat mapping of string label to dm_env array spec and varies
     with the specified converter settings and instantiated environment info.
     """
-    return {
-        k: dm_env_utils.tensor_spec_to_dm_env_spec(v)
-        for k, v in self._converter.ActionSpec().items()
-    }
+    spec = {}
+    for k, v in self._converter.ActionSpec().items():
+      value = dm_env_rpc_pb2.TensorSpec()
+      value.ParseFromString(v)
+      spec[k] = dm_env_utils.tensor_spec_to_dm_env_spec(value)
+    return spec
 
   def convert_observation(
       self, observation: converter_pb2.Observation) -> Mapping[str, Any]:
