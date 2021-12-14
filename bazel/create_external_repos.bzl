@@ -159,7 +159,6 @@ def pysc2_create_external_repos(pysc2_repo_name):
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            patches = ["@" + pysc2_repo_name + "//bazel:grpc.patch"],
             strip_prefix = "grpc-master",
             urls = ["https://github.com/grpc/grpc/archive/refs/heads/master.zip"],
         )

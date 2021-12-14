@@ -5,7 +5,6 @@ exports_files(
         "BUILD.dm_env",
         "BUILD.dm_env_rpc",
         "BUILD.s2protocol",
-        "grpc.patch",
         "protobuf.patch",
         "requirements.txt",
         "s2clientprotocol.patch",
