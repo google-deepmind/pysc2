@@ -23,10 +23,12 @@ pytype_library(
     name = "converted_env",
     srcs = ["converted_env.py"],
     deps = [
+        "@dm_env_archive//:dm_env",
+        requirement("numpy"),
         "//pysc2/env/converter",
         "//pysc2/env/converter/proto:converter_py_pb2",
         "//pysc2/lib:actions",
-        "@dm_env_archive//:dm_env",
+        requirement("dm-tree"),
         requirement("typing_extensions"),
         "@s2client_proto//s2clientprotocol:common_py_pb2",
         "@s2client_proto//s2clientprotocol:raw_py_pb2",

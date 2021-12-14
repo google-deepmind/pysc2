@@ -19,9 +19,11 @@ import threading
 from typing import Any, Mapping, NamedTuple, Sequence
 
 import dm_env
+import numpy as np
 from pysc2.env.converter import converter as converter_lib
 from pysc2.env.converter.proto import converter_pb2
 from pysc2.lib import actions as sc2_actions
+import tree
 import typing_extensions
 
 from s2clientprotocol import common_pb2
@@ -29,6 +31,22 @@ from s2clientprotocol import raw_pb2
 from s2clientprotocol import sc2api_pb2
 
 _BARRIER_TIMEOUT = 30.0
+
+
+def squeeze_if_necessary(x: np.ndarray) -> np.ndarray:
+  """Remove the trailing 1 of inputs."""
+  if x.shape and x.shape[-1] == 1:
+    return np.squeeze(x, axis=-1)
+  else:
+    return x
+
+
+def squeeze_spec_if_necessary(x):
+  """Remove the trailing 1 of specs inputs."""
+  if x.shape and x.shape[-1] == 1:
+    return x.replace(shape=x.shape[:-1])
+  else:
+    return x
 
 
 class ConverterFactory(typing_extensions.Protocol):
@@ -121,7 +139,7 @@ class ConvertedEnvironment(dm_env.Environment):
     return timestep
 
   def observation_spec(self):
-    return self._obs_specs
+    return tree.map_structure(squeeze_spec_if_necessary, self._obs_specs)
 
   def action_spec(self):
     return self._action_specs
@@ -155,7 +173,8 @@ class ConvertedEnvironment(dm_env.Environment):
       if not isinstance(obs, sc2api_pb2.ResponseObservation):
         obs = obs['_response_observation']()
       env_obs = converter_pb2.Observation(player=obs)
-      return converter.convert_observation(observation=env_obs)
+      env_obs = converter.convert_observation(observation=env_obs)
+      return tree.map_structure(squeeze_if_necessary, env_obs)
 
     # Merge the timesteps from a sequence to a single timestep
     return dm_env.TimeStep(
@@ -322,7 +341,9 @@ def get_environment_spec(
   """
   env_info = converter_pb2.EnvironmentInfo(game_info=_dummy_game_info())
   cvr = converter_lib.Converter(converter_settings, env_info)
-  return EnvironmentSpec(cvr.observation_spec(), cvr.action_spec())
+  obs_spec = tree.map_structure(squeeze_spec_if_necessary,
+                                cvr.observation_spec())
+  return EnvironmentSpec(obs_spec, cvr.action_spec())
 
 
 def make_converter_factories(
