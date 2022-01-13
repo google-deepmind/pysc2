@@ -13,6 +13,7 @@
 # limitations under the License.
 """Module setuptools script."""
 
+import distutils.command.build
 from setuptools import setup
 
 description = """PySC2 - StarCraft II Learning Environment
@@ -32,6 +33,15 @@ some initial research results using the environment.
 Read the README at https://github.com/deepmind/pysc2 for more information.
 """
 
+
+class BuildCommand(distutils.command.build.build):
+
+  def initialize_options(self):
+    distutils.command.build.build.initialize_options(self)
+    # To avoid conflicting with the Bazel BUILD file.
+    self.build_base = '_build'
+
+
 setup(
     name='PySC2',
     version='3.0.0',
@@ -39,6 +49,7 @@ setup(
     long_description=description,
     author='DeepMind',
     author_email='pysc2@deepmind.com',
+    cmdclass={'build': BuildCommand},
     license='Apache License, Version 2.0',
     keywords='StarCraft AI',
     url='https://github.com/deepmind/pysc2',
