@@ -20,7 +20,12 @@ using [pybind11](https://github.com/pybind/pybind11), but may also be used
 directly.
 
 Note also that, because converters are implemented in C++, changes to them
-require compilation. See `bazel.md` for further information on this.
+require compilation. See [this page](bazel.md) for further information.
+
+## Supported platforms
+
+Use of converters requires either [building with Bazel](bazel.md) or use of an
+appropriate pre-built wheel. Only Linux is supported at present.
 
 ## Raw mode
 

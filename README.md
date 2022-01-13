@@ -102,7 +102,7 @@ If you used the default install location PySC2 should find the latest binary.
 If you changed the install location, you might need to set the `SC2PATH`
 environment variable with the correct location.
 
-PySC2 should work on MacOS and Windows systems running Python 2.7+ or 3.4+,
+PySC2 should work on MacOS and Windows systems running Python 3.8+,
 but has only been thoroughly tested on Linux. We welcome suggestions and patches
 for better compatibility with other systems.
 
@@ -199,6 +199,11 @@ $ python -m pysc2.bin.run_tests
 For a full description of the specifics of how the environment is configured,
 the observations and action spaces work read the
 [environment documentation](docs/environment.md).
+
+Note that an alternative to this environment is now available which provides
+an enriched action and observation format using the C++ wrappers developed
+for AlphaStar. See [the converter documentation](docs/converters.md) for more
+information.
 
 # Mini-game maps
 
