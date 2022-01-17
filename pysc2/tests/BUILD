@@ -211,6 +211,7 @@ py_test(
         "//pysc2/maps",
         "//pysc2/run_configs",
         "@absl_py//absl/testing:absltest",
+        "@s2client_proto//s2clientprotocol:common_py_pb2",
         "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )

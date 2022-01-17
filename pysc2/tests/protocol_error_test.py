@@ -59,8 +59,8 @@ class TestProtocolError(utils.TestCase):
       obs = controller.observe()
       replay_data = controller.save_replay()
 
-      # Run through the replay the first time, verifying that it finishes, but
-      # wasn't recording a replay.
+      # Run through the replay verifying that it finishes but wasn't recording
+      # a replay.
       start_replay = sc_pb.RequestStartReplay(
           replay_data=replay_data,
           map_data=map_data,
@@ -71,28 +71,6 @@ class TestProtocolError(utils.TestCase):
       controller.step(1000)
       obs2 = controller.observe()
       self.assertEqual(obs.observation.game_loop, obs2.observation.game_loop)
-      with self.assertRaises(protocol.ProtocolError):
-        controller.save_replay()
-
-      # Run through the replay a second time, verifying that it finishes, and
-      # *was* recording a replay.
-      start_replay.record_replay = True
-      controller.start_replay(start_replay)
-      controller.step(1000)
-      obs2 = controller.observe()
-      self.assertEqual(obs.observation.game_loop, obs2.observation.game_loop)
-      replay_data2 = controller.save_replay()
-
-      # Make sure the replay isn't too small. Variance is fine but empty is not.
-      self.assertGreater(len(replay_data2), len(replay_data) * 0.8)
-
-      # Run through the replay a third time, verifying that it finishes, but
-      # still wasn't recording a replay.
-      start_replay.record_replay = False
-      controller.start_replay(start_replay)
-      controller.step(1000)
-      obs3 = controller.observe()
-      self.assertEqual(obs.observation.game_loop, obs3.observation.game_loop)
       with self.assertRaises(protocol.ProtocolError):
         controller.save_replay()
 
