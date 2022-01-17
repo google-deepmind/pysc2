@@ -32,30 +32,6 @@ pytype_strict_library(
     ],
 )
 
-py_test(
-    name = "replay_converter_test",
-    timeout = "long",
-    srcs = ["replay_converter_test.py"],
-    data = [
-        "test_data/replay_09.SC2Replay",
-        "test_data/replay_09.pkl",
-    ],
-    legacy_create_init = False,
-    python_version = "PY3",
-    srcs_version = "PY3",
-    deps = [
-        ":replay_converter",
-        "//pysc2/lib:gfile",
-        "//pysc2/lib:resources",
-        "@absl_py//absl/testing:absltest",
-        requirement("numpy"),
-        "//pysc2/env/converter/proto:converter_py_pb2",
-        "//pysc2/maps",  # buildcleaner: keep
-        requirement("dm-tree"),
-        "@s2client_proto//s2clientprotocol:common_py_pb2",
-    ],
-)
-
 pytype_strict_library(
     name = "replay_observation_stream",
     srcs = ["replay_observation_stream.py"],
