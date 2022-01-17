@@ -121,26 +121,6 @@ py_test(
 )
 
 py_test(
-    name = "maps_test",
-    size = "enormous",
-    srcs = ["maps_test.py"],
-    legacy_create_init = False,
-    python_version = "PY3",
-    shard_count = 10,
-    srcs_version = "PY3",
-    deps = [
-        ":utils",
-        "//pysc2/maps",
-        "//pysc2/run_configs",
-        "@absl_py//absl/logging",
-        "@absl_py//absl/testing:absltest",
-        "@absl_py//absl/testing:parameterized",
-        "@s2client_proto//s2clientprotocol:common_py_pb2",
-        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
-    ],
-)
-
-py_test(
     name = "multi_player_test",
     size = "enormous",
     srcs = ["multi_player_test.py"],
