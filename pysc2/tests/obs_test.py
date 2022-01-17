@@ -524,7 +524,7 @@ class ObsTest(utils.GameReplayTestCase):
     loc = obs1[0].observation.raw_data.player.camera
     self.move_camera(loc.x + 3, loc.y + 3)
 
-    self.step(EXPECTED_ACTION_DELAY)
+    self.step(EXPECTED_ACTION_DELAY + 1)
 
     obs3 = self.observe()
     screen3 = self._features.transform_obs(obs3[0])["feature_screen"]

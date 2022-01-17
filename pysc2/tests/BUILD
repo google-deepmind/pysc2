@@ -98,7 +98,8 @@ py_test(
         "//pysc2/lib:features",
         "//pysc2/lib:units",
         "@absl_py//absl/testing:absltest",
-        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
+        "@s2client_proto//s2clientprotocol:debug_py_pb2",
+        "@s2client_proto//s2clientprotocol:raw_py_pb2",
     ],
 )
 
