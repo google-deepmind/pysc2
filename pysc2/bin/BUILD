@@ -308,6 +308,6 @@ pytype_strict_binary(
         "@absl_py//absl/flags",
         requirement("mpyq"),
         "//pysc2/run_configs",
-        "@s2protocol//:versions",
+        "@s2protocol_archive//:versions",
     ],
 )

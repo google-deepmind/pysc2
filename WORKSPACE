@@ -56,13 +56,6 @@ load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_
 rules_proto_dependencies()
 rules_proto_toolchains()
 
-http_archive(
-    name = "s2protocol",
-    urls = ["https://github.com/Blizzard/s2protocol/archive/refs/heads/master.zip"],
-    strip_prefix = "s2protocol-master",
-    build_file = "@//bazel:BUILD.s2protocol",
-)
-
 # C++ dependencies.
 http_archive(
     name = "com_google_googletest",

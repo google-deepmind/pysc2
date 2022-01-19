@@ -136,6 +136,14 @@ def pysc2_create_external_repos(pysc2_repo_name):
             patches = ["@" + pysc2_repo_name + "//bazel:s2clientprotocol.patch"],
         )
 
+    if not native.existing_rule("s2protocol_archive"):
+        http_archive(
+            name = "s2protocol_archive",
+            urls = ["https://github.com/Blizzard/s2protocol/archive/refs/heads/master.zip"],
+            strip_prefix = "s2protocol-master",
+            build_file = "@" + pysc2_repo_name + "//bazel:BUILD.s2protocol",
+        )
+
     if not native.existing_rule("dm_env_archive"):
         # We can't use the wheels for dm_env because that pulls in
         # proto code which leads to incompatibilities with our our protos.

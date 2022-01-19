@@ -50,7 +50,7 @@ pytype_strict_library(
     srcs_version = "PY3",
     deps = [
         requirement("mpyq"),
-        "@s2protocol//:versions",
+        "@s2protocol_archive//:versions",
         requirement("dm-tree"),
     ],
 )
