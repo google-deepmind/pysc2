@@ -30,9 +30,9 @@ AGENT_INTERFACE_FORMAT = sc2_env.AgentInterfaceFormat(
 )
 
 
-class StepWithoutObserveTest(utils.TestCase):
+class StepMulOverrideTest(utils.TestCase):
 
-  def test_returns_observation_on_first_step_despite_no_observe(self):
+  def test_returns_game_loop_zero_on_first_step_despite_override(self):
     with sc2_env.SC2Env(
         map_name="DefeatRoaches",
         players=[sc2_env.Agent(sc2_env.Race.random)],
@@ -40,75 +40,29 @@ class StepWithoutObserveTest(utils.TestCase):
         agent_interface_format=AGENT_INTERFACE_FORMAT) as env:
       timestep = env.step(
           actions=[actions.FUNCTIONS.no_op()],
-          update_observation=[False])
+          step_mul=1234)
 
       self.assertEqual(
           timestep[0].observation.game_loop[0],
-          1)
+          0)
 
-  def test_returns_old_observation_when_no_observe(self):
+  def test_respects_override(self):
     with sc2_env.SC2Env(
         map_name="DefeatRoaches",
         players=[sc2_env.Agent(sc2_env.Race.random)],
         step_mul=1,
         agent_interface_format=AGENT_INTERFACE_FORMAT) as env:
 
-      for step in range(10):
-        observe = step % 3 == 0
+      expected_game_loop = 0
+      for delta in range(10):
         timestep = env.step(
             actions=[actions.FUNCTIONS.no_op()],
-            update_observation=[observe])
+            step_mul=delta)
 
-        expected_game_loop = 3 * (step // 3) + 1
+        expected_game_loop += delta
         self.assertEqual(
             timestep[0].observation.game_loop[0],
             expected_game_loop)
-
-  def test_respects_observe_parameter_per_player(self):
-    with sc2_env.SC2Env(
-        map_name="Simple64",
-        players=[
-            sc2_env.Agent(sc2_env.Race.random),
-            sc2_env.Agent(sc2_env.Race.random),
-        ],
-        step_mul=1,
-        agent_interface_format=AGENT_INTERFACE_FORMAT) as env:
-
-      for step in range(10):
-        observe = step % 3 == 0
-        timestep = env.step(
-            actions=[actions.FUNCTIONS.no_op()] * 2,
-            update_observation=[observe, True])
-
-        expected_game_loop = 3 * (step // 3) + 1
-        self.assertEqual(
-            timestep[0].observation.game_loop[0],
-            expected_game_loop)
-
-        self.assertEqual(
-            timestep[1].observation.game_loop[0],
-            step + 1)
-
-  def test_episode_ends_when_not_observing(self):
-    with sc2_env.SC2Env(
-        map_name="Simple64",
-        players=[
-            sc2_env.Agent(sc2_env.Race.random),
-            sc2_env.Bot(sc2_env.Race.random, sc2_env.Difficulty.cheat_insane)],
-        step_mul=1000,
-        agent_interface_format=AGENT_INTERFACE_FORMAT) as env:
-
-      ended = False
-      for _ in range(100):
-        timestep = env.step(
-            actions=[actions.FUNCTIONS.no_op()],
-            update_observation=[False])
-
-        if timestep[0].last():
-          ended = True
-          break
-
-      self.assertTrue(ended)
 
 
 if __name__ == "__main__":

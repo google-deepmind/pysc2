@@ -21,6 +21,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import re
+
 from pysc2.maps import lib
 
 
@@ -37,6 +39,11 @@ ladder_seasons = [
     "Ladder2017Season4",
     "Ladder2018Season1",
     "Ladder2018Season2",
+    "Ladder2018Season3",
+    "Ladder2018Season4",
+    "Ladder2019Season1",
+    "Ladder2019Season2",
+    "Ladder2019Season3",
 ]
 
 for name in ladder_seasons:
@@ -46,44 +53,66 @@ for name in ladder_seasons:
 # pylint: disable=bad-whitespace, undefined-variable
 # pytype: disable=name-error
 ladder_maps = [
-    ("16Bit",                Ladder2018Season2, "(2)16-BitLE", 2),
-    ("Abiogenesis",          Ladder2018Season1, "AbiogenesisLE", 2),
-    ("AbyssalReef",          Ladder2017Season4, "AbyssalReefLE", 2),
-    ("AcidPlant",            Ladder2018Season2, "(2)AcidPlantLE", 2),
-    ("Acolyte",              Ladder2017Season3, "AcolyteLE", 2),
-    ("AscensiontoAiur",      Ladder2017Season4, "AscensiontoAiurLE", 2),
-    ("Backwater",            Ladder2018Season1, "BackwaterLE", 2),
-    ("BattleontheBoardwalk", Ladder2017Season4, "BattleontheBoardwalkLE", 2),
-    ("BelShirVestige",       Ladder2017Season1, "BelShirVestigeLE", 2),
-    ("Blackpink",            Ladder2018Season1, "BlackpinkLE", 2),
-    ("BloodBoil",            Ladder2017Season2, "BloodBoilLE", 2),
-    ("CactusValley",         Ladder2017Season1, "CactusValleyLE", 4),
-    ("Catalyst",             Ladder2018Season2, "(2)CatalystLE", 2),
-    ("DarknessSanctuary",    Ladder2018Season2, "(4)DarknessSanctuaryLE", 4),
-    ("DefendersLanding",     Ladder2017Season2, "DefendersLandingLE", 2),
-    ("Dreamcatcher",         Ladder2018Season2, "(2)DreamcatcherLE", 2),
-    ("Eastwatch",            Ladder2018Season1, "EastwatchLE", 2),
-    ("Frost",                Ladder2017Season3, "FrostLE", 2),
-    ("Honorgrounds",         Ladder2017Season1, "HonorgroundsLE", 4),
-    ("Interloper",           Ladder2017Season3, "InterloperLE", 2),
-    ("LostandFound",         Ladder2018Season2, "(2)LostandFoundLE", 2),
-    ("MechDepot",            Ladder2017Season3, "MechDepotLE", 2),
-    ("NewkirkPrecinct",      Ladder2017Season1, "NewkirkPrecinctTE", 2),
-    ("Odyssey",              Ladder2017Season4, "OdysseyLE", 2),
-    ("PaladinoTerminal",     Ladder2017Season1, "PaladinoTerminalLE", 2),
-    ("ProximaStation",       Ladder2017Season2, "ProximaStationLE", 2),
-    ("Redshift",             Ladder2018Season2, "(2)RedshiftLE", 2),
-    ("Sequencer",            Ladder2017Season2, "SequencerLE", 2),
+    (Ladder2018Season2, "16-Bit LE", 2),
+    (Ladder2018Season1, "Abiogenesis LE", 2),
+    (Ladder2017Season4, "Abyssal Reef LE", 2),
+    (Ladder2018Season3, "Acid Plant LE", 2),
+    (Ladder2017Season3, "Acolyte LE", 2),
+    (Ladder2019Season3, "Acropolis LE", 2),
+    (Ladder2017Season4, "Ascension to Aiur LE", 2),
+    (Ladder2019Season1, "Automaton LE", 2),
+    (Ladder2018Season1, "Backwater LE", 2),
+    (Ladder2017Season4, "Battle on the Boardwalk LE", 2),
+    (Ladder2017Season1, "Bel'Shir Vestige LE", 2),
+    (Ladder2017Season2, "Blood Boil LE", 2),
+    (Ladder2018Season4, "Blueshift LE", 2),
+    (Ladder2017Season1, "Cactus Valley LE", 4),
+    (Ladder2018Season2, "Catalyst LE", 2),
+    (Ladder2018Season4, "Cerulean Fall LE", 2),
+    (Ladder2019Season2, "Cyber Forest LE", 2),
+    (Ladder2018Season2, "Darkness Sanctuary LE", 4),
+    (Ladder2017Season2, "Defender's Landing LE", 2),
+    (Ladder2019Season3, "Disco Bloodbath LE", 2),
+    (Ladder2018Season3, "Dreamcatcher LE", 2),
+    (Ladder2018Season1, "Eastwatch LE", 2),
+    (Ladder2019Season3, "Ephemeron LE", 2),
+    (Ladder2018Season3, "Fracture LE", 2),
+    (Ladder2017Season3, "Frost LE", 2),
+    (Ladder2017Season1, "Honorgrounds LE", 4),
+    (Ladder2017Season3, "Interloper LE", 2),
+    (Ladder2019Season2, "Kairos Junction LE", 2),
+    (Ladder2019Season2, "King's Cove LE", 2),
+    (Ladder2018Season3, "Lost and Found LE", 2),
+    (Ladder2017Season3, "Mech Depot LE", 2),
+    (Ladder2018Season1, "Neon Violet Square LE", 2),
+    (Ladder2019Season2, "New Repugnancy LE", 2),
+    (Ladder2017Season1, "Newkirk Precinct TE", 2),
+    (Ladder2017Season4, "Odyssey LE", 2),
+    (Ladder2017Season1, "Paladino Terminal LE", 2),
+    (Ladder2018Season4, "Para Site LE", 2),
+    (Ladder2019Season1, "Port Aleksander LE", 2),
+    (Ladder2017Season2, "Proxima Station LE", 2),
+    (Ladder2018Season2, "Redshift LE", 2),
+    (Ladder2017Season2, "Sequencer LE", 2),
+    (Ladder2018Season4, "Stasis LE", 2),
+    (Ladder2019Season3, "Thunderbird LE", 2),
+    (Ladder2019Season3, "Triton LE", 2),
+    (Ladder2019Season2, "Turbo Cruise '84 LE", 2),
+    (Ladder2019Season3, "Winter's Gate LE", 2),
+    (Ladder2019Season3, "World of Sleepers LE", 2),
+    (Ladder2019Season1, "Year Zero LE", 2),
 
-    # Disabled due to failing on 4.1.2 on Linux (Websocket Timeout).
-    # ("NeonVioletSquare",     Ladder2018Season1, "NeonVioletSquareLE", 2),
+    # Disabled due to being renamed to Neo Seoul
+    # (Ladder2018Season1, "Blackpink LE", 2),
 ]
 # pylint: enable=bad-whitespace, undefined-variable
 # pytype: enable=name-error
 
 # Create the classes dynamically, putting them into the module scope. They all
 # inherit from a parent and set the players based on the map filename.
-for name, parent, map_file, players in ladder_maps:
-  globals()[name] = type(name, (parent,), dict(filename=map_file,
-                                               players=players))
+for parent, bnet, players in ladder_maps:
+  name = re.sub(r"[ '-]|[LTRS]E$", "", bnet)
+  map_file = re.sub(r"[ ']", "", bnet)
+  globals()[name] = type(name, (parent,), dict(
+      filename=map_file, players=players, battle_net=bnet))
 

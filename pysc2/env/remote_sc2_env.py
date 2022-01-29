@@ -23,13 +23,14 @@ from absl import logging
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.env import sc2_env
+from pysc2.lib import features
 from pysc2.lib import remote_controller
 from pysc2.lib import run_parallel
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
-class RestartException(Exception):
+class RestartError(Exception):
   pass
 
 
@@ -50,10 +51,12 @@ class RemoteSC2Env(sc2_env.SC2Env):
                host_port=None,
                lan_port=None,
                race=None,
+               name="<unknown>",
                agent_interface_format=None,
                discount=1.,
                visualize=False,
                step_mul=None,
+               realtime=False,
                replay_dir=None,
                replay_prefix=None):
     """Create a SC2 Env that connects to a remote instance of the game.
@@ -85,6 +88,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
           or an int specifying base port - equivalent to specifying the
           sequence [lan_port, lan_port+1, lan_port+2, lan_port+3].
       race: Race for this agent.
+      name: The name of this agent, for saving in the replay.
       agent_interface_format: AgentInterfaceFormat object describing the
           format of communication between the agent and the environment.
       discount: Returned as part of the observation.
@@ -92,6 +96,13 @@ class RemoteSC2Env(sc2_env.SC2Env):
           layers. This won't work without access to a window manager.
       step_mul: How many game steps per agent step (action/observation). None
           means use the map default.
+      realtime: Whether to use realtime mode. In this mode the game simulation
+          automatically advances (at 22.4 gameloops per second) rather than
+          being stepped manually. The number of game loops advanced with each
+          call to step() won't necessarily match the step_mul specified. The
+          environment will attempt to honour step_mul, returning observations
+          with that spacing as closely as possible. Game loops will be skipped
+          if they cannot be retrieved and processed quickly enough.
       replay_dir: Directory to save a replay.
       replay_prefix: An optional prefix to use when saving replays.
 
@@ -111,22 +122,27 @@ class RemoteSC2Env(sc2_env.SC2Env):
 
     map_inst = map_name and maps.get(map_name)
     self._map_name = map_name
+    self._game_info = None
 
     self._num_agents = 1
     self._discount = discount
     self._step_mul = step_mul or (map_inst.step_mul if map_inst else 8)
+    self._realtime = realtime
+    self._last_step_time = None
     self._save_replay_episodes = 1 if replay_dir else 0
     self._replay_dir = replay_dir
     self._replay_prefix = replay_prefix
 
     self._score_index = -1  # Win/loss only.
     self._score_multiplier = 1
-    self._episode_length = 0  # No limit.
+    self._episode_length = sc2_env.MAX_STEP_COUNT
+    self._ensure_available_actions = False
     self._discount_zero_after_timeout = False
 
     self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
     self._in_game = False
+    self._action_delay_fns = [None]
 
     interface = self._get_interface(
         agent_interface_format=agent_interface_format, require_raw=visualize)
@@ -139,9 +155,10 @@ class RemoteSC2Env(sc2_env.SC2Env):
       ports = [lan_port + p for p in range(4)]  # 2 * num players *in the game*.
 
     self._connect_remote(
-        host, host_port, ports, race, map_inst, save_map, interface)
+        host, host_port, ports, race, name, map_inst, save_map, interface,
+        agent_interface_format)
 
-    self._finalize([agent_interface_format], [interface], visualize)
+    self._finalize(visualize)
 
   def close(self):
     # Leave the game so that another may be created in the same SC2 process.
@@ -150,14 +167,16 @@ class RemoteSC2Env(sc2_env.SC2Env):
       self._controllers[0].leave()
       self._in_game = False
       logging.info("Left game.")
+    self._controllers[0].close()
 
     # We don't own the SC2 process, we shouldn't call quit in the super class.
     self._controllers = None
+    self._game_info = None
 
     super(RemoteSC2Env, self).close()
 
-  def _connect_remote(self, host, host_port, lan_ports, race, map_inst,
-                      save_map, interface):
+  def _connect_remote(self, host, host_port, lan_ports, race, name, map_inst,
+                      save_map, interface, agent_interface_format):
     """Make sure this stays synced with bin/agent_remote.py."""
     # Connect!
     logging.info("Connecting...")
@@ -171,6 +190,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
     # Create the join request.
     join = sc_pb.RequestJoinGame(options=interface)
     join.race = race
+    join.player_name = name
     join.shared_port = 0  # unused
     join.server_ports.game_port = lan_ports.pop(0)
     join.server_ports.base_port = lan_ports.pop(0)
@@ -179,10 +199,20 @@ class RemoteSC2Env(sc2_env.SC2Env):
 
     logging.info("Joining game.")
     self._controllers[0].join_game(join)
+
+    self._game_info = [self._controllers[0].game_info()]
+
+    if not self._map_name:
+      self._map_name = self._game_info[0].map_name
+
+    self._features = [features.features_from_game_info(
+        game_info=self._game_info[0],
+        agent_interface_format=agent_interface_format)]
+
     self._in_game = True
     logging.info("Game joined.")
 
   def _restart(self):
     # Can't restart since it's not clear how you'd coordinate that with the
     # other players.
-    raise RestartException("Can't restart")
+    raise RestartError("Can't restart")

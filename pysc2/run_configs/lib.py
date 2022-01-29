@@ -54,6 +54,8 @@ VERSIONS = version_dict([
     Version("4.1.0", 60196, "1B8ACAB0C663D5510941A9871B3E9FBE", None),
     Version("4.1.1", 60321, "5C021D8A549F4A776EE9E9C1748FFBBC", None),
     Version("4.1.2", 60321, "33D9FE28909573253B7FC352CE7AEA40", None),
+    Version("4.1.3", 60321, "F486693E00B2CD305B39E0AB254623EB", None),
+    Version("4.1.4", 60321, "2E2A3F6E0BAFE5AC659C4D39F13A938C", None),
     Version("4.2.0", 62347, "C0C0E9D37FCDBC437CE386C6BE2D1F93", None),
     Version("4.2.1", 62848, "29BBAC5AFF364B6101B661DB468E3A37", None),
     Version("4.2.2", 63454, "3CB54C86777E78557C984AB1CF3494A0", None),
@@ -62,19 +64,43 @@ VERSIONS = version_dict([
     Version("4.3.0", 64469, "C92B3E9683D5A59E08FC011F4BE167FF", None),
     Version("4.3.1", 65094, "E5A21037AA7A25C03AC441515F4E0644", None),
     Version("4.3.2", 65384, "B6D73C85DFB70F5D01DEABB2517BF11C", None),
+    Version("4.4.0", 65895, "BF41339C22AE2EDEBEEADC8C75028F7D", None),
+    Version("4.4.1", 66668, "C094081D274A39219061182DBFD7840F", None),
+    Version("4.5.0", 67188, "2ACF84A7ECBB536F51FC3F734EC3019F", None),
+    Version("4.5.1", 67188, "6D239173B8712461E6A7C644A5539369", None),
+    Version("4.6.0", 67926, "7DE59231CBF06F1ECE9A25A27964D4AE", None),
+    Version("4.6.1", 67926, "BEA99B4A8E7B41E62ADC06D194801BAB", None),
+    Version("4.6.2", 69232, "B3E14058F1083913B80C20993AC965DB", None),
+    Version("4.7.0", 70154, "8E216E34BC61ABDE16A59A672ACB0F3B", None),
+    Version("4.7.1", 70154, "94596A85191583AD2EBFAE28C5D532DB", None),
+    Version("4.8.0", 71061, "760581629FC458A1937A05ED8388725B", None),
+    Version("4.8.1", 71523, "FCAF3F050B7C0CC7ADCF551B61B9B91E", None),
+    Version("4.8.2", 71663, "FE90C92716FC6F8F04B74268EC369FA5", None),
+    Version("4.8.3", 72282, "0F14399BBD0BA528355FF4A8211F845B", None),
+    Version("4.8.4", 73286, "CD040C0675FD986ED37A4CA3C88C8EB5", None),
+    Version("4.8.5", 73559, "B2465E73AED597C74D0844112D582595", None),
+    Version("4.8.6", 73620, "AA18FEAD6573C79EF707DF44ABF1BE61", None),
+    Version("4.9.0", 74071, "70C74A2DCA8A0D8E7AE8647CAC68ACCA", None),
+    Version("4.9.1", 74456, "218CB2271D4E2FA083470D30B1A05F02", None),
+    Version("4.9.2", 74741, "614480EF79264B5BD084E57F912172FF", None),
+    Version("4.9.3", 75025, "C305368C63621480462F8F516FB64374", None),
+    Version("4.10.0", 75689, "B89B5D6FA7CBF6452E721311BFBC6CB2", None),
+    Version("4.10.1", 75800, "DDFFF9EC4A171459A4F371C6CC189554", None),
 ])
 
 
 class RunConfig(object):
   """Base class for different run configs."""
 
-  def __init__(self, replay_dir, data_dir, tmp_dir, cwd=None, env=None):
+  def __init__(self, replay_dir, data_dir, tmp_dir, version,
+               cwd=None, env=None):
     """Initialize the runconfig with the various directories needed.
 
     Args:
       replay_dir: Where to find replays. Might not be accessible to SC2.
       data_dir: Where SC2 should find the data and battle.net cache.
       tmp_dir: The temporary directory. None is system default.
+      version: The game version to run, a string.
       cwd: Where to set the current working directory.
       env: What to pass as the environment variables.
     """
@@ -83,11 +109,21 @@ class RunConfig(object):
     self.tmp_dir = tmp_dir
     self.cwd = cwd
     self.env = env
+    self.version = self._get_version(version)
 
-  def map_data(self, map_name):
+  def map_data(self, map_name, players=None):
     """Return the map data for a map by name or path."""
-    with gfile.Open(os.path.join(self.data_dir, "Maps", map_name), "rb") as f:
-      return f.read()
+    map_names = [map_name]
+    if players:
+      map_names.append(os.path.join(
+          os.path.dirname(map_name),
+          "(%s)%s" % (players, os.path.basename(map_name))))
+    for name in map_names:
+      path = os.path.join(self.data_dir, "Maps", name)
+      if gfile.Exists(path):
+        with gfile.Open(path, "rb") as f:
+          return f.read()
+    raise ValueError("Map '%s' not found." % map_name)
 
   def abs_replay_path(self, replay_path):
     """Return the absolute path to the replay, outside the sandbox."""
@@ -160,16 +196,26 @@ class RunConfig(object):
     """None means this isn't valid. Run the one with the max priority."""
     return None
 
-  def get_versions(self):
+  def get_versions(self, containing=None):
     """Return a dict of all versions that can be run."""
+    if containing is not None and containing not in VERSIONS:
+      raise ValueError("Unknown game version: %s. Known versions: %s." % (
+          containing, sorted(VERSIONS.keys())))
     return VERSIONS
 
   def _get_version(self, game_version):
-    versions = self.get_versions()
+    """Get the full details for the specified game version."""
+    if isinstance(game_version, Version):
+      if not game_version.game_version:
+        raise ValueError(
+            "Version '%r' supplied without a game version." % (game_version,))
+      if (game_version.data_version and
+          game_version.binary and
+          game_version.build_version):
+        return game_version
+      # Some fields might be missing from serialized versions. Look them up.
+      game_version = game_version.game_version
     if game_version.count(".") == 1:
       game_version += ".0"
-    if game_version not in versions:
-      raise ValueError("Unknown game version: %s. Known versions: %s" % (
-          game_version, sorted(versions.keys())))
+    versions = self.get_versions(containing=game_version)
     return versions[game_version]
-

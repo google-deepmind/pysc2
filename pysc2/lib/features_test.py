@@ -185,8 +185,12 @@ class AvailableActionsTest(absltest.TestCase):
         "Harvest_Gather_SCV_screen",
         "Move_minimap",
         "Move_screen",
+        "Move_Move_minimap",
+        "Move_Move_screen",
         "Patrol_minimap",
         "Patrol_screen",
+        "Patrol_Patrol_minimap",
+        "Patrol_Patrol_screen",
         "Stop_quick",
         "Stop_Stop_quick"
     ])
@@ -257,10 +261,6 @@ class DimensionsTest(absltest.TestCase):
     with self.assertRaises(ValueError):
       features.Dimensions(minimap=(64, 67))
 
-  def testScreenSmallerThanMinimapRaises(self):
-    with self.assertRaises(ValueError):
-      features.Dimensions(screen=84, minimap=100)
-
   def testNoneNoneRaises(self):
     with self.assertRaises(ValueError):
       features.Dimensions(screen=None, minimap=None)
@@ -297,6 +297,13 @@ class DimensionsTest(absltest.TestCase):
     with self.assertRaises(ValueError):
       features.Dimensions(screen=64, minimap=(-32, -32))
 
+  def testEquality(self):
+    self.assertEqual(features.Dimensions(screen=64, minimap=64),
+                     features.Dimensions(screen=64, minimap=64))
+    self.assertNotEqual(features.Dimensions(screen=64, minimap=64),
+                        features.Dimensions(screen=64, minimap=32))
+    self.assertNotEqual(features.Dimensions(screen=64, minimap=64), None)
+
 
 class TestParseAgentInterfaceFormat(parameterized.TestCase):
 
@@ -324,7 +331,7 @@ class TestParseAgentInterfaceFormat(parameterized.TestCase):
         agent_interface_format.feature_dimensions.minimap,
         point.Point(24, 24))
 
-  @parameterized.parameters((32, None), (None, 32))
+  @parameterized.parameters((32, None), (None, 32), (32, 64))
   def test_invalid_minimap_combinations_raise(self, screen, minimap):
     with self.assertRaises(ValueError):
       features.parse_agent_interface_format(
@@ -358,6 +365,7 @@ class TestParseAgentInterfaceFormat(parameterized.TestCase):
         feature_minimap=(24, 24),
         rgb_screen=64,
         rgb_minimap=(48, 48),
+        use_raw_units=True,
         action_space=action_space)
 
     self.assertEqual(
@@ -389,8 +397,8 @@ class FeaturesTest(absltest.TestCase):
 
   def testAllVersionsOfAnAbilityHaveTheSameGeneral(self):
     for ability_id, funcs in six.iteritems(actions.ABILITY_IDS):
-      self.assertEqual(len({f.general_id for f in funcs}), 1,
-                       "Multiple generals for %s" % ability_id)
+      self.assertLen({f.general_id for f in funcs}, 1,
+                     "Multiple generals for %s" % ability_id)
 
   def testValidFunctionsAreConsistent(self):
     feats = features.Features(features.AgentInterfaceFormat(
@@ -401,10 +409,10 @@ class FeaturesTest(absltest.TestCase):
       func = actions.FUNCTIONS[func_def.id]
       self.assertEqual(func_def.id, func.id)
       self.assertEqual(func_def.name, func.name)
-      self.assertEqual(len(func_def.args), len(func.args))
+      self.assertEqual(len(func_def.args), len(func.args))  # pylint: disable=g-generic-assert
 
   def gen_random_function_call(self, action_spec, func_id):
-    args = [[numpy.random.randint(0, size) for size in arg.sizes]
+    args = [[numpy.random.randint(0, size) for size in arg.sizes]  # pylint: disable=g-complex-comprehension
             for arg in action_spec.functions[func_id].args]
     return actions.FunctionCall(func_id, args)
 
@@ -450,13 +458,45 @@ class FeaturesTest(absltest.TestCase):
                               point.Point(*a[2]).floor())
 
           self.assertEqual(func_call.function, func_call2.function)
-          self.assertEqual(len(func_call.arguments), len(func_call2.arguments))
+          self.assertEqual(len(func_call.arguments), len(func_call2.arguments))  # pylint: disable=g-generic-assert
           self.assertEqual(func_call.arguments[0], func_call2.arguments[0])
           self.assertEqual(rect(func_call.arguments),
                            rect(func_call2.arguments))
         else:
           self.assertEqual(func_call, func_call2, msg=sc2_action)
         self.assertEqual(sc2_action, sc2_action2)
+
+  def testRawActionUnitTags(self):
+    feats = features.Features(
+        features.AgentInterfaceFormat(
+            use_raw_units=True,
+            action_space=actions.ActionSpace.RAW),
+        map_size=point.Point(100, 100))
+
+    tags = [numpy.random.randint(2**20, 2**24) for _ in range(10)]
+    ntags = numpy.array(tags, dtype=numpy.int64)
+    tag = tags[0]
+    ntag = numpy.array(tag, dtype=numpy.int64)
+
+    def transform(fn, *args):
+      func_call = actions.RAW_FUNCTIONS[fn]("now", *args)
+      proto = feats.transform_action(None, func_call, skip_available=True)
+      return proto.action_raw.unit_command
+
+    self.assertEqual(transform("Attack_pt", tag, [15, 20]).unit_tags, [tag])
+    self.assertEqual(transform("Attack_pt", ntag, [15, 20]).unit_tags, [tag])
+    self.assertEqual(transform("Attack_pt", [tag], [15, 20]).unit_tags, [tag])
+    self.assertEqual(transform("Attack_pt", [ntag], [15, 20]).unit_tags, [tag])
+    self.assertEqual(transform("Attack_pt", tags, [15, 20]).unit_tags, tags)
+    self.assertEqual(transform("Attack_pt", ntags, [15, 20]).unit_tags, tags)
+   # Weird, but needed for backwards compatibility
+    self.assertEqual(transform("Attack_pt", [tags], [15, 20]).unit_tags, tags)
+    self.assertEqual(transform("Attack_pt", [ntags], [15, 20]).unit_tags, tags)
+
+    self.assertEqual(transform("Attack_unit", tag, tag).target_unit_tag, tag)
+    self.assertEqual(transform("Attack_unit", tag, ntag).target_unit_tag, tag)
+    self.assertEqual(transform("Attack_unit", tag, [tag]).target_unit_tag, tag)
+    self.assertEqual(transform("Attack_unit", tag, [ntag]).target_unit_tag, tag)
 
   def testCanPickleSpecs(self):
     feats = features.Features(features.AgentInterfaceFormat(
@@ -544,8 +584,10 @@ class FeaturesTest(absltest.TestCase):
         rgb_dimensions=features.Dimensions(screen=(128, 132), minimap=(74, 77)),
         action_space=actions.ActionSpace.FEATURES))
     obs_spec = feats.observation_spec()
-    self.assertEqual(obs_spec["feature_screen"], (17, 80, 84))
-    self.assertEqual(obs_spec["feature_minimap"], (7, 67, 64))
+    self.assertEqual(obs_spec["feature_screen"],  # pylint: disable=g-generic-assert
+                     (len(features.SCREEN_FEATURES), 80, 84))
+    self.assertEqual(obs_spec["feature_minimap"],  # pylint: disable=g-generic-assert
+                     (len(features.MINIMAP_FEATURES), 67, 64))
     self.assertEqual(obs_spec["rgb_screen"], (132, 128, 3))
     self.assertEqual(obs_spec["rgb_minimap"], (77, 74, 3))
 

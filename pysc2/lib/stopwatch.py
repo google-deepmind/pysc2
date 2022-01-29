@@ -17,9 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import defaultdict
+import collections
 import functools
 import math
+import os
 import sys
 import threading
 import time
@@ -154,21 +155,32 @@ class StopWatch(object):
       func()
       print(sw)
   """
-  __slots__ = ("_times", "_local", "enabled", "trace")
+  __slots__ = ("_times", "_local", "_factory")
 
   def __init__(self, enabled=True, trace=False):
-    self._times = defaultdict(Stat)
+    self._times = collections.defaultdict(Stat)
     self._local = threading.local()
-    self.enabled = enabled
-    self.trace = trace
+    if trace:
+      self.trace()
+    elif enabled:
+      self.enable()
+    else:
+      self.disable()
+
+  def disable(self):
+    self._factory = lambda _: fake_context
+
+  def enable(self):
+    self._factory = lambda name: StopWatchContext(self, name)
+
+  def trace(self):
+    self._factory = lambda name: TracingStopWatchContext(self, name)
+
+  def custom(self, factory):
+    self._factory = factory
 
   def __call__(self, name):
-    if not self.enabled:  # This is the usual fast case.
-      return fake_context
-    if self.trace:
-      return TracingStopWatchContext(self, name)
-    else:
-      return StopWatchContext(self, name)
+    return self._factory(name)
 
   def decorate(self, name_or_func):
     """Decorate a function/method to check its timings.
@@ -190,6 +202,9 @@ class StopWatch(object):
       If a name is passed, returns this as a decorator, otherwise returns the
       decorated function.
     """
+    if os.environ.get("SC2_NO_STOPWATCH"):
+      return name_or_func if callable(name_or_func) else lambda func: func
+
     def decorator(name, func):
       @functools.wraps(func)
       def _stopwatch(*args, **kwargs):
@@ -236,6 +251,7 @@ class StopWatch(object):
 
   @staticmethod
   def parse(s):
+    """Parse the output below to create a new StopWatch."""
     stopwatch = StopWatch()
     for line in s.splitlines():
       if line.strip():

@@ -30,6 +30,7 @@ from pysc2 import run_configs
 from pysc2.lib import actions
 from pysc2.lib import features
 from pysc2.lib import point
+from pysc2.lib import renderer_ascii
 from pysc2.lib import units
 from pysc2.tests import utils
 
@@ -37,18 +38,6 @@ from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 _EMPTY = 0
-printable_unit_types = {
-    _EMPTY: '.',
-    units.Neutral.MineralField: 'm',
-    units.Neutral.MineralField750: 'm',
-    units.Neutral.SpacePlatformGeyser: 'G',
-    units.Neutral.VespeneGeyser: 'G',
-    units.Terran.Barracks: 'B',
-    units.Terran.CommandCenter: 'C',
-    units.Terran.SCV: 's',
-    units.Terran.Marine: 'M',
-    units.Terran.SupplyDepot: 'D',
-}
 
 
 def identity_function(name, args):
@@ -110,34 +99,10 @@ class Config(object):
         1937: identity_function('Train_SCV_quick', ['now']),
         2400: select(avg_point, units.Terran.Barracks),
         2700: identity_function('Train_Marine_quick', ['now']),
-        3300: select(any_point, units.Terran.Marine),
+        3300: identity_function('select_army', ['select']),
     }
     self.num_observations = max(self.actions.keys()) + 2
     self.player_id = 1
-
-
-def _obs_string(obs):
-  unit_type = obs.feature_screen.unit_type
-  selected = obs.feature_screen.selected
-  max_y, max_x = unit_type.shape
-  out = ''
-  for y in range(max_y):
-    started = False
-    for x in range(max_x):
-      s = selected[y, x]
-      u = unit_type[y, x]
-      if started and not s:
-        out += ')'
-      elif not started and s:
-        out += '('
-      else:
-        out += ' '
-      out += printable_unit_types.get(u, str(u))
-      started = s
-    if started:
-      out += ')'
-    out += '\n'
-  return out
 
 
 class GameController(object):
@@ -161,7 +126,8 @@ class GameController(object):
     self._map_inst = maps.get(self._config.map_name)
     self._map_data = self._map_inst.data(run_config)
 
-    self._sc2_proc = run_config.start()
+    self._sc2_proc = run_config.start(
+        want_rgb=self._config.interface.HasField('render'))
     self._controller = self._sc2_proc.controller
 
   def start_replay(self, replay_data):
@@ -239,8 +205,7 @@ class ReplayObsTest(utils.TestCase):
       if o.game_loop in config.actions:
         func = config.actions[o.game_loop](obs)
 
-        print((' loop: %s ' % o.game_loop).center(80, '-'))
-        print(_obs_string(obs))
+        print(renderer_ascii.screen(obs))
         scv_y, scv_x = (units.Terran.SCV == unit_type).nonzero()
         print('scv locations: ', sorted(list(zip(scv_x, scv_y))))
         print('available actions: ', list(sorted(obs.available_actions)))

@@ -48,6 +48,8 @@ flags.DEFINE_enum("action_space", None, sc2_env.ActionSpace._member_names_,  # p
                   "and rgb observations.")
 flags.DEFINE_bool("use_feature_units", False,
                   "Whether to include feature units.")
+flags.DEFINE_bool("use_raw_units", False,
+                  "Whether to include raw units.")
 flags.DEFINE_bool("disable_fog", False, "Whether to disable Fog of War.")
 
 flags.DEFINE_integer("max_agent_steps", 0, "Total agent steps.")
@@ -57,14 +59,20 @@ flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
 
 flags.DEFINE_string("agent", "pysc2.agents.random_agent.RandomAgent",
                     "Which agent to run, as a python path to an Agent class.")
+flags.DEFINE_string("agent_name", None,
+                    "Name of the agent in replays. Defaults to the class name.")
 flags.DEFINE_enum("agent_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
                   "Agent 1's race.")
 
 flags.DEFINE_string("agent2", "Bot", "Second agent, either Bot or agent class.")
+flags.DEFINE_string("agent2_name", None,
+                    "Name of the agent in replays. Defaults to the class name.")
 flags.DEFINE_enum("agent2_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
                   "Agent 2's race.")
 flags.DEFINE_enum("difficulty", "very_easy", sc2_env.Difficulty._member_names_,  # pylint: disable=protected-access
                   "If agent2 is a built-in Bot, it's strength.")
+flags.DEFINE_enum("bot_build", "random", sc2_env.BotBuild._member_names_,  # pylint: disable=protected-access
+                  "Bot's build strategy.")
 
 flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
 flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
@@ -73,6 +81,7 @@ flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
 flags.DEFINE_bool("save_replay", True, "Whether to save a replay at the end.")
 
 flags.DEFINE_string("map", None, "Name of a map to use.")
+flags.DEFINE_bool("battle_net_map", False, "Use the battle.net map version.")
 flags.mark_flag_as_required("map")
 
 
@@ -80,6 +89,7 @@ def run_thread(agent_classes, players, map_name, visualize):
   """Run one thread worth of the environment with agents."""
   with sc2_env.SC2Env(
       map_name=map_name,
+      battle_net_map=FLAGS.battle_net_map,
       players=players,
       agent_interface_format=sc2_env.parse_agent_interface_format(
           feature_screen=FLAGS.feature_screen_size,
@@ -87,7 +97,8 @@ def run_thread(agent_classes, players, map_name, visualize):
           rgb_screen=FLAGS.rgb_screen_size,
           rgb_minimap=FLAGS.rgb_minimap_size,
           action_space=FLAGS.action_space,
-          use_feature_units=FLAGS.use_feature_units),
+          use_feature_units=FLAGS.use_feature_units,
+          use_raw_units=FLAGS.use_raw_units),
       step_mul=FLAGS.step_mul,
       game_steps_per_episode=FLAGS.game_steps_per_episode,
       disable_fog=FLAGS.disable_fog,
@@ -101,8 +112,10 @@ def run_thread(agent_classes, players, map_name, visualize):
 
 def main(unused_argv):
   """Run an agent."""
-  stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
-  stopwatch.sw.trace = FLAGS.trace
+  if FLAGS.trace:
+    stopwatch.sw.trace()
+  elif FLAGS.profile:
+    stopwatch.sw.enable()
 
   map_inst = maps.get(FLAGS.map)
 
@@ -112,17 +125,20 @@ def main(unused_argv):
   agent_module, agent_name = FLAGS.agent.rsplit(".", 1)
   agent_cls = getattr(importlib.import_module(agent_module), agent_name)
   agent_classes.append(agent_cls)
-  players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent_race]))
+  players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent_race],
+                               FLAGS.agent_name or agent_name))
 
   if map_inst.players >= 2:
     if FLAGS.agent2 == "Bot":
       players.append(sc2_env.Bot(sc2_env.Race[FLAGS.agent2_race],
-                                 sc2_env.Difficulty[FLAGS.difficulty]))
+                                 sc2_env.Difficulty[FLAGS.difficulty],
+                                 sc2_env.BotBuild[FLAGS.bot_build]))
     else:
       agent_module, agent_name = FLAGS.agent2.rsplit(".", 1)
       agent_cls = getattr(importlib.import_module(agent_module), agent_name)
       agent_classes.append(agent_cls)
-      players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent2_race]))
+      players.append(sc2_env.Agent(sc2_env.Race[FLAGS.agent2_race],
+                                   FLAGS.agent2_name or agent_name))
 
   threads = []
   for _ in range(FLAGS.parallel - 1):

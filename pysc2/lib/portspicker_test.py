@@ -25,18 +25,25 @@ from pysc2.lib import portspicker
 
 class PortsTest(parameterized.TestCase):
 
-  @parameterized.parameters(range(10))
+  @parameterized.parameters(range(1, 10))
   def testNonContiguousReservation(self, num_ports):
     reserved = portspicker.pick_unused_ports(num_ports)
-    self.assertEqual(len(reserved), num_ports)
+    self.assertLen(reserved, num_ports)
     portspicker.return_ports(reserved)
 
-  @parameterized.parameters(range(10))
+  @parameterized.parameters(range(2, 5))
   def testContiguousReservation(self, num_ports):
     reserved = portspicker.pick_contiguous_unused_ports(num_ports)
-    self.assertEqual(len(reserved), num_ports)
+    self.assertLen(reserved, num_ports)
     portspicker.return_ports(reserved)
 
+  def testInvalidReservation(self):
+    with self.assertRaises(ValueError):
+      portspicker.pick_unused_ports(0)
+
+  def testInvalidContiguousReservation(self):
+    with self.assertRaises(ValueError):
+      portspicker.pick_contiguous_unused_ports(0)
 
 if __name__ == "__main__":
   absltest.main()

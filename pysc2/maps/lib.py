@@ -36,18 +36,20 @@ from absl import logging
 import os
 
 
-class DuplicateMapException(Exception):
+class DuplicateMapError(Exception):
   pass
 
 
-class NoMapException(Exception):
+class NoMapError(Exception):
   pass
 
 
 class Map(object):
   """Base map object to configure a map. To define a map just subclass this.
 
-  Properties:
+  Attributes:
+    name: The name of the map/class.
+    path: Where to find the map file.
     directory: Directory for the map
     filename: Actual filename. You can skip the ".SC2Map" file ending.
     download: Where to download the map.
@@ -58,6 +60,7 @@ class Map(object):
         reward. >=0 is the index into score_cumulative.
     score_multiplier: A score multiplier to allow make small scores good.
     players: Max number of players for this map.
+    battle_net: The map name on battle.net, if it exists.
   """
   directory = ""
   filename = None
@@ -67,6 +70,7 @@ class Map(object):
   score_index = -1
   score_multiplier = 1
   players = None
+  battle_net = None
 
   @property
   def path(self):
@@ -80,7 +84,7 @@ class Map(object):
   def data(self, run_config):
     """Return the map data."""
     try:
-      return run_config.map_data(self.path)
+      return run_config.map_data(self.path, self.players)
     except (IOError, OSError) as e:  # Catch both for python 2/3 compatibility.
       if self.download and hasattr(e, "filename"):
         logging.error("Error reading map '%s' from: %s", self.name, e.filename)
@@ -92,14 +96,15 @@ class Map(object):
     return self.__class__.__name__
 
   def __str__(self):
-    return "\n".join([
+    return "\n".join(filter(None, [
         self.name,
-        "    %s" % self.path,
+        ("    file: '%s'" % self.path) if self.path else None,
+        ("    battle_net: '%s'" % self.battle_net) if self.battle_net else None,
         "    players: %s, score_index: %s, score_multiplier: %s" % (
             self.players, self.score_index, self.score_multiplier),
         "    step_mul: %s, game_steps_per_episode: %s" % (
             self.step_mul, self.game_steps_per_episode),
-    ])
+    ]))
 
   @classmethod
   def all_subclasses(cls):
@@ -114,10 +119,10 @@ def get_maps():
   """Get the full dict of maps {map_name: map_class}."""
   maps = {}
   for mp in Map.all_subclasses():
-    if mp.filename:
+    if mp.filename or mp.battle_net:
       map_name = mp.__name__
       if map_name in maps:
-        raise DuplicateMapException("Duplicate map found: " + map_name)
+        raise DuplicateMapError("Duplicate map found: " + map_name)
       maps[map_name] = mp
   return maps
 
@@ -133,4 +138,4 @@ def get(map_name):
   map_class = maps.get(map_name)
   if map_class:
     return map_class()
-  raise NoMapException("Map doesn't exist: %s" % map_name)
+  raise NoMapError("Map doesn't exist: %s" % map_name)

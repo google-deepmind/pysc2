@@ -30,9 +30,12 @@ import socket
 import struct
 import subprocess
 import threading
+import time
 
+from future.builtins import range  # pylint: disable=redefined-builtin
 from pysc2 import run_configs
 from pysc2.env import sc2_env
+from pysc2.lib import features
 from pysc2.lib import run_parallel
 import whichcraft
 
@@ -68,7 +71,7 @@ def tcp_server(tcp_addr, settings):
   sock.listen(1)
   logging.info("Waiting for connection on %s", tcp_addr)
   conn, addr = sock.accept()
-  logging.info("Accepted connection from %s", Addr(*addr))
+  logging.info("Accepted connection from %s", Addr(*addr[:2]))
 
   # Send map_data independently for py2/3 and json encoding reasons.
   write_tcp(conn, settings["map_data"])
@@ -82,8 +85,15 @@ def tcp_client(tcp_addr):
   """Connect to the tcp server, and return the settings."""
   family = socket.AF_INET6 if ":" in tcp_addr.ip else socket.AF_INET
   sock = socket.socket(family, socket.SOCK_STREAM, socket.IPPROTO_TCP)
-  logging.info("Connecting to: %s", tcp_addr)
-  sock.connect(tcp_addr)
+  for i in range(300):
+    logging.info("Connecting to: %s, attempt %d", tcp_addr, i)
+    try:
+      sock.connect(tcp_addr)
+      break
+    except socket.error:
+      time.sleep(1)
+  else:
+    sock.connect(tcp_addr)  # One last try, but don't catch this error.
   logging.info("Connected.")
 
   map_data = read_tcp(sock)
@@ -187,7 +197,7 @@ def forward_ports(remote_host, local_host, local_listen_ports,
                           stdin=subprocess.PIPE, close_fds=(os.name == "posix"))
 
 
-class RestartException(Exception):
+class RestartError(Exception):
   pass
 
 
@@ -203,10 +213,12 @@ class LanSC2Env(sc2_env.SC2Env):
                host="127.0.0.1",
                config_port=None,
                race=None,
+               name="<unknown>",
                agent_interface_format=None,
                discount=1.,
                visualize=False,
                step_mul=None,
+               realtime=False,
                replay_dir=None,
                replay_prefix=None):
     """Create a SC2 Env that connects to a remote instance of the game.
@@ -229,6 +241,7 @@ class LanSC2Env(sc2_env.SC2Env):
       host: Which ip to use. Either ipv4 or ipv6 localhost.
       config_port: Where to find the config port.
       race: Race for this agent.
+      name: The name of this agent, for saving in the replay.
       agent_interface_format: AgentInterfaceFormat object describing the
           format of communication between the agent and the environment.
       discount: Returned as part of the observation.
@@ -236,6 +249,13 @@ class LanSC2Env(sc2_env.SC2Env):
           layers. This won't work without access to a window manager.
       step_mul: How many game steps per agent step (action/observation). None
           means use the map default.
+      realtime: Whether to use realtime mode. In this mode the game simulation
+          automatically advances (at 22.4 gameloops per second) rather than
+          being stepped manually. The number of game loops advanced with each
+          call to step() won't necessarily match the step_mul specified. The
+          environment will attempt to honour step_mul, returning observations
+          with that spacing as closely as possible. Game loops will be skipped
+          if they cannot be retrieved and processed quickly enough.
       replay_dir: Directory to save a replay.
       replay_prefix: An optional prefix to use when saving replays.
 
@@ -261,26 +281,31 @@ class LanSC2Env(sc2_env.SC2Env):
     self._num_agents = 1
     self._discount = discount
     self._step_mul = step_mul or 8
+    self._realtime = realtime
+    self._last_step_time = None
     self._save_replay_episodes = 1 if replay_dir else 0
     self._replay_dir = replay_dir
     self._replay_prefix = replay_prefix
 
     self._score_index = -1  # Win/loss only.
     self._score_multiplier = 1
-    self._episode_length = 0  # No limit.
+    self._episode_length = sc2_env.MAX_STEP_COUNT
+    self._ensure_available_actions = False
     self._discount_zero_after_timeout = False
-
-    self._run_config = run_configs.get()
     self._parallel = run_parallel.RunParallel()  # Needed for multiplayer.
+    self._game_info = None
+    self._action_delay_fns = [None]
 
     interface = self._get_interface(
         agent_interface_format=agent_interface_format, require_raw=visualize)
 
-    self._launch_remote(host, config_port, race, interface)
+    self._launch_remote(host, config_port, race, name, interface,
+                        agent_interface_format)
 
-    self._finalize([agent_interface_format], [interface], visualize)
+    self._finalize(visualize)
 
-  def _launch_remote(self, host, config_port, race, interface):
+  def _launch_remote(self, host, config_port, race, name, interface,
+                     agent_interface_format):
     """Make sure this stays synced with bin/play_vs_agent.py."""
     self._tcp_conn, settings = tcp_client(Addr(host, config_port))
 
@@ -303,14 +328,16 @@ class LanSC2Env(sc2_env.SC2Env):
         settings["ports"]["client"]["base"],
     ]
 
+    self._run_config = run_configs.get(version=settings["game_version"])
     self._sc2_procs = [self._run_config.start(
-        extra_ports=extra_ports, host=host, version=settings["game_version"],
-        window_loc=(700, 50))]
+        extra_ports=extra_ports, host=host, window_loc=(700, 50),
+        want_rgb=interface.HasField("render"))]
     self._controllers = [p.controller for p in self._sc2_procs]
 
     # Create the join request.
     join = sc_pb.RequestJoinGame(options=interface)
     join.race = race
+    join.player_name = name
     join.shared_port = 0  # unused
     join.server_ports.game_port = settings["ports"]["server"]["game"]
     join.server_ports.base_port = settings["ports"]["server"]["base"]
@@ -320,10 +347,15 @@ class LanSC2Env(sc2_env.SC2Env):
     self._controllers[0].save_map(settings["map_path"], settings["map_data"])
     self._controllers[0].join_game(join)
 
+    self._game_info = [self._controllers[0].game_info()]
+    self._features = [features.features_from_game_info(
+        game_info=self._game_info[0],
+        agent_interface_format=agent_interface_format)]
+
   def _restart(self):
     # Can't restart since it's not clear how you'd coordinate that with the
     # other players.
-    raise RestartException("Can't restart")
+    raise RestartError("Can't restart")
 
   def close(self):
     if hasattr(self, "_tcp_conn") and self._tcp_conn:
@@ -332,4 +364,5 @@ class LanSC2Env(sc2_env.SC2Env):
     if hasattr(self, "_udp_sock") and self._udp_sock:
       self._udp_sock.close()
       self._udp_sock = None
+    self._run_config = None
     super(LanSC2Env, self).close()

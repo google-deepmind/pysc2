@@ -37,6 +37,8 @@ from pysc2.lib import features
 from pysc2.lib import point
 from pysc2.lib import protocol
 from pysc2.lib import remote_controller
+from pysc2.lib import replay
+from pysc2.lib import static_data
 
 from pysc2.lib import gfile
 from s2clientprotocol import common_pb2 as sc_common
@@ -79,6 +81,9 @@ class ReplayStats(object):
     self.made_abilities = collections.defaultdict(int)
     self.valid_actions = collections.defaultdict(int)
     self.made_actions = collections.defaultdict(int)
+    self.buffs = collections.defaultdict(int)
+    self.upgrades = collections.defaultdict(int)
+    self.effects = collections.defaultdict(int)
     self.crashing_replays = set()
     self.invalid_replays = set()
 
@@ -101,12 +106,22 @@ class ReplayStats(object):
     merge_dict(self.made_abilities, other.made_abilities)
     merge_dict(self.valid_actions, other.valid_actions)
     merge_dict(self.made_actions, other.made_actions)
+    merge_dict(self.buffs, other.buffs)
+    merge_dict(self.upgrades, other.upgrades)
+    merge_dict(self.effects, other.effects)
     self.crashing_replays |= other.crashing_replays
     self.invalid_replays |= other.invalid_replays
 
   def __str__(self):
     len_sorted_dict = lambda s: (len(s), sorted_dict_str(s))
     len_sorted_list = lambda s: (len(s), sorted(s))
+
+    new_abilities = ((set(self.valid_abilities.keys())
+                      | set(self.made_abilities.keys()))
+                     - set(static_data.ABILITIES))
+    new_units = set(self.unit_ids) - set(static_data.UNIT_TYPES)
+    new_buffs = set(self.buffs) - set(static_data.BUFFS)
+    new_upgrades = set(self.upgrades) - set(static_data.UPGRADES)
     return "\n\n".join((
         "Replays: %s, Steps total: %s" % (self.replays, self.steps),
         "Camera move: %s, Select pt: %s, Select rect: %s, Control group: %s" % (
@@ -115,10 +130,17 @@ class ReplayStats(object):
         "Maps: %s\n%s" % len_sorted_dict(self.maps),
         "Races: %s\n%s" % len_sorted_dict(self.races),
         "Unit ids: %s\n%s" % len_sorted_dict(self.unit_ids),
+        "New units: %s \n%s" % len_sorted_list(new_units),
         "Valid abilities: %s\n%s" % len_sorted_dict(self.valid_abilities),
         "Made abilities: %s\n%s" % len_sorted_dict(self.made_abilities),
+        "New abilities: %s\n%s" % len_sorted_list(new_abilities),
         "Valid actions: %s\n%s" % len_sorted_dict(self.valid_actions),
         "Made actions: %s\n%s" % len_sorted_dict(self.made_actions),
+        "Buffs: %s\n%s" % len_sorted_dict(self.buffs),
+        "New buffs: %s\n%s" % len_sorted_list(new_buffs),
+        "Upgrades: %s\n%s" % len_sorted_dict(self.upgrades),
+        "New upgrades: %s\n%s" % len_sorted_list(new_upgrades),
+        "Effects: %s\n%s" % len_sorted_dict(self.effects),
         "Crashing replays: %s\n%s" % len_sorted_list(self.crashing_replays),
         "Invalid replays: %s\n%s" % len_sorted_list(self.invalid_replays),
     ))
@@ -181,7 +203,8 @@ class ReplayProcessor(multiprocessing.Process):
       self._print("Starting up a new SC2 instance.")
       self._update_stage("launch")
       try:
-        with self.run_config.start() as controller:
+        with self.run_config.start(
+            want_rgb=interface.HasField("render")) as controller:
           self._print("SC2 Started successfully.")
           ping = controller.ping()
           for _ in range(300):
@@ -281,6 +304,14 @@ class ReplayProcessor(multiprocessing.Process):
 
       for u in obs.observation.raw_data.units:
         self.stats.replay_stats.unit_ids[u.unit_type] += 1
+        for b in u.buff_ids:
+          self.stats.replay_stats.buffs[b] += 1
+
+      for u in obs.observation.raw_data.player.upgrade_ids:
+        self.stats.replay_stats.upgrades[u] += 1
+
+      for e in obs.observation.raw_data.effects:
+        self.stats.replay_stats.effects[e.effect_id] += 1
 
       for ability_id in feat.available_actions(obs.observation):
         self.stats.replay_stats.valid_actions[ability_id] += 1
@@ -338,7 +369,6 @@ def main(unused_argv):
 
   stats_queue = multiprocessing.Queue()
   stats_thread = threading.Thread(target=stats_printer, args=(stats_queue,))
-  stats_thread.start()
   try:
     # For some reason buffering everything into a JoinableQueue makes the
     # program not exit, so save it into a list then slowly fill it into the
@@ -347,14 +377,26 @@ def main(unused_argv):
     # The replay_queue.join below succeeds without doing any work, and exits.
     print("Getting replay list:", FLAGS.replays)
     replay_list = sorted(run_config.replay_paths(FLAGS.replays))
-    print(len(replay_list), "replays found.\n")
+    print(len(replay_list), "replays found.")
+    if not replay_list:
+      return
+
+    if not FLAGS["sc2_version"].present:  # ie not set explicitly.
+      version = replay.get_replay_version(
+          run_config.replay_data(replay_list[0]))
+      run_config = run_configs.get(version=version)
+      print("Assuming version:", version.game_version)
+
+    print()
+
+    stats_thread.start()
     replay_queue = multiprocessing.JoinableQueue(FLAGS.parallel * 10)
     replay_queue_thread = threading.Thread(target=replay_queue_filler,
                                            args=(replay_queue, replay_list))
     replay_queue_thread.daemon = True
     replay_queue_thread.start()
 
-    for i in range(FLAGS.parallel):
+    for i in range(min(len(replay_list), FLAGS.parallel)):
       p = ReplayProcessor(i, run_config, replay_queue, stats_queue)
       p.daemon = True
       p.start()
@@ -365,7 +407,8 @@ def main(unused_argv):
     print("Caught KeyboardInterrupt, exiting.")
   finally:
     stats_queue.put(None)  # Tell the stats_thread to print and exit.
-    stats_thread.join()
+    if stats_thread.is_alive():
+      stats_thread.join()
 
 
 if __name__ == "__main__":

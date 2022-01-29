@@ -18,22 +18,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import json
+import getpass
 import platform
 import sys
 import time
 
 from absl import app
 from absl import flags
-import mpyq
-import six
 from pysc2 import maps
 from pysc2 import run_configs
 from pysc2.env import sc2_env
 from pysc2.lib import point_flag
 from pysc2.lib import renderer_human
+from pysc2.lib import replay
 from pysc2.lib import stopwatch
-from pysc2.run_configs import lib as run_configs_lib
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
@@ -49,21 +47,29 @@ point_flag.DEFINE_point("feature_screen_size", "84",
                         "Resolution for screen feature layers.")
 point_flag.DEFINE_point("feature_minimap_size", "64",
                         "Resolution for minimap feature layers.")
+flags.DEFINE_integer("feature_camera_width", 24,
+                     "Width of the feature layer camera.")
 point_flag.DEFINE_point("rgb_screen_size", "256,192",
                         "Resolution for rendered screen.")
 point_flag.DEFINE_point("rgb_minimap_size", "128",
                         "Resolution for rendered minimap.")
+point_flag.DEFINE_point("window_size", "640,480",
+                        "Screen size if not full screen.")
 flags.DEFINE_string("video", None, "Path to render a video of observations.")
 
 flags.DEFINE_integer("max_game_steps", 0, "Total game steps to run.")
 flags.DEFINE_integer("max_episode_steps", 0, "Total game steps per episode.")
 
+flags.DEFINE_string("user_name", getpass.getuser(),
+                    "Name of the human player for replays.")
 flags.DEFINE_enum("user_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
                   "User's race.")
 flags.DEFINE_enum("bot_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
                   "AI race.")
 flags.DEFINE_enum("difficulty", "very_easy", sc2_env.Difficulty._member_names_,  # pylint: disable=protected-access
                   "Bot's strength.")
+flags.DEFINE_enum("bot_build", "random", sc2_env.BotBuild._member_names_,  # pylint: disable=protected-access
+                  "Bot's build strategy.")
 flags.DEFINE_bool("disable_fog", False, "Disable fog of war.")
 flags.DEFINE_integer("observed_player", 1, "Which player to observe.")
 
@@ -73,6 +79,7 @@ flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 flags.DEFINE_bool("save_replay", True, "Whether to save a replay at the end.")
 
 flags.DEFINE_string("map", None, "Name of a map to use to play.")
+flags.DEFINE_bool("battle_net_map", False, "Use the battle.net map version.")
 
 flags.DEFINE_string("map_path", None, "Override the map for this replay.")
 flags.DEFINE_string("replay", None, "Name of a replay to show.")
@@ -80,8 +87,10 @@ flags.DEFINE_string("replay", None, "Name of a replay to show.")
 
 def main(unused_argv):
   """Run SC2 to play a game or a replay."""
-  stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
-  stopwatch.sw.trace = FLAGS.trace
+  if FLAGS.trace:
+    stopwatch.sw.trace()
+  elif FLAGS.profile:
+    stopwatch.sw.enable()
 
   if (FLAGS.map and FLAGS.replay) or (not FLAGS.map and not FLAGS.replay):
     sys.exit("Must supply either a map or replay.")
@@ -106,31 +115,53 @@ def main(unused_argv):
 
   interface = sc_pb.InterfaceOptions()
   interface.raw = FLAGS.render
+  interface.raw_affects_selection = True
+  interface.raw_crop_to_playable_area = True
   interface.score = True
-  interface.feature_layer.width = 24
-  FLAGS.feature_screen_size.assign_to(interface.feature_layer.resolution)
-  FLAGS.feature_minimap_size.assign_to(
-      interface.feature_layer.minimap_resolution)
-  FLAGS.rgb_screen_size.assign_to(interface.render.resolution)
-  FLAGS.rgb_minimap_size.assign_to(interface.render.minimap_resolution)
+  interface.show_cloaked = True
+  interface.show_burrowed_shadows = True
+  interface.show_placeholders = True
+  if FLAGS.feature_screen_size and FLAGS.feature_minimap_size:
+    interface.feature_layer.width = FLAGS.feature_camera_width
+    FLAGS.feature_screen_size.assign_to(interface.feature_layer.resolution)
+    FLAGS.feature_minimap_size.assign_to(
+        interface.feature_layer.minimap_resolution)
+    interface.feature_layer.crop_to_playable_area = True
+    interface.feature_layer.allow_cheating_layers = True
+  if FLAGS.render and FLAGS.rgb_screen_size and FLAGS.rgb_minimap_size:
+    FLAGS.rgb_screen_size.assign_to(interface.render.resolution)
+    FLAGS.rgb_minimap_size.assign_to(interface.render.minimap_resolution)
 
   max_episode_steps = FLAGS.max_episode_steps
 
   if FLAGS.map:
-    map_inst = maps.get(FLAGS.map)
-    if map_inst.game_steps_per_episode:
-      max_episode_steps = map_inst.game_steps_per_episode
     create = sc_pb.RequestCreateGame(
         realtime=FLAGS.realtime,
-        disable_fog=FLAGS.disable_fog,
-        local_map=sc_pb.LocalMap(map_path=map_inst.path,
-                                 map_data=map_inst.data(run_config)))
+        disable_fog=FLAGS.disable_fog)
+    try:
+      map_inst = maps.get(FLAGS.map)
+    except maps.lib.NoMapError:
+      if FLAGS.battle_net_map:
+        create.battlenet_map_name = FLAGS.map
+      else:
+        raise
+    else:
+      if map_inst.game_steps_per_episode:
+        max_episode_steps = map_inst.game_steps_per_episode
+      if FLAGS.battle_net_map:
+        create.battlenet_map_name = map_inst.battle_net
+      else:
+        create.local_map.map_path = map_inst.path
+        create.local_map.map_data = map_inst.data(run_config)
+
     create.player_setup.add(type=sc_pb.Participant)
     create.player_setup.add(type=sc_pb.Computer,
                             race=sc2_env.Race[FLAGS.bot_race],
-                            difficulty=sc2_env.Difficulty[FLAGS.difficulty])
-    join = sc_pb.RequestJoinGame(race=sc2_env.Race[FLAGS.user_race],
-                                 options=interface)
+                            difficulty=sc2_env.Difficulty[FLAGS.difficulty],
+                            ai_build=sc2_env.BotBuild[FLAGS.bot_build])
+    join = sc_pb.RequestJoinGame(
+        options=interface, race=sc2_env.Race[FLAGS.user_race],
+        player_name=FLAGS.user_name)
     version = None
   else:
     replay_data = run_config.replay_data(FLAGS.replay)
@@ -139,10 +170,13 @@ def main(unused_argv):
         options=interface,
         disable_fog=FLAGS.disable_fog,
         observed_player_id=FLAGS.observed_player)
-    version = get_replay_version(replay_data)
+    version = replay.get_replay_version(replay_data)
+    run_config = run_configs.get(version=version)  # Replace the run config.
 
-  with run_config.start(version=version,
-                        full_screen=FLAGS.full_screen) as controller:
+  with run_config.start(
+      full_screen=FLAGS.full_screen,
+      window_size=FLAGS.window_size,
+      want_rgb=interface.HasField("render")) as controller:
     if FLAGS.map:
       controller.create_game(create)
       controller.join_game(join)
@@ -153,7 +187,8 @@ def main(unused_argv):
       print("-" * 60)
       map_path = FLAGS.map_path or info.local_map_path
       if map_path:
-        start_replay.map_data = run_config.map_data(map_path)
+        start_replay.map_data = run_config.map_data(map_path,
+                                                    len(info.player_info))
       controller.start_replay(start_replay)
 
     if FLAGS.render:
@@ -189,19 +224,6 @@ def main(unused_argv):
 
   if FLAGS.profile:
     print(stopwatch.sw)
-
-
-def get_replay_version(replay_data):
-  replay_io = six.BytesIO()
-  replay_io.write(replay_data)
-  replay_io.seek(0)
-  archive = mpyq.MPQArchive(replay_io).extract()
-  metadata = json.loads(archive[b"replay.gamemetadata.json"].decode("utf-8"))
-  return run_configs_lib.Version(
-      game_version=".".join(metadata["GameVersion"].split(".")[:-1]),
-      build_version=int(metadata["BaseBuild"][4:]),
-      data_version=metadata.get("DataVersion"),  # Only in replays version 4.1+.
-      binary=None)
 
 
 def entry_point():  # Needed so setup.py scripts work.

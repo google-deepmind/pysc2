@@ -45,10 +45,14 @@ class TestRandomAgent(parameterized.TestCase, utils.TestCase):
     steps = 250
     step_mul = 8
     with sc2_env.SC2Env(
-        map_name="Simple64",
+        map_name=["Simple64", "Simple96"],
+        players=[sc2_env.Agent([sc2_env.Race.random, sc2_env.Race.terran]),
+                 sc2_env.Bot([sc2_env.Race.zerg, sc2_env.Race.protoss],
+                             sc2_env.Difficulty.easy,
+                             [sc2_env.BotBuild.rush, sc2_env.BotBuild.timing])],
         agent_interface_format=agent_interface_format,
         step_mul=step_mul,
-        game_steps_per_episode=steps * step_mul//2) as env:
+        game_steps_per_episode=steps * step_mul//3) as env:
       agent = random_agent.RandomAgent()
       run_loop.run_loop([agent], env, steps)
 

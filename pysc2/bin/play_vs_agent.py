@@ -37,6 +37,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import getpass
 import importlib
 from absl import logging
 import platform
@@ -64,6 +65,8 @@ flags.DEFINE_bool("realtime", False, "Whether to run in realtime mode.")
 
 flags.DEFINE_string("agent", "pysc2.agents.random_agent.RandomAgent",
                     "Which agent to run, as a python path to an Agent class.")
+flags.DEFINE_string("agent_name", None,
+                    "Name of the agent in replays. Defaults to the class name.")
 flags.DEFINE_enum("agent_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
                   "Agent's race.")
 
@@ -85,6 +88,8 @@ flags.DEFINE_enum("action_space", "FEATURES",
 flags.DEFINE_bool("use_feature_units", False,
                   "Whether to include feature units.")
 
+flags.DEFINE_string("user_name", getpass.getuser(),
+                    "Name of the human player for replays.")
 flags.DEFINE_enum("user_race", "random", sc2_env.Race._member_names_,  # pylint: disable=protected-access
                   "User's race.")
 
@@ -121,19 +126,30 @@ def agent():
       config_port=FLAGS.config_port,
       race=sc2_env.Race[FLAGS.agent_race],
       step_mul=FLAGS.step_mul,
+      realtime=FLAGS.realtime,
       agent_interface_format=sc2_env.parse_agent_interface_format(
           feature_screen=FLAGS.feature_screen_size,
           feature_minimap=FLAGS.feature_minimap_size,
           rgb_screen=FLAGS.rgb_screen_size,
           rgb_minimap=FLAGS.rgb_minimap_size,
           action_space=FLAGS.action_space,
+          use_unit_counts=True,
+          use_camera_position=True,
+          show_cloaked=True,
+          show_burrowed_shadows=True,
+          show_placeholders=True,
+          send_observation_proto=True,
+          crop_to_playable_area=True,
+          raw_crop_to_playable_area=True,
+          allow_cheating_layers=True,
+          add_cargo_to_units=True,
           use_feature_units=FLAGS.use_feature_units),
       visualize=FLAGS.render) as env:
     agents = [agent_cls()]
     logging.info("Connected, starting run_loop.")
     try:
       run_loop.run_loop(agents, env)
-    except lan_sc2_env.RestartException:
+    except lan_sc2_env.RestartError:
       pass
   logging.info("Done.")
 
@@ -216,9 +232,15 @@ def human():
                           base_port=settings["ports"]["client"]["base"])
 
     join.race = sc2_env.Race[FLAGS.user_race]
+    join.player_name = FLAGS.user_name
     if FLAGS.render:
       join.options.raw = True
       join.options.score = True
+      join.options.raw_affects_selection = True
+      join.options.raw_crop_to_playable_area = True
+      join.options.show_cloaked = True
+      join.options.show_burrowed_shadows = True
+      join.options.show_placeholders = True
       if FLAGS.feature_screen_size and FLAGS.feature_minimap_size:
         fl = join.options.feature_layer
         fl.width = 24
@@ -234,19 +256,17 @@ def human():
           fps=FLAGS.fps, render_feature_grid=False)
       renderer.run(run_configs.get(), controller, max_episodes=1)
     else:  # Still step forward so the Mac/Windows renderer works.
-      try:
-        while True:
-          frame_start_time = time.time()
-          if not FLAGS.realtime:
-            controller.step()
-          obs = controller.observe()
+      while True:
+        frame_start_time = time.time()
+        if not FLAGS.realtime:
+          controller.step()
+        obs = controller.observe()
 
-          if obs.player_result:
-            break
-          time.sleep(max(0, frame_start_time - time.time() + 1 / FLAGS.fps))
-      except KeyboardInterrupt:
-        pass
-
+        if obs.player_result:
+          break
+        time.sleep(max(0, frame_start_time - time.time() + 1 / FLAGS.fps))
+  except KeyboardInterrupt:
+    pass
   finally:
     if tcp_conn:
       tcp_conn.close()

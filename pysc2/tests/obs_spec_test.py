@@ -32,6 +32,8 @@ class TestObservationSpec(utils.TestCase):
   def test_observation_matches_obs_spec(self):
     with sc2_env.SC2Env(
         map_name="Simple64",
+        players=[sc2_env.Agent(sc2_env.Race.random),
+                 sc2_env.Bot(sc2_env.Race.random, sc2_env.Difficulty.easy)],
         agent_interface_format=sc2_env.AgentInterfaceFormat(
             feature_dimensions=sc2_env.Dimensions(
                 screen=(84, 87),
@@ -117,6 +119,10 @@ class TestObservationSpec(utils.TestCase):
   def check_observation_matches_spec(self, obs, obs_spec):
     self.assertItemsEqual(obs_spec.keys(), obs.keys())
     for k, o in six.iteritems(obs):
+      if k == "map_name":
+        self.assertIsInstance(o, str)
+        continue
+
       descr = "%s: spec: %s != obs: %s" % (k, obs_spec[k], o.shape)
 
       if o.shape == (0,):  # Empty tensor can't have a shape.

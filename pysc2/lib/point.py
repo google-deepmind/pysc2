@@ -115,7 +115,10 @@ class Point(collections.namedtuple("Point", ["x", "y"])):
     return Point(min(max(self.x, r.l), r.r), min(max(self.y, r.t), r.b))
 
   def __str__(self):
-    return "%.6f,%.6f" % self
+    if all(isinstance(v, int) for v in self):
+      return "%d,%d" % self
+    else:
+      return "%.6f,%.6f" % self
 
   def __neg__(self):
     return Point(-self.x, -self.y)
@@ -176,12 +179,16 @@ class Rect(collections.namedtuple("Rect", ["t", "l", "b", "r"])):
     if len(args) == 4:
       if args[0] > args[2] or args[1] > args[3]:
         raise TypeError("Rect requires: t <= b and l <= r")
-      return super(Rect, cls).__new__(cls, *args)
+      # TODO(b/117657518): Remove the disable once the pytype bug is fixed.
+      return super(Rect, cls).__new__(cls, *args)  # pytype: disable=missing-parameter
     raise TypeError(
         "Unexpected arguments to Rect. Takes 1 or 2 Points, or 4 coords.")
 
   def __str__(self):
-    return "%.6f,%.6f,%.6f,%.6f" % self
+    if all(isinstance(v, int) for v in self):
+      return "%d,%d,%d,%d" % self
+    else:
+      return "%.6f,%.6f,%.6f,%.6f" % self
 
   @property
   def center(self):
@@ -228,6 +235,10 @@ class Rect(collections.namedtuple("Rect", ["t", "l", "b", "r"])):
     return Point(self.l, self.b)
 
   @property
+  def diagonal(self):
+    return Point(self.width, self.height)
+
+  @property
   def size(self):
     return self.br - self.tl
 
@@ -235,6 +246,15 @@ class Rect(collections.namedtuple("Rect", ["t", "l", "b", "r"])):
   def area(self):
     size = self.size
     return size.x * size.y
+
+  def round(self):
+    return Rect(self.tl.round(), self.br.round())
+
+  def floor(self):
+    return Rect(self.tl.floor(), self.br.floor())
+
+  def ceil(self):
+    return Rect(self.tl.ceil(), self.br.ceil())
 
   def contains_point(self, pt):
     """Is the point inside this rect?"""

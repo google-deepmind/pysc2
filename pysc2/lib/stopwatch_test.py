@@ -18,6 +18,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+
 from absl.testing import absltest
 from future.builtins import range  # pylint: disable=redefined-builtin
 
@@ -103,8 +105,20 @@ class StopwatchTest(absltest.TestCase):
     # Just make sure this doesn't have a divide by 0 for when the total is 0.
     self.assertIn("zero", str(sw))
 
+  @mock.patch.dict(os.environ, {"SC2_NO_STOPWATCH": "1"})
+  def testDecoratorDisabled(self):
+    sw = stopwatch.StopWatch()
+    self.assertEqual(round, sw.decorate(round))
+    self.assertEqual(round, sw.decorate("name")(round))
+
+  @mock.patch.dict(os.environ, {"SC2_NO_STOPWATCH": ""})
+  def testDecoratorEnabled(self):
+    sw = stopwatch.StopWatch()
+    self.assertNotEqual(round, sw.decorate(round))
+    self.assertNotEqual(round, sw.decorate("name")(round))
+
   def testSpeed(self):
-    count = 1000
+    count = 100
 
     def run():
       for _ in range(count):
@@ -113,19 +127,17 @@ class StopwatchTest(absltest.TestCase):
 
     sw = stopwatch.StopWatch()
     for _ in range(10):
-      sw.enabled = True
-      sw.trace = False
+      sw.enable()
       with sw("enabled"):
         run()
 
-      sw.enabled = True
-      sw.trace = True
+      sw.trace()
       with sw("trace"):
         run()
 
-      sw.enabled = True  # To catch "disabled".
+      sw.enable()  # To catch "disabled".
       with sw("disabled"):
-        sw.enabled = False
+        sw.disable()
         run()
 
     # No asserts. Succeed but print the timings.

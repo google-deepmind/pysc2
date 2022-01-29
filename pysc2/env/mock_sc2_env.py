@@ -22,7 +22,10 @@ from pysc2.env import environment
 from pysc2.env import sc2_env
 from pysc2.lib import features
 from pysc2.lib import point
+from pysc2.lib import units
 from pysc2.tests import dummy_observation
+
+from s2clientprotocol import common_pb2
 
 DUMMY_MAP_SIZE = point.Point(256, 256)
 
@@ -67,13 +70,13 @@ class _TestEnvironment(environment.Base):
     self._action_spec = action_spec
     self._episode_steps = 0
 
-    self.next_timestep = [
-        environment.TimeStep(
-            step_type=environment.StepType.MID,
-            reward=0.,
-            discount=1.,
-            observation=self._default_observation(obs_spec, agent_index))
-        for agent_index, obs_spec in enumerate(observation_spec)]
+    self.next_timestep = []
+    for agent_index, obs_spec in enumerate(observation_spec):
+      self.next_timestep.append(environment.TimeStep(
+          step_type=environment.StepType.MID,
+          reward=0.,
+          discount=1.,
+          observation=self._default_observation(obs_spec, agent_index)))
 
     self.episode_length = float('inf')
 
@@ -82,9 +85,9 @@ class _TestEnvironment(environment.Base):
     self._episode_steps = 0
     return self.step([None] * self._num_agents)
 
-  def step(self, actions, update_observation=True):
+  def step(self, actions, step_mul=None):
     """Returns `next_observation` modifying its `step_type` if necessary."""
-    del update_observation  # ignored currently
+    del step_mul  # ignored currently
 
     if len(actions) != self._num_agents:
       raise ValueError(
@@ -164,13 +167,16 @@ class SC2TestEnv(_TestEnvironment):
                discount_zero_after_timeout=False,
                visualize=False,
                step_mul=None,
+               realtime=False,
                save_replay_episodes=0,
                replay_dir=None,
                game_steps_per_episode=None,
                score_index=None,
                score_multiplier=None,
                random_seed=None,
-               disable_fog=False):
+               disable_fog=False,
+               ensure_available_actions=True,
+               version=None):
     """Initializes an SC2TestEnv.
 
     Args:
@@ -184,6 +190,7 @@ class SC2TestEnv(_TestEnvironment):
       discount_zero_after_timeout: Unused.
       visualize: Unused.
       step_mul: Unused.
+      realtime: Not supported by the mock environment, throws if set to true.
       save_replay_episodes: Unused.
       replay_dir: Unused.
       game_steps_per_episode: Unused.
@@ -191,7 +198,9 @@ class SC2TestEnv(_TestEnvironment):
       score_multiplier: Unused.
       random_seed: Unused.
       disable_fog: Unused.
-
+      ensure_available_actions: Whether to throw an exception when an
+        unavailable action is passed to step().
+      version: Unused.
     Raises:
       ValueError: if args are passed.
     """
@@ -207,9 +216,14 @@ class SC2TestEnv(_TestEnvironment):
     del score_multiplier  # Unused.
     del random_seed  # Unused.
     del disable_fog  # Unused.
+    del ensure_available_actions  # Unused.
+    del version  # Unused.
 
     if _only_use_kwargs:
       raise ValueError('All arguments must be passed as keyword arguments.')
+
+    if realtime:
+      raise ValueError('realtime mode is not supported by the mock env.')
 
     if not players:
       num_agents = 1
@@ -227,6 +241,7 @@ class SC2TestEnv(_TestEnvironment):
           'The number of entries in agent_interface_format should '
           'correspond 1-1 with the number of agents.')
 
+    self._agent_interface_formats = agent_interface_format
     self._features = [
         features.Features(interface_format, map_size=DUMMY_MAP_SIZE)
         for interface_format in agent_interface_format]
@@ -243,7 +258,25 @@ class SC2TestEnv(_TestEnvironment):
   def _default_observation(self, obs_spec, agent_index):
     """Returns a mock observation from an SC2Env."""
 
-    response_observation = dummy_observation.Builder(obs_spec).build()
+    builder = dummy_observation.Builder(obs_spec).game_loop(0)
+    aif = self._agent_interface_formats[agent_index]
+    if aif.use_feature_units or aif.use_raw_units:
+      feature_units = [
+          dummy_observation.FeatureUnit(
+              units.Neutral.LabBot,
+              features.PlayerRelative.NEUTRAL,
+              owner=16,
+              pos=common_pb2.Point(x=10, y=10, z=0),
+              radius=1.0,
+              health=5,
+              health_max=5,
+              is_on_screen=True,
+          )
+      ]
+
+      builder.feature_units(feature_units)
+
+    response_observation = builder.build()
     features_ = self._features[agent_index]
     observation = features_.transform_obs(response_observation)
 

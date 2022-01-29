@@ -22,9 +22,12 @@ import six
 
 from pysc2.lib import point
 
+# Let absl.flags know that DEFINE_point should show up in the caller's module.
+flags.disclaim_key_flags()
+
 
 class PointParser(flags.ArgumentParser):
-  """Parse a flag into a point."""
+  """Parse a flag into a pysc2.lib.point.Point."""
 
   def parse(self, argument):
     if not argument or argument == "0":
@@ -50,9 +53,17 @@ class PointParser(flags.ArgumentParser):
         "Invalid point: '%s'. Valid: '<int>' or '<int>,<int>'." % argument)
 
   def flag_type(self):
-    return "pysc2 point"
+    return "pysc2.lib.point.Point"
 
 
-def DEFINE_point(name, default, help):  # pylint: disable=invalid-name,redefined-builtin
+class PointSerializer(flags.ArgumentSerializer):
+  """Custom serializer for pysc2.lib.point.Point."""
+
+  def serialize(self, value):
+    return str(value)
+
+
+def DEFINE_point(name, default, help_string, flag_values=flags.FLAGS, **args):  # pylint: disable=invalid-name,redefined-builtin
   """Registers a flag whose value parses as a point."""
-  flags.DEFINE(PointParser(), name, default, help)
+  flags.DEFINE(PointParser(), name, default, help_string, flag_values,
+               PointSerializer(), **args)

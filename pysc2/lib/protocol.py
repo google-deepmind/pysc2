@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import contextlib
+import itertools
 from absl import logging
 import os
 import socket
@@ -45,12 +46,15 @@ sw = stopwatch.sw
 Status = enum.Enum("Status", sc_pb.Status.items())  # pylint: disable=invalid-name
 
 
+MAX_WIDTH = int(os.getenv("COLUMNS", 200))  # Get your TTY width.
+
+
 class ConnectionError(Exception):
   """Failed to read/write a message, details in the error string."""
   pass
 
 
-class ProtocolError(Exception):
+class ProtocolError(Exception):  # pylint: disable=g-bad-exception-name
   """SC2 responded with an error message likely due to a bad request or bug."""
   pass
 
@@ -75,6 +79,8 @@ class StarcraftProtocol(object):
   def __init__(self, sock):
     self._status = Status.launched
     self._sock = sock
+    self._port = sock.sock.getpeername()[1]
+    self._count = itertools.count(1)
 
   @property
   def status(self):
@@ -90,12 +96,14 @@ class StarcraftProtocol(object):
   def read(self):
     """Read a Response, do some validation, and return it."""
     if FLAGS.sc2_verbose_protocol:
-      self._log(" Reading response ".center(60, "-"))
+      self._log("-------------- [%s] Reading response --------------",
+                self._port)
       start = time.time()
     response = self._read()
     if FLAGS.sc2_verbose_protocol:
-      self._log(" %0.1f msec\n" % (1000 * (time.time() - start)))
-      self._log_packet(response)
+      self._log("-------------- [%s] Read %s in %0.1f msec --------------\n%s",
+                self._port, response.WhichOneof("response"),
+                1000 * (time.time() - start), self._packet_str(response))
     if not response.HasField("status"):
       raise ProtocolError("Got an incomplete response without a status.")
     prev_status = self._status
@@ -112,8 +120,9 @@ class StarcraftProtocol(object):
   def write(self, request):
     """Write a Request."""
     if FLAGS.sc2_verbose_protocol:
-      self._log(" Writing request ".center(60, "-") + "\n")
-      self._log_packet(request)
+      self._log("-------------- [%s] Writing request: %s --------------\n%s",
+                self._port, request.WhichOneof("request"),
+                self._packet_str(request))
     self._write(request)
 
   def send_req(self, request):
@@ -131,27 +140,40 @@ class StarcraftProtocol(object):
 
     Returns:
       The Response corresponding to your request.
+    Raises:
+      ConnectionError: if it gets a different response.
     """
     assert len(kwargs) == 1, "Must make a single request."
-    res = self.send_req(sc_pb.Request(**kwargs))
-    return getattr(res, list(kwargs.keys())[0])
+    name = list(kwargs.keys())[0]
+    req = sc_pb.Request(**kwargs)
+    req.id = next(self._count)
+    try:
+      res = self.send_req(req)
+    except ConnectionError as e:
+      raise ConnectionError("Error during %s: %s" % (name, e))
+    if res.HasField("id") and res.id != req.id:
+      raise ConnectionError(
+          "Error during %s: Got a response with a different id" % name)
+    return getattr(res, name)
 
-  def _log_packet(self, packet):
+  def _packet_str(self, packet):
+    """Return a string form of this packet."""
     max_lines = FLAGS.sc2_verbose_protocol
-    if max_lines > 0:
-      max_width = int(os.getenv("COLUMNS", 200))  # Get your TTY width.
-      lines = str(packet).strip().split("\n")
-      self._log("".join(line[:max_width] + "\n" for line in lines[:max_lines]))
-      if len(lines) > max_lines:
-        self._log(("**** %s lines skipped ****\n" % (len(lines) - max_lines)))
-    else:
-      self._log("%s\n" % packet)
+    packet_str = str(packet).strip()
+    if max_lines <= 0:
+      return packet_str
+    lines = packet_str.split("\n")
+    line_count = len(lines)
+    lines = [line[:MAX_WIDTH] for line in lines[:max_lines + 1]]
+    if line_count > max_lines + 1:  # +1 to prefer the last line to skipped msg.
+      lines[-1] = "***** %s lines skipped *****" % (line_count - max_lines)
+    return "\n".join(lines)
 
-  def _log(self, s):
+  def _log(self, s, *args):
     r"""Log a string. It flushes but doesn't append \n, so do that yourself."""
     # TODO(tewalds): Should this be using logging.info instead? How to see them
     # outside of google infrastructure?
-    sys.stderr.write(s)
+    sys.stderr.write((s + "\n") % args)
     sys.stderr.flush()
 
   def _read(self):
@@ -161,9 +183,8 @@ class StarcraftProtocol(object):
         response_str = self._sock.recv()
     if not response_str:
       raise ProtocolError("Got an empty response from SC2.")
-    response = sc_pb.Response()
     with sw("parse_response"):
-      response.ParseFromString(response_str)
+      response = sc_pb.Response.FromString(response_str)
     return response
 
   def _write(self, request):

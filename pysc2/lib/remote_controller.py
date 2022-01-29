@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import copy
 import functools
 from absl import logging
 import socket
@@ -29,11 +30,14 @@ from pysc2.lib import static_data
 from pysc2.lib import stopwatch
 import websocket
 
+from s2clientprotocol import debug_pb2 as sc_debug
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 flags.DEFINE_bool("sc2_log_actions", False,
                   ("Print all the actions sent to SC2. If you want observations"
                    " as well, consider using `sc2_verbose_protocol`."))
+flags.DEFINE_integer("sc2_timeout", 120,
+                     "Timeout to connect and wait for rpc responses.")
 FLAGS = flags.FLAGS
 
 sw = stopwatch.sw
@@ -138,9 +142,10 @@ class RemoteController(object):
   """
 
   def __init__(self, host, port, proc=None, timeout_seconds=None):
-    timeout_seconds = timeout_seconds or 120
+    timeout_seconds = timeout_seconds or FLAGS.sc2_timeout
     sock = self._connect(host, port, proc, timeout_seconds)
     self._client = protocol.StarcraftProtocol(sock)
+    self._last_obs = None
     self.ping()
 
   @sw.decorate
@@ -164,6 +169,8 @@ class RemoteController(object):
         return websocket.create_connection(url, timeout=timeout_seconds)
       except socket.error:
         pass  # SC2 hasn't started listening yet.
+      except websocket.WebSocketConnectionClosedException:
+        raise ConnectError("Connection rejected. Is something else connected?")
       except websocket.WebSocketBadStatusException as err:
         if err.status_code == 404:
           pass  # SC2 is listening, but hasn't set up the /sc2api endpoint yet.
@@ -174,6 +181,10 @@ class RemoteController(object):
 
   def close(self):
     self._client.close()
+
+  @property
+  def status_ended(self):
+    return self.status == protocol.Status.ended
 
   @valid_status(Status.launched, Status.ended, Status.in_game, Status.in_replay)
   @decorate_check_error(sc_pb.ResponseCreateGame.Error)
@@ -219,10 +230,12 @@ class RemoteController(object):
 
   @valid_status(Status.in_game, Status.in_replay)
   @sw.decorate
-  def data_raw(self):
+  def data_raw(self, ability_id=True, unit_type_id=True, upgrade_id=True,
+               buff_id=True, effect_id=True):
     """Get the raw static data for the current game. Prefer `data` instead."""
     return self._client.send(data=sc_pb.RequestData(
-        ability_id=True, unit_type_id=True))
+        ability_id=ability_id, unit_type_id=unit_type_id, upgrade_id=upgrade_id,
+        buff_id=buff_id, effect_id=effect_id))
 
   def data(self):
     """Get the static data for the current game."""
@@ -230,9 +243,41 @@ class RemoteController(object):
 
   @valid_status(Status.in_game, Status.in_replay, Status.ended)
   @sw.decorate
-  def observe(self):
+  def observe(self, disable_fog=False, target_game_loop=0):
     """Get a current observation."""
-    return self._client.send(observation=sc_pb.RequestObservation())
+    obs = self._client.send(observation=sc_pb.RequestObservation(
+        game_loop=target_game_loop,
+        disable_fog=disable_fog))
+
+    if obs.observation.game_loop == 2**32 - 1:
+      logging.info("Received stub observation.")
+
+      if not obs.player_result:
+        raise ValueError("Expect a player result in a stub observation")
+      elif self._last_obs is None:
+        raise RuntimeError("Received stub observation with no previous obs")
+
+      # Rather than handling empty obs through the code, regurgitate the last
+      # observation (+ player result, sub actions).
+      new_obs = copy.deepcopy(self._last_obs)
+      del new_obs.actions[:]
+      new_obs.actions.extend(obs.actions)
+      new_obs.player_result.extend(obs.player_result)
+      obs = new_obs
+      self._last_obs = None
+    else:
+      self._last_obs = obs
+
+    if FLAGS.sc2_log_actions and obs.actions:
+      sys.stderr.write(" Executed actions ".center(60, "<") + "\n")
+      for action in obs.actions:
+        sys.stderr.write(str(action))
+      sys.stderr.flush()
+
+    return obs
+
+  def available_maps(self):
+    return self._client.send(available_maps=sc_pb.RequestAvailableMaps())
 
   @valid_status(Status.in_game, Status.in_replay)
   @catch_game_end
@@ -247,23 +292,43 @@ class RemoteController(object):
   @sw.decorate
   def actions(self, req_action):
     """Send a `sc_pb.RequestAction`, which may include multiple actions."""
-    if FLAGS.sc2_log_actions:
+    if FLAGS.sc2_log_actions and req_action.actions:
+      sys.stderr.write(" Sending actions ".center(60, ">") + "\n")
       for action in req_action.actions:
         sys.stderr.write(str(action))
-        sys.stderr.flush()
+      sys.stderr.flush()
 
     return self._client.send(action=req_action)
 
   def act(self, action):
     """Send a single action. This is a shortcut for `actions`."""
-    if action:
+    if action and action.ListFields():  # Skip no-ops.
       return self.actions(sc_pb.RequestAction(actions=[action]))
 
-  def chat(self, message):
+  @skip_status(Status.in_game)
+  @valid_status(Status.in_replay)
+  @sw.decorate
+  def observer_actions(self, req_observer_action):
+    """Send a `sc_pb.RequestObserverAction`."""
+    if FLAGS.sc2_log_actions and req_observer_action.actions:
+      sys.stderr.write(" Sending observer actions ".center(60, ">") + "\n")
+      for action in req_observer_action.actions:
+        sys.stderr.write(str(action))
+      sys.stderr.flush()
+
+    return self._client.send(obs_action=req_observer_action)
+
+  def observer_act(self, action):
+    """Send a single observer action. A shortcut for `observer_actions`."""
+    if action and action.ListFields():  # Skip no-ops.
+      return self.observer_actions(
+          sc_pb.RequestObserverAction(actions=[action]))
+
+  def chat(self, message, channel=sc_pb.ActionChat.Broadcast):
     """Send chat message as a broadcast."""
     if message:
       action_chat = sc_pb.ActionChat(
-          channel=sc_pb.ActionChat.Broadcast, message=message)
+          channel=channel, message=message)
       action = sc_pb.Action(action_chat=action_chat)
       return self.act(action)
 
@@ -273,12 +338,26 @@ class RemoteController(object):
     """Disconnect from a multiplayer game."""
     return self._client.send(leave_game=sc_pb.RequestLeaveGame())
 
-  @valid_status(Status.in_game, Status.ended)
+  @valid_status(Status.in_game, Status.in_replay, Status.ended)
   @sw.decorate
   def save_replay(self):
     """Save a replay, returning the data."""
     res = self._client.send(save_replay=sc_pb.RequestSaveReplay())
     return res.data
+
+  @valid_status(Status.in_game)
+  @sw.decorate
+  def debug(self, debug_commands):
+    """Run a debug command."""
+    if isinstance(debug_commands, sc_debug.DebugCommand):
+      debug_commands = [debug_commands]
+    return self._client.send(debug=sc_pb.RequestDebug(debug=debug_commands))
+
+  @valid_status(Status.in_game, Status.in_replay)
+  @sw.decorate
+  def query(self, query):
+    """Query the game state."""
+    return self._client.send(query=query)
 
   @skip_status(Status.quit)
   @sw.decorate
@@ -286,7 +365,7 @@ class RemoteController(object):
     """Shut down the SC2 process."""
     try:
       # Don't expect a response.
-      self._client.write(sc_pb.Request(quit=sc_pb.RequestQuit()))
+      self._client.write(sc_pb.Request(quit=sc_pb.RequestQuit(), id=999999999))
     except protocol.ConnectionError:
       pass  # It's likely already (shutting) down, so continue as if it worked.
     finally:

@@ -18,14 +18,25 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+# pylint: disable=g-import-not-at-top
+
 import collections
+import random
+import sys
 import time
 
 from absl import app
 from absl import flags
 from future.builtins import range  # pylint: disable=redefined-builtin
 
-import psutil
+try:
+  import psutil
+except ImportError:
+  sys.exit(
+      "`psutil` library required to track memory. This can be installed with:\n"
+      "$ pip install psutil\n"
+      "and needs the python-dev headers installed, for example:\n"
+      "$ apt install python-dev")
 
 from pysc2 import maps
 from pysc2 import run_configs
@@ -34,14 +45,21 @@ from pysc2.lib import protocol
 from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
+# pylint: enable=g-import-not-at-top
+
+races = {
+    "random": sc_common.Random,
+    "protoss": sc_common.Protoss,
+    "terran": sc_common.Terran,
+    "zerg": sc_common.Zerg,
+}
+
 
 flags.DEFINE_integer("mem_limit", 2000, "Max memory usage in Mb.")
 flags.DEFINE_integer("episodes", 200, "Max number of episodes.")
+flags.DEFINE_enum("race", "random", races.keys(), "Which race to play as.")
+flags.DEFINE_list("map", "Catalyst", "Which map(s) to test on.")
 FLAGS = flags.FLAGS
-
-
-class MemoryException(Exception):
-  pass
 
 
 class Timestep(collections.namedtuple(
@@ -52,6 +70,9 @@ class Timestep(collections.namedtuple(
 
 
 def main(unused_argv):
+  for m in FLAGS.map:  # Verify they're all valid.
+    maps.get(m)
+
   interface = sc_pb.InterfaceOptions()
   interface.raw = True
   interface.score = True
@@ -65,42 +86,39 @@ def main(unused_argv):
 
   start = time.time()
   run_config = run_configs.get()
-  proc = run_config.start()
+  proc = run_config.start(want_rgb=interface.HasField("render"))
   process = psutil.Process(proc.pid)
-  episode = 0
+  episode = 1
 
   def add(s):
-    cpu = process.cpu_times().user
+    cpu_times = process.cpu_times()
+    cpu = cpu_times.user + cpu_times.system
     mem = process.memory_info().rss / 2 ** 20  # In Mb
     step = Timestep(episode, time.time() - start, cpu, mem, s)
     print(step)
     timeline.append(step)
     if mem > FLAGS.mem_limit:
-      raise MemoryException("%s Mb mem limit exceeded" % FLAGS.mem_limit)
+      raise MemoryError("%s Mb mem limit exceeded" % FLAGS.mem_limit)
 
   try:
     add("Started process")
 
     controller = proc.controller
-    map_inst = maps.get("Simple64")
-    create = sc_pb.RequestCreateGame(
-        realtime=False, disable_fog=False,
-        local_map=sc_pb.LocalMap(map_path=map_inst.path,
-                                 map_data=map_inst.data(run_config)))
-    create.player_setup.add(type=sc_pb.Participant)
-    create.player_setup.add(type=sc_pb.Computer, race=sc_common.Random,
-                            difficulty=sc_pb.CheatInsane)
-    join = sc_pb.RequestJoinGame(race=sc_common.Random, options=interface)
-    controller.create_game(create)
-
-    add("Created game")
-
-    controller.join_game(join)
-
-    episode += 1
-    add("Joined game")
-
     for _ in range(FLAGS.episodes):
+      map_inst = maps.get(random.choice(FLAGS.map))
+      create = sc_pb.RequestCreateGame(
+          realtime=False, disable_fog=False, random_seed=episode,
+          local_map=sc_pb.LocalMap(map_path=map_inst.path,
+                                   map_data=map_inst.data(run_config)))
+      create.player_setup.add(type=sc_pb.Participant)
+      create.player_setup.add(type=sc_pb.Computer, race=races[FLAGS.race],
+                              difficulty=sc_pb.CheatInsane)
+      join = sc_pb.RequestJoinGame(race=races[FLAGS.race], options=interface)
+
+      controller.create_game(create)
+      add("Created game on %s" % map_inst.name)
+      controller.join_game(join)
+      add("Joined game")
       for i in range(2000):
         controller.step(16)
         obs = controller.observe()
@@ -109,13 +127,11 @@ def main(unused_argv):
           break
         if i > 0 and i % 100 == 0:
           add("Step %s" % i)
-      controller.restart()
       episode += 1
-      add("Restarted")
     add("Done")
   except KeyboardInterrupt:
     pass
-  except (MemoryException, protocol.ConnectionError) as e:
+  except (MemoryError, protocol.ConnectionError) as e:
     print(e)
   finally:
     proc.close()

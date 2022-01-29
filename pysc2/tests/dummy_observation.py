@@ -181,6 +181,7 @@ class Builder(object):
     self._single_select = None
     self._multi_select = None
     self._build_queue = None
+    self._production = None
     self._feature_units = None
 
   def game_loop(self, game_loop):
@@ -236,6 +237,26 @@ class Builder(object):
     return self
   # pylint:enable=unused-argument
 
+  def score_by_category(
+      self, entry_name, none, army, economy, technology, upgrade):
+
+    field = getattr(self._score_details, entry_name)
+    field.CopyFrom(
+        score_pb2.CategoryScoreDetails(
+            none=none,
+            army=army,
+            economy=economy,
+            technology=technology,
+            upgrade=upgrade))
+
+  def score_by_vital(self, entry_name, life, shields, energy):
+    field = getattr(self._score_details, entry_name)
+    field.CopyFrom(
+        score_pb2.VitalScoreDetails(
+            life=life,
+            shields=shields,
+            energy=energy))
+
   def single_select(self, unit):
     self._single_select = unit
     return self
@@ -244,8 +265,9 @@ class Builder(object):
     self._multi_select = units
     return self
 
-  def build_queue(self, build_queue):
+  def build_queue(self, build_queue, production=None):
     self._build_queue = build_queue
+    self._production = production
     return self
 
   def feature_units(self, feature_units):
@@ -298,8 +320,14 @@ class Builder(object):
       for unit in self._build_queue:
         obs.ui_data.production.build_queue.add(**unit.as_dict())
 
+    if self._production:
+      for item in self._production:
+        obs.ui_data.production.production_queue.add(**item)
+
     if self._feature_units:
-      for feature_unit in self._feature_units:
-        obs.raw_data.units.add(**feature_unit.as_dict())
+      for tag, feature_unit in enumerate(self._feature_units, 1):
+        args = dict(tag=tag)
+        args.update(feature_unit.as_dict())
+        obs.raw_data.units.add(**args)
 
     return response_observation

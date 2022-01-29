@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from absl import logging
 import os
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -31,7 +32,15 @@ import portpicker
 from pysc2.lib import remote_controller
 from pysc2.lib import stopwatch
 
-flags.DEFINE_bool("sc2_verbose", False, "Enable SC2 verbose logging.")
+flags.DEFINE_bool(
+    "sc2_verbose", False, "Enable SC2 verbose logging.", allow_hide_cpp=True)
+flags.DEFINE_bool(
+    "sc2_verbose_mp", False, "Enable SC2 verbose multiplayer logging.")
+flags.DEFINE_bool("sc2_gdb", False, "Run SC2 in gdb.")
+flags.DEFINE_bool("sc2_strace", False, "Run SC2 in strace.")
+flags.DEFINE_integer("sc2_port", None,
+                     "If set, connect to the instance on "
+                     "localhost:sc2_port instead of launching one.")
 FLAGS = flags.FLAGS
 
 sw = stopwatch.sw
@@ -78,7 +87,7 @@ class StarcraftProcess(object):
     self._check_exists(exec_path)
     self._tmp_dir = tempfile.mkdtemp(prefix="sc-", dir=run_config.tmp_dir)
     self._host = host or "127.0.0.1"
-    self._port = port or portpicker.pick_unused_port()
+    self._port = FLAGS.sc2_port or port or portpicker.pick_unused_port()
     self._version = version
 
     args = [
@@ -90,27 +99,45 @@ class StarcraftProcess(object):
     ]
     if ":" in self._host:
       args += ["-ipv6"]
-    if full_screen:
-      args += ["-displayMode", "1"]
-    else:
-      args += [
-          "-displayMode", "0",
-          "-windowwidth", str(window_size[0]),
-          "-windowheight", str(window_size[1]),
-          "-windowx", str(window_loc[0]),
-          "-windowy", str(window_loc[1]),
-      ]
+    if platform.system() != "Linux":
+      if full_screen:
+        args += ["-displayMode", "1"]
+      else:
+        args += [
+            "-displayMode", "0",
+            "-windowwidth", str(window_size[0]),
+            "-windowheight", str(window_size[1]),
+            "-windowx", str(window_loc[0]),
+            "-windowy", str(window_loc[1]),
+        ]
 
     if verbose or FLAGS.sc2_verbose:
       args += ["-verbose"]
+    if FLAGS.sc2_verbose_mp:
+      args += ["-verboseMP"]
     if self._version and self._version.data_version:
       args += ["-dataVersion", self._version.data_version.upper()]
     if extra_args:
       args += extra_args
-    logging.info("Launching SC2: %s", " ".join(args))
+
+    if FLAGS.sc2_gdb:
+      print("Launching: gdb", args[0])
+      print("GDB run command:")
+      print("  run %s" % " ".join(args[1:]))
+      print("\n")
+      args = ["gdb", args[0]]
+      timeout_seconds = 3600 * 6
+    elif FLAGS.sc2_strace:
+      strace_out = "/tmp/sc2-strace.txt"
+      print("Launching in strace. Redirecting output to", strace_out)
+      args = ["strace", "-f", "-o", strace_out] + args
+    else:
+      logging.info("Launching SC2: %s", " ".join(args))
+
     try:
       with sw("startup"):
-        self._proc = self._launch(run_config, args, **kwargs)
+        if not FLAGS.sc2_port:
+          self._proc = self._launch(run_config, args, **kwargs)
         if connect:
           self._controller = remote_controller.RemoteController(
               self._host, self._port, self, timeout_seconds=timeout_seconds)
@@ -127,7 +154,8 @@ class StarcraftProcess(object):
       self._controller = None
     self._shutdown()
     if hasattr(self, "_port") and self._port:
-      portpicker.return_port(self._port)
+      if not FLAGS.sc2_port:
+        portpicker.return_port(self._port)
       self._port = None
     if hasattr(self, "_tmp_dir") and os.path.exists(self._tmp_dir):
       shutil.rmtree(self._tmp_dir)
@@ -184,6 +212,8 @@ class StarcraftProcess(object):
 
   @property
   def running(self):
+    if FLAGS.sc2_port:
+      return True
     # poll returns None if it's running, otherwise the exit code.
     return self._proc and (self._proc.poll() is None)
 
@@ -196,6 +226,7 @@ def _shutdown_proc(p, timeout):
   """Wait for a proc to shut down, then terminate or kill it after `timeout`."""
   freq = 10  # how often to check per second
   for _ in range(1 + timeout * freq):
+    p.terminate()
     ret = p.poll()
     if ret is not None:
       logging.info("Shutdown gracefully.")

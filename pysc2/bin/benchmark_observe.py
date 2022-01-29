@@ -26,60 +26,129 @@ from future.builtins import range  # pylint: disable=redefined-builtin
 
 from pysc2 import maps
 from pysc2 import run_configs
-from pysc2.lib import point_flag
+from pysc2.lib import replay
+from pysc2.lib import stopwatch
 
 from s2clientprotocol import common_pb2 as sc_common
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
 
-flags.DEFINE_bool("raw", False, "Enable raw rendering")
-point_flag.DEFINE_point("feature_size", "64", "Resolution for feature layers.")
-point_flag.DEFINE_point("rgb_size", "64", "Resolution for rgb observations.")
+flags.DEFINE_integer("count", 1000, "How many observations to run.")
+flags.DEFINE_integer("step_mul", 16, "How many game steps per observation.")
+flags.DEFINE_string("replay", None, "Which replay to run.")
+flags.DEFINE_string("map", "Catalyst", "Which map to run.")
 FLAGS = flags.FLAGS
 
 
-def main(unused_argv):
+def interface_options(score=False, raw=False, features=None, rgb=None,
+                      crop=True):
+  """Get an InterfaceOptions for the config."""
   interface = sc_pb.InterfaceOptions()
-  interface.score = True
-  interface.raw = FLAGS.raw
-  if FLAGS.feature_size:
+  interface.score = score
+  interface.raw = raw
+  if features:
+    if isinstance(features, int):
+      screen, minimap = features, features
+    else:
+      screen, minimap = features
     interface.feature_layer.width = 24
-    FLAGS.feature_size.assign_to(interface.feature_layer.resolution)
-    FLAGS.feature_size.assign_to(interface.feature_layer.minimap_resolution)
-  if FLAGS.rgb_size:
-    FLAGS.rgb_size.assign_to(interface.render.resolution)
-    FLAGS.rgb_size.assign_to(interface.render.minimap_resolution)
+    interface.feature_layer.resolution.x = screen
+    interface.feature_layer.resolution.y = screen
+    interface.feature_layer.minimap_resolution.x = minimap
+    interface.feature_layer.minimap_resolution.y = minimap
+    interface.feature_layer.crop_to_playable_area = crop
+  if rgb:
+    if isinstance(rgb, int):
+      screen, minimap = rgb, rgb
+    else:
+      screen, minimap = rgb
+    interface.render.resolution.x = screen
+    interface.render.resolution.y = screen
+    interface.render.minimap_resolution.x = minimap
+    interface.render.minimap_resolution.y = minimap
+  return interface
 
-  timeline = []
 
+configs = [
+    ("raw", interface_options(raw=True)),
+    ("raw-feat-48", interface_options(raw=True, features=48)),
+    ("raw-feat-128", interface_options(raw=True, features=128)),
+    ("raw-feat-128-48", interface_options(raw=True, features=(128, 48))),
+    ("feat-32", interface_options(features=32)),
+    ("feat-48", interface_options(features=48)),
+    ("feat-72-no-crop", interface_options(features=72, crop=False)),
+    ("feat-72", interface_options(features=72)),
+    ("feat-96", interface_options(features=96)),
+    ("feat-128", interface_options(features=128)),
+    ("rgb-64", interface_options(rgb=64)),
+    ("rgb-128", interface_options(rgb=128)),
+]
+
+
+def main(unused_argv):
+  stopwatch.sw.enable()
+
+  results = []
   try:
-    run_config = run_configs.get()
-    with run_config.start() as controller:
-      map_inst = maps.get("Simple64")
-      create = sc_pb.RequestCreateGame(
-          realtime=False, disable_fog=False, random_seed=1,
-          local_map=sc_pb.LocalMap(map_path=map_inst.path,
-                                   map_data=map_inst.data(run_config)))
-      create.player_setup.add(type=sc_pb.Participant)
-      create.player_setup.add(type=sc_pb.Computer, race=sc_common.Terran,
-                              difficulty=sc_pb.VeryEasy)
-      join = sc_pb.RequestJoinGame(race=sc_common.Random, options=interface)
-      controller.create_game(create)
-      controller.join_game(join)
+    for config, interface in configs:
+      print((" Starting: %s " % config).center(60, "-"))
+      timeline = []
 
-      for _ in range(500):
-        controller.step()
-        start = time.time()
-        obs = controller.observe()
-        timeline.append(time.time() - start)
-        if obs.player_result:
-          break
+      run_config = run_configs.get()
+
+      if FLAGS.replay:
+        replay_data = run_config.replay_data(FLAGS.replay)
+        start_replay = sc_pb.RequestStartReplay(
+            replay_data=replay_data, options=interface, disable_fog=False,
+            observed_player_id=2)
+        version = replay.get_replay_version(replay_data)
+        run_config = run_configs.get(version=version)  # Replace the run config.
+      else:
+        map_inst = maps.get(FLAGS.map)
+        create = sc_pb.RequestCreateGame(
+            realtime=False, disable_fog=False, random_seed=1,
+            local_map=sc_pb.LocalMap(map_path=map_inst.path,
+                                     map_data=map_inst.data(run_config)))
+        create.player_setup.add(type=sc_pb.Participant)
+        create.player_setup.add(type=sc_pb.Computer, race=sc_common.Terran,
+                                difficulty=sc_pb.VeryEasy)
+        join = sc_pb.RequestJoinGame(options=interface, race=sc_common.Protoss)
+
+      with run_config.start(
+          want_rgb=interface.HasField("render")) as controller:
+
+        if FLAGS.replay:
+          info = controller.replay_info(replay_data)
+          print(" Replay info ".center(60, "-"))
+          print(info)
+          print("-" * 60)
+          if info.local_map_path:
+            start_replay.map_data = run_config.map_data(info.local_map_path)
+          controller.start_replay(start_replay)
+        else:
+          controller.create_game(create)
+          controller.join_game(join)
+
+        for _ in range(FLAGS.count):
+          controller.step(FLAGS.step_mul)
+          start = time.time()
+          obs = controller.observe()
+          timeline.append(time.time() - start)
+          if obs.player_result:
+            break
+
+      results.append((config, timeline))
   except KeyboardInterrupt:
     pass
 
-  print("Timeline:")
-  for t in timeline:
-    print(t * 1000)
+  names, values = zip(*results)
+
+  print("\n\nTimeline:\n")
+  print(",".join(names))
+  for times in zip(*values):
+    print(",".join("%0.2f" % (t * 1000) for t in times))
+
+  print(stopwatch.sw)
 
 
 if __name__ == "__main__":

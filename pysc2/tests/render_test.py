@@ -43,10 +43,19 @@ class TestRender(utils.TestCase):
     interface.feature_layer.resolution.y = 84
     interface.feature_layer.minimap_resolution.x = 64
     interface.feature_layer.minimap_resolution.y = 64
+    interface.feature_layer.crop_to_playable_area = True
+    interface.feature_layer.allow_cheating_layers = True
+
     interface.render.resolution.x = 256
     interface.render.resolution.y = 256
     interface.render.minimap_resolution.x = 128
     interface.render.minimap_resolution.y = 128
+
+    def or_zeros(layer, size):
+      if layer is not None:
+        return layer.astype(np.int32, copy=False)
+      else:
+        return np.zeros((size.y, size.x), dtype=np.int32)
 
     run_config = run_configs.get()
     with run_config.start() as controller:
@@ -64,8 +73,10 @@ class TestRender(utils.TestCase):
 
       game_info = controller.game_info()
 
+      self.assertEqual(interface.raw, game_info.options.raw)
+      self.assertEqual(interface.feature_layer, game_info.options.feature_layer)
       # Can fail if rendering is disabled.
-      self.assertEqual(interface, game_info.options)
+      self.assertEqual(interface.render, game_info.options.render)
 
       for _ in range(50):
         controller.step(8)
@@ -74,8 +85,12 @@ class TestRender(utils.TestCase):
         obs = observation.observation
         rgb_screen = features.Feature.unpack_rgb_image(obs.render_data.map)
         rgb_minimap = features.Feature.unpack_rgb_image(obs.render_data.minimap)
-        fl_screen = np.stack(f.unpack(obs) for f in features.SCREEN_FEATURES)
-        fl_minimap = np.stack(f.unpack(obs) for f in features.MINIMAP_FEATURES)
+        fl_screen = np.stack(
+            [or_zeros(f.unpack(obs), interface.feature_layer.resolution)
+             for f in features.SCREEN_FEATURES])
+        fl_minimap = np.stack(
+            [or_zeros(f.unpack(obs), interface.feature_layer.minimap_resolution)
+             for f in features.MINIMAP_FEATURES])
 
         # Right shapes.
         self.assertEqual(rgb_screen.shape, (256, 256, 3))
