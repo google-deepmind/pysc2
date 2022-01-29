@@ -62,8 +62,10 @@ def _replay_index(replay_dir):
         "P1-outcome",
         "P1-race",
         "P1-apm",
+        "P1-mmr"
         "P2-race",
         "P2-apm",
+        "P2-mmr",
     )))
 
     try:
@@ -89,12 +91,14 @@ def _replay_index(replay_dir):
               sc_pb.Result.Name(info.player_info[0].player_result.result),
               sc_common.Race.Name(info.player_info[0].player_info.race_actual),
               info.player_info[0].player_apm,
+              info.player_info[0].player_mmr,
           ]
           if len(info.player_info) >= 2:
             out += [
                 sc_common.Race.Name(
                     info.player_info[1].player_info.race_actual),
                 info.player_info[1].player_apm,
+                info.player_info[1].player_mmr,
             ]
           print(u",".join(str(s) for s in out))
     except KeyboardInterrupt:
