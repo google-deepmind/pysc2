@@ -219,6 +219,7 @@ pytype_binary(
         "//pysc2/run_configs",
         "@absl_py//absl:app",
         "@absl_py//absl/flags",
+        "@s2client_proto//s2clientprotocol:common_py_pb2",
         "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )

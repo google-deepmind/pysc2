@@ -61,8 +61,8 @@ def _replay_index(replay_dir):
         "P2-apm",
     )))
 
+    bad_replays = []
     try:
-      bad_replays = []
       for file_path in replay_paths:
         file_name = os.path.basename(file_path)
         data = run_config.replay_data(file_path)
