@@ -17,6 +17,7 @@
 #include <memory>
 
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "dm_env_rpc/v1/dm_env_rpc.pb.h"
 #include "pysc2/env/converter/proto/converter.pb.h"
 #include "pybind11/pybind11.h"
@@ -95,7 +96,7 @@ class ConverterWrapper {
 };
 
 absl::StatusOr<ConverterWrapper> MakeConverterWrapper(
-    const std::string& settings, const std::string& environment_info) {
+    absl::string_view settings, absl::string_view environment_info) {
   // Deserialize strings.
   pysc2::EnvironmentInfo env_info;
   pysc2::ConverterSettings converter_settings;
