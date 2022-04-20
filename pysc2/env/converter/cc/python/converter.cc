@@ -100,8 +100,8 @@ absl::StatusOr<ConverterWrapper> MakeConverterWrapper(
   // Deserialize strings.
   pysc2::EnvironmentInfo env_info;
   pysc2::ConverterSettings converter_settings;
-  converter_settings.ParseFromString(settings);
-  env_info.ParseFromString(environment_info);
+  converter_settings.ParseFromString(std::string(settings));
+  env_info.ParseFromString(std::string(environment_info));
   absl::StatusOr<pysc2::Converter> converter_or =
       pysc2::MakeConverter(converter_settings, env_info);
   if (!converter_or.ok()) return converter_or.status();
