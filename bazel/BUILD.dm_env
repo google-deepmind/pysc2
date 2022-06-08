@@ -12,7 +12,6 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         "@dm_env_archive//:specs",
-        "@six_archive//:six",
     ],
 )
 

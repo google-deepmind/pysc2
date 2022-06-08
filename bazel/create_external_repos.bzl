@@ -47,19 +47,6 @@ def pysc2_create_external_repos(pysc2_repo_name):
             urls = ["https://github.com/abseil/abseil-py/archive/main.zip"],
         )
 
-    if not native.existing_rule("six_archive"):
-        # Required by absl_py and dm_env.
-        http_archive(
-            name = "six_archive",
-            build_file = "@absl_py//third_party:six.BUILD",
-            sha256 = "105f8d68616f8248e24bf0e9372ef04d3cc10104f1980f54d57b2ce73a5ad56a",
-            strip_prefix = "six-1.10.0",
-            urls = [
-                "http://mirror.bazel.build/pypi.python.org/packages/source/s/six/six-1.10.0.tar.gz",
-                "https://pypi.python.org/packages/source/s/six/six-1.10.0.tar.gz",
-            ],
-        )
-
     # Required by glog.
     if not native.existing_rule("com_github_gflags_gflags"):
         http_archive(
@@ -149,9 +136,9 @@ def pysc2_create_external_repos(pysc2_repo_name):
         # proto code which leads to incompatibilities with our our protos.
         http_archive(
             name = "dm_env_archive",
+            urls = ["https://github.com/deepmind/dm_env/archive/refs/heads/master.zip"],
+            strip_prefix = "dm_env-master",
             build_file = "@" + pysc2_repo_name + "//bazel:BUILD.dm_env",
-            strip_prefix = "dm_env-3c6844db2aa4ed5994b2c45dbfd9f31ad948fbb8",
-            urls = ["https://github.com/deepmind/dm_env/archive/3c6844db2aa4ed5994b2c45dbfd9f31ad948fbb8.zip"],
         )
 
     if not native.existing_rule("dm_env_rpc_archive"):
