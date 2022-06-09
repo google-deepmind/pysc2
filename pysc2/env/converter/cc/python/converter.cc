@@ -23,7 +23,6 @@
 #include "pybind11/pybind11.h"
 #include "pybind11_abseil/absl_casters.h"
 #include "pybind11_abseil/status_casters.h"
-#include "pybind11_protobuf/native_proto_caster.h"
 
 namespace {
 class ConverterWrapper {
@@ -110,7 +109,6 @@ absl::StatusOr<ConverterWrapper> MakeConverterWrapper(
 }  //  namespace
 
 PYBIND11_MODULE(converter, m) {
-  pybind11_protobuf::ImportNativeProtoCasters();
   pybind11::google::ImportStatusModule();
 
   m.doc() = "Observation/action converter bindings.";

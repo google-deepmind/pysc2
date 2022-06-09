@@ -93,13 +93,6 @@ def pysc2_create_external_repos(pysc2_repo_name):
             strip_prefix = "pybind11_abseil-28f46a10d9db25159ecab04a1d3349cd25e68797",
         )
 
-    if not native.existing_rule("pybind11_protobuf"):
-        http_archive(
-            name = "pybind11_protobuf",
-            urls = ["https://github.com/pybind/pybind11_protobuf/archive/refs/heads/main.zip"],
-            strip_prefix = "pybind11_protobuf-main",
-        )
-
     if not native.existing_rule("pybind11_bazel"):
         http_archive(
             name = "pybind11_bazel",

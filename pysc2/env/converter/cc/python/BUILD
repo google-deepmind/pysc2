@@ -18,7 +18,6 @@ pybind_extension(
         "@dm_env_rpc_archive//:dm_env_rpc_cc_proto",
         "@pybind11_abseil//pybind11_abseil:absl_casters",
         "@pybind11_abseil//pybind11_abseil:status_casters",
-        "@pybind11_protobuf//pybind11_protobuf:native_proto_caster",
     ],
 )
 
