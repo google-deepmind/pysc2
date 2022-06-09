@@ -86,13 +86,6 @@ def pysc2_create_external_repos(pysc2_repo_name):
             ],
         )
 
-    if not native.existing_rule("pybind11_abseil"):
-        http_archive(
-            name = "pybind11_abseil",
-            urls = ["https://github.com/pybind/pybind11_abseil/archive/28f46a10d9db25159ecab04a1d3349cd25e68797.tar.gz"],
-            strip_prefix = "pybind11_abseil-28f46a10d9db25159ecab04a1d3349cd25e68797",
-        )
-
     if not native.existing_rule("pybind11_bazel"):
         http_archive(
             name = "pybind11_bazel",

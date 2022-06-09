@@ -15,14 +15,14 @@
 #include "pysc2/env/converter/cc/converter.h"
 
 #include <memory>
+#include <stdexcept>
 
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "dm_env_rpc/v1/dm_env_rpc.pb.h"
 #include "pysc2/env/converter/proto/converter.pb.h"
 #include "pybind11/pybind11.h"
-#include "pybind11_abseil/absl_casters.h"
-#include "pybind11_abseil/status_casters.h"
+#include "pybind11/stl.h"
 
 namespace {
 class ConverterWrapper {
@@ -35,10 +35,9 @@ class ConverterWrapper {
  public:
   ConverterWrapper(pysc2::Converter converter)
       : converter_(std::move(converter)) {}
-
-  absl::flat_hash_map<std::string, pybind11::bytes> ObservationSpec() {
+  std::map<std::string, pybind11::bytes> ObservationSpec() {
     absl::flat_hash_map<std::string, dm_env_rpc::v1::TensorSpec> spec;
-    absl::flat_hash_map<std::string, pybind11::bytes> obs_spec;
+    std::map<std::string, pybind11::bytes> obs_spec;
     spec = converter_.ObservationSpec();
     for (const auto& p : spec) {
       std::string temp;
@@ -47,9 +46,9 @@ class ConverterWrapper {
     }
     return obs_spec;
   }
-  absl::flat_hash_map<std::string, pybind11::bytes> ActionSpec() {
+  std::map<std::string, pybind11::bytes> ActionSpec() {
     absl::flat_hash_map<std::string, dm_env_rpc::v1::TensorSpec> spec;
-    absl::flat_hash_map<std::string, pybind11::bytes> action_spec;
+    std::map<std::string, pybind11::bytes> action_spec;
     spec = converter_.ActionSpec();
     for (const auto& p : spec) {
       std::string temp;
@@ -58,14 +57,14 @@ class ConverterWrapper {
     }
     return action_spec;
   }
-  absl::StatusOr<absl::flat_hash_map<std::string, pybind11::bytes>>
-  ConvertObservation(const pybind11::bytes& observation) {
+  std::map<std::string, pybind11::bytes> ConvertObservation(
+      const pybind11::bytes& observation) {
     pysc2::Observation deserialized_obs;
-    absl::flat_hash_map<std::string, pybind11::bytes> serialized_obs;
+    std::map<std::string, pybind11::bytes> serialized_obs;
     deserialized_obs.ParseFromString(observation);
     auto converted_obs_or = converter_.ConvertObservation(deserialized_obs);
     if (!converted_obs_or.ok()) {
-      return converted_obs_or.status();
+      throw std::runtime_error(converted_obs_or.status().ToString());
     }
     for (const auto& p : *converted_obs_or) {
       std::string temp;
@@ -74,8 +73,8 @@ class ConverterWrapper {
     }
     return serialized_obs;
   }
-  absl::StatusOr<pybind11::bytes> ConvertAction(
-      const absl::flat_hash_map<std::string, pybind11::bytes>& action) {
+  pybind11::bytes ConvertAction(
+      const std::map<std::string, pybind11::bytes>& action) {
     absl::flat_hash_map<std::string, dm_env_rpc::v1::Tensor>
         deserialized_action;
     for (const auto& p : action) {
@@ -86,7 +85,7 @@ class ConverterWrapper {
     absl::StatusOr<pysc2::Action> converted_action_or;
     converted_action_or = converter_.ConvertAction(deserialized_action);
     if (!converted_action_or.ok()) {
-      return converted_action_or.status();
+      throw std::runtime_error(converted_action_or.status().ToString());
     }
     std::string serialized_action;
     converted_action_or->SerializeToString(&serialized_action);
@@ -94,23 +93,23 @@ class ConverterWrapper {
   }
 };
 
-absl::StatusOr<ConverterWrapper> MakeConverterWrapper(
-    absl::string_view settings, absl::string_view environment_info) {
+ConverterWrapper MakeConverterWrapper(const std::string& settings,
+                                      const std::string& environment_info) {
   // Deserialize strings.
   pysc2::EnvironmentInfo env_info;
   pysc2::ConverterSettings converter_settings;
-  converter_settings.ParseFromString(std::string(settings));
-  env_info.ParseFromString(std::string(environment_info));
+  converter_settings.ParseFromString(settings);
+  env_info.ParseFromString(environment_info);
   absl::StatusOr<pysc2::Converter> converter_or =
       pysc2::MakeConverter(converter_settings, env_info);
-  if (!converter_or.ok()) return converter_or.status();
+  if (!converter_or.ok()) {
+    throw std::runtime_error(converter_or.status().ToString());
+  }
   return ConverterWrapper(std::move(converter_or).value());
 }
 }  //  namespace
 
 PYBIND11_MODULE(converter, m) {
-  pybind11::google::ImportStatusModule();
-
   m.doc() = "Observation/action converter bindings.";
 
   pybind11::class_<ConverterWrapper>(m, "Converter")

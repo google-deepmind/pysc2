@@ -16,8 +16,6 @@ pybind_extension(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@dm_env_rpc_archive//:dm_env_rpc_cc_proto",
-        "@pybind11_abseil//pybind11_abseil:absl_casters",
-        "@pybind11_abseil//pybind11_abseil:status_casters",
     ],
 )
 
