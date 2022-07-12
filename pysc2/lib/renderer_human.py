@@ -888,7 +888,8 @@ class RendererHuman(object):
     """Return a `sc_pb.Action` with the camera movement filled."""
     action = sc_pb.Action()
     action_spatial = mouse_pos.action_spatial(action)
-    mouse_pos.obs_pos.assign_to(action_spatial.camera_move.center_minimap)
+    mouse_pos.obs_pos.round().assign_to(
+        action_spatial.camera_move.center_minimap)
     return action
 
   def camera_action_raw(self, world_pos):
