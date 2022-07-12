@@ -13,7 +13,7 @@
 # limitations under the License.
 """A Starcraft II environment for playing using remote SC2 instances."""
 
-import collections
+from typing import Sequence
 
 from absl import logging
 from pysc2 import maps
@@ -39,8 +39,8 @@ class RemoteSC2Env(sc2_env.SC2Env):
   This assumes a 2 player game, and works best with play_vs_agent.py.
   """
 
-  def __init__(self,  # pylint: disable=invalid-name
-               _only_use_kwargs=None,
+  def __init__(self,
+               *,
                map_name=None,
                save_map=True,
                host="127.0.0.1",
@@ -72,7 +72,6 @@ class RemoteSC2Env(sc2_env.SC2Env):
     documentation for further detail.
 
     Args:
-      _only_use_kwargs: Don't pass args, only kwargs.
       map_name: Name of a SC2 map. Run bin/map_list to get the full list of
           known maps. Alternatively, pass a Map instance. Take a look at the
           docs in maps/README.md for more information on available maps.
@@ -108,9 +107,6 @@ class RemoteSC2Env(sc2_env.SC2Env):
       ValueError: if the resolutions aren't specified correctly.
       ValueError: if lan_port is a sequence but its length != 4.
     """
-    if _only_use_kwargs:
-      raise ValueError("All arguments must be passed as keyword arguments.")
-
     if agent_interface_format is None:
       raise ValueError("Please specify agent_interface_format.")
 
@@ -144,7 +140,7 @@ class RemoteSC2Env(sc2_env.SC2Env):
     interface = self._get_interface(
         agent_interface_format=agent_interface_format, require_raw=visualize)
 
-    if isinstance(lan_port, collections.Sequence):
+    if isinstance(lan_port, Sequence):
       if len(lan_port) != 4:
         raise ValueError("lan_port sequence must be of length 4")
       ports = lan_port[:]

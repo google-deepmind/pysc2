@@ -156,7 +156,7 @@ class SC2TestEnv(_TestEnvironment):
   """
 
   def __init__(self,
-               _only_use_kwargs=None,
+               *,
                map_name=None,
                players=None,
                agent_interface_format=None,
@@ -177,7 +177,6 @@ class SC2TestEnv(_TestEnvironment):
     """Initializes an SC2TestEnv.
 
     Args:
-      _only_use_kwargs: Don't pass args, only kwargs.
       map_name: Map name. Ignored.
       players: A list of Agent and Bot instances that specify who will play.
       agent_interface_format: A sequence containing one AgentInterfaceFormat per
@@ -221,9 +220,6 @@ class SC2TestEnv(_TestEnvironment):
     del disable_fog  # Unused.
     del ensure_available_actions  # Unused.
     del version  # Unused.
-
-    if _only_use_kwargs:
-      raise ValueError('All arguments must be passed as keyword arguments.')
 
     if realtime:
       raise ValueError('realtime mode is not supported by the mock env.')

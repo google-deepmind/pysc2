@@ -203,8 +203,8 @@ class LanSC2Env(sc2_env.SC2Env):
   script, likely play_vs_agent.py.
   """
 
-  def __init__(self,  # pylint: disable=invalid-name
-               _only_use_kwargs=None,
+  def __init__(self,
+               *,
                host="127.0.0.1",
                config_port=None,
                race=None,
@@ -232,7 +232,6 @@ class LanSC2Env(sc2_env.SC2Env):
     height. If you specify size then both width and height will take that value.
 
     Args:
-      _only_use_kwargs: Don't pass args, only kwargs.
       host: Which ip to use. Either ipv4 or ipv6 localhost.
       config_port: Where to find the config port.
       race: Race for this agent.
@@ -260,9 +259,6 @@ class LanSC2Env(sc2_env.SC2Env):
       ValueError: if the resolutions aren't specified correctly.
       ValueError: if the host or port are invalid.
     """
-    if _only_use_kwargs:
-      raise ValueError("All arguments must be passed as keyword arguments.")
-
     if host not in ("127.0.0.1", "::1"):
       raise ValueError("Bad host arguments. Must be a localhost")
     if not config_port:

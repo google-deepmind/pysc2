@@ -162,6 +162,8 @@ pytype_library(
         "//pysc2/lib:units",
         "//pysc2/tests:dummy_observation",
         "@s2client_proto//s2clientprotocol:common_py_pb2",
+        "@s2client_proto//s2clientprotocol:raw_py_pb2",
+        "@s2client_proto//s2clientprotocol:sc2api_py_pb2",
     ],
 )
 

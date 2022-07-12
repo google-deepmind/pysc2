@@ -94,8 +94,8 @@ class SC2Env(environment.Base):
   lib/features.py
   """
 
-  def __init__(self,  # pylint: disable=invalid-name
-               _only_use_kwargs=None,
+  def __init__(self,
+               *,
                map_name=None,
                battle_net_map=False,
                players=None,
@@ -126,7 +126,6 @@ class SC2Env(environment.Base):
     height. If you specify size then both width and height will take that value.
 
     Args:
-      _only_use_kwargs: Don't pass args, only kwargs.
       map_name: Name of a SC2 map. Run bin/map_list to get the full list of
           known maps. Alternatively, pass a Map instance. Take a look at the
           docs in maps/README.md for more information on available maps. Can
@@ -179,9 +178,6 @@ class SC2Env(environment.Base):
       ValueError: if wrong number of players are requested for a map.
       ValueError: if the resolutions aren't specified correctly.
     """
-    if _only_use_kwargs:
-      raise ValueError("All arguments must be passed as keyword arguments.")
-
     if not players:
       raise ValueError("You must specify the list of players.")
 
