@@ -66,6 +66,7 @@ setup(
     install_requires=[
         'absl-py>=0.1.0',
         'deepdiff',
+        'dm_env',
         'enum34',
         'mock',
         'mpyq',
