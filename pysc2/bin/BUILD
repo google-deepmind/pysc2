@@ -312,3 +312,13 @@ pytype_strict_binary(
         "@s2protocol_archive//:versions",
     ],
 )
+
+pytype_strict_binary(
+    name = "replay_version",
+    srcs = ["replay_version.py"],
+    deps = [
+        "//pysc2/lib:replay",
+        "//pysc2/run_configs",
+        "@absl_py//absl:app",
+    ],
+)
