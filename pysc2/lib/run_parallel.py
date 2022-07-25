@@ -52,7 +52,14 @@ class RunParallel(object):
     if len(funcs) > self._workers:  # Lazy init and grow as needed.
       self.shutdown()
       self._workers = len(funcs)
-      self._executor = futures.ThreadPoolExecutor(self._workers)
+      while True:
+        try:
+          # Temporary workaround for "<frozen importlib._bootstrap>", line 110.
+          # Race condition on internal import of ThreadPoolExecutor.
+          self._executor = futures.ThreadPoolExecutor(self._workers)
+          break
+        except KeyError:
+          pass
     futs = [self._executor.submit(f) for f in funcs]
     done, not_done = futures.wait(futs, self._timeout, futures.FIRST_EXCEPTION)
     # Make sure to propagate any exceptions.
