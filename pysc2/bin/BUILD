@@ -3,7 +3,7 @@ load("//pysc2:build_defs.bzl", "pytype_binary", "pytype_strict_binary")
 
 package(default_visibility = ["//visibility:public"])
 
-licenses(["notice"])  # Apache2 license
+licenses(["notice"])
 
 pytype_binary(
     name = "replay_actions",

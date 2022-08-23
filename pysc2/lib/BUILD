@@ -3,7 +3,7 @@ load("//pysc2:build_defs.bzl", "pytype_library")
 
 package(default_visibility = ["//visibility:public"])
 
-licenses(["notice"])  # Apache 2.0 License
+licenses(["notice"])
 
 py_library(
     name = "actions",
