@@ -14,6 +14,8 @@
 
 #include "pysc2/env/converter/cc/raw_converter.h"
 
+#include <memory>
+
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "dm_env_rpc/v1/dm_env_rpc.pb.h"
@@ -100,13 +102,13 @@ RawConverter::ConvertObservation(const Observation& observation) {
             dims.DebugString()));
       }
       raw_camera_ =
-          absl::make_unique<RawCamera>(camera.x(), camera.y(), dims.left(),
-                                       dims.right(), dims.top(), dims.bottom());
+          std::make_unique<RawCamera>(camera.x(), camera.y(), dims.left(),
+                                      dims.right(), dims.top(), dims.bottom());
     } else {
       float width =
           static_cast<float>(settings_.camera_width_world_units()) / 2;
-      raw_camera_ = absl::make_unique<RawCamera>(camera.x(), camera.y(), width,
-                                                 width, width, width);
+      raw_camera_ = std::make_unique<RawCamera>(camera.x(), camera.y(), width,
+                                                width, width, width);
     }
   }
 
