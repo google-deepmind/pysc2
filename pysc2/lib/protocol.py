@@ -60,13 +60,13 @@ def catch_websocket_connection_errors():
   """A context manager that translates websocket errors into ConnectionError."""
   try:
     yield
-  except websocket.WebSocketConnectionClosedException:
+  except websocket.WebSocketConnectionClosedException as e:
     raise ConnectionError("Connection already closed. SC2 probably crashed. "
-                          "Check the error log.")
-  except websocket.WebSocketTimeoutException:
-    raise ConnectionError("Websocket timed out.")
+                          "Check the error log.") from e
+  except websocket.WebSocketTimeoutException as e:
+    raise ConnectionError("Websocket timed out.") from e
   except socket.error as e:
-    raise ConnectionError("Socket error: %s" % e)
+    raise ConnectionError("Socket error: %s" % e) from e
 
 
 class StarcraftProtocol(object):
@@ -146,7 +146,7 @@ class StarcraftProtocol(object):
     try:
       res = self.send_req(req)
     except ConnectionError as e:
-      raise ConnectionError("Error during %s: %s" % (name, e))
+      raise ConnectionError("Error during %s: %s" % (name, e)) from e
     if res.HasField("id") and res.id != req.id:
       raise ConnectionError(
           "Error during %s: Got a response with a different id" % name)
