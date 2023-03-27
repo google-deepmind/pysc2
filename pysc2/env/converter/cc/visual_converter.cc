@@ -96,8 +96,8 @@ dm_env_rpc::v1::Tensor AvailableActions(const SC2APIProtocol::Observation& obs,
         }
       }
     }
-    CHECK(found_applicable) << "Failed to find applicable action for "
-                            << available_ability.DebugString();
+    CHECK(found_applicable)
+        << "Failed to find applicable action for " << available_ability;
   }
   for (auto action_id : available_actions) {
     if (action_id < num_action_types) {

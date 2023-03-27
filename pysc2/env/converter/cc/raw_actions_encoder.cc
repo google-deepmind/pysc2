@@ -398,7 +398,7 @@ absl::StatusOr<SC2APIProtocol::RequestAction> RawActionsEncoder::Encode(
     coordinates->set_x(point2d.x());
     coordinates->set_y(point2d.y());
     *output.add_actions() = std::move(out);
-    VLOG(1) << "Encoding raw camera move: " << output.DebugString();
+    VLOG(1) << "Encoding raw camera move: " << output;
     return output;
   }
 
@@ -422,7 +422,7 @@ absl::StatusOr<SC2APIProtocol::RequestAction> RawActionsEncoder::Encode(
       action->add_unit_tags(tag);
     }
     *output.add_actions() = std::move(out);
-    VLOG(1) << "Encoding raw autocast: " << output.DebugString();
+    VLOG(1) << "Encoding raw autocast: " << output;
     return output;
   }
 
@@ -487,7 +487,7 @@ absl::StatusOr<SC2APIProtocol::RequestAction> RawActionsEncoder::Encode(
 
   VLOG(1) << "Encoded action at game loop "
           << observation.observation().game_loop() << ":\n"
-          << output.DebugString();
+          << output;
 
   return output;
 }

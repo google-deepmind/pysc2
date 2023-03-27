@@ -443,7 +443,7 @@ absl::flat_hash_map<std::string, dm_env_rpc::v1::Tensor> Decode(
     const ActionContext& action_context) {
   for (const SC2APIProtocol::Action& action : request_action.actions()) {
     if (action.has_action_ui() || action.has_action_feature_layer()) {
-      VLOG(1) << "Found action:\n" << action.DebugString();
+      VLOG(1) << "Found action:\n" << action;
       if (action.has_action_ui()) {
         const auto& act_ui = action.action_ui();
         if (act_ui.has_multi_panel()) {
