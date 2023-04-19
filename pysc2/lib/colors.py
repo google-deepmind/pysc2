@@ -118,7 +118,7 @@ def smooth_hue_palette(scale):
 
 def shuffled_hue(scale):
   palette = list(smooth_hue_palette(scale))
-  random.shuffle(palette, lambda: 0.5)  # Return a fixed shuffle
+  random.Random(21).shuffle(palette)  # Return a fixed shuffle
   return numpy.array(palette)
 
 
