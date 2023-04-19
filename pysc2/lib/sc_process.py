@@ -190,13 +190,13 @@ class StarcraftProcess(object):
 
   def _launch(self, run_config, args, **kwargs):
     """Launch the process and return the process object."""
-    del kwargs
     try:
       with sw("popen"):
-        return subprocess.Popen(args, cwd=run_config.cwd, env=run_config.env)
-    except OSError:
+        return subprocess.Popen(
+            args, cwd=run_config.cwd, env=run_config.env, **kwargs)
+    except OSError as e:
       logging.exception("Failed to launch")
-      raise SC2LaunchError("Failed to launch: %s" % args)
+      raise SC2LaunchError("Failed to launch: %s" % args) from e
 
   def _shutdown(self):
     """Terminate the sub-process."""
