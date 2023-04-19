@@ -55,7 +55,7 @@ class RunParallel(object):
       while True:
         try:
           # Temporary workaround for "<frozen importlib._bootstrap>", line 110.
-          # Race condition on internal import of ThreadPoolExecutor.
+          # Race condition on import of ThreadPoolExecutor.
           self._executor = futures.ThreadPoolExecutor(self._workers)
           break
         except KeyError:
