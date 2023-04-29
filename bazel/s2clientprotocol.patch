@@ -1,3 +1,4 @@
+--- s2clientprotocol/BUILD
 +++ s2clientprotocol/BUILD	2021-11-18 12:14:07.885666323 +0000
 @@ -0,0 +1,255 @@
 +load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
@@ -256,6 +257,7 @@
 +    ],
 +)
 
+--- WORKSPACE
 +++ WORKSPACE	2021-11-18 12:14:07.885666323 +0000
 @@ -0,0 +1,21 @@
 +workspace(name = "s2client-proto")
