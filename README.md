@@ -31,7 +31,7 @@ agents to interact with StarCraft 2, getting observations and sending actions.
 
 
 We have published an accompanying
-[blogpost](https://deepmind.com/blog/deepmind-and-blizzard-open-starcraft-ii-ai-research-environment/)
+[blogpost](https://www.deepmind.com/blog/deepmind-and-blizzard-open-starcraft-ii-as-an-ai-research-environment/)
 and [paper](https://arxiv.org/abs/1708.04782), which outlines our
 motivation for using StarCraft II for DeepRL research, and some initial research
 results using the environment.
