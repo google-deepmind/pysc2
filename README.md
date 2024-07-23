@@ -50,6 +50,18 @@ You can reach us at [pysc2@deepmind.com](mailto:pysc2@deepmind.com).
 
 ## Get PySC2
 
+#### Optional Dependencies for Handling Zombies (**Only for Linux**)
+
+We need `libcap-dev` to control the sub-processes created by `subprocess.Popen`.
+
+For example, in Debian / Ubuntu, you can use:
+
+```
+sudo apt-get install libcap-dev
+```
+
+After that, `python-prctl` will be added as a dependency when installing `pysc2`, which helps control the terminations of sub-processes created by `subprocess.Popen`.
+
 ### PyPI
 
 The easiest way to get PySC2 is to use pip:

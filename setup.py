@@ -14,6 +14,9 @@
 """Module setuptools script."""
 
 import distutils.command.build
+import os
+import subprocess
+
 from setuptools import setup
 
 description = """PySC2 - StarCraft II Learning Environment
@@ -36,69 +39,87 @@ Read the README at https://github.com/deepmind/pysc2 for more information.
 
 class BuildCommand(distutils.command.build.build):
 
-  def initialize_options(self):
-    distutils.command.build.build.initialize_options(self)
-    # To avoid conflicting with the Bazel BUILD file.
-    self.build_base = '_build'
+    def initialize_options(self):
+        distutils.command.build.build.initialize_options(self)
+        # To avoid conflicting with the Bazel BUILD file.
+        self.build_base = "_build"
 
+
+if os.name == "posix" and "linux" in os.uname().sysname.lower():
+    # Try to find the libcap development headers
+    try:
+        subprocess.check_call(["dpkg", "-s", "libcap-dev"])
+        install_prctl = True
+    except subprocess.CalledProcessError:
+        print("libcap-dev not found, skipping installation of python-prctl")
+        install_prctl = False
+else:
+    install_prctl = False
+
+install_requires = [
+    "absl-py>=0.1.0",
+    "deepdiff",
+    "dm_env",
+    "enum34",
+    "mock",
+    "mpyq",
+    "numpy>=1.10",
+    "portpicker>=1.2.0",
+    "protobuf>=2.6",
+    "pygame",
+    "requests",
+    "s2clientprotocol>=4.10.1.75800.0",
+    "s2protocol",
+    "sk-video",
+    "websocket-client",
+]
+
+if install_prctl:
+    install_requires += ["python-prctl"]
 
 setup(
-    name='PySC2',
-    version='4.0.0',
-    description='Starcraft II environment and library for training agents.',
+    name="PySC2",
+    version="4.0.0",
+    description="Starcraft II environment and library for training agents.",
     long_description=description,
-    author='DeepMind',
-    author_email='pysc2@deepmind.com',
-    cmdclass={'build': BuildCommand},
-    license='Apache License, Version 2.0',
-    keywords='StarCraft AI',
-    url='https://github.com/deepmind/pysc2',
+    author="DeepMind",
+    author_email="pysc2@deepmind.com",
+    cmdclass={
+        "build": BuildCommand,
+    },
+    license="Apache License, Version 2.0",
+    keywords="StarCraft AI",
+    url="https://github.com/deepmind/pysc2",
     packages=[
-        'pysc2',
-        'pysc2.agents',
-        'pysc2.bin',
-        'pysc2.env',
-        'pysc2.lib',
-        'pysc2.maps',
-        'pysc2.run_configs',
-        'pysc2.tests',
+        "pysc2",
+        "pysc2.agents",
+        "pysc2.bin",
+        "pysc2.env",
+        "pysc2.lib",
+        "pysc2.maps",
+        "pysc2.run_configs",
+        "pysc2.tests",
     ],
-    install_requires=[
-        'absl-py>=0.1.0',
-        'deepdiff',
-        'dm_env',
-        'enum34',
-        'mock',
-        'mpyq',
-        'numpy>=1.10',
-        'portpicker>=1.2.0',
-        'protobuf>=2.6',
-        'pygame',
-        'requests',
-        's2clientprotocol>=4.10.1.75800.0',
-        's2protocol',
-        'sk-video',
-        'websocket-client',
-    ],
+    install_requires=install_requires,
     entry_points={
-        'console_scripts': [
-            'pysc2_agent = pysc2.bin.agent:entry_point',
-            'pysc2_play = pysc2.bin.play:entry_point',
-            'pysc2_replay_info = pysc2.bin.replay_info:entry_point',
+        "console_scripts": [
+            "pysc2_agent = pysc2.bin.agent:entry_point",
+            "pysc2_play = pysc2.bin.play:entry_point",
+            "pysc2_replay_info = pysc2.bin.replay_info:entry_point",
         ],
     },
     classifiers=[
-        'Development Status :: 4 - Beta',
-        'Environment :: Console',
-        'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: Apache Software License',
-        'Operating System :: POSIX :: Linux',
-        'Operating System :: Microsoft :: Windows',
-        'Operating System :: MacOS :: MacOS X',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
-        'Topic :: Scientific/Engineering :: Artificial Intelligence',
+        "Development Status :: 4 - Beta",
+        "Environment :: Console",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: MacOS :: MacOS X",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
 )
