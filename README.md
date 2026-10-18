@@ -21,6 +21,10 @@
 
 # PySC2 - StarCraft II Learning Environment
 
+<p align="center">
+  <b>English</b> · <a href="https://github.com/google-deepmind/pysc2/blob/master/README.zh.md">简体中文</a>
+</p>
+
 [PySC2](https://github.com/deepmind/pysc2) is [DeepMind](http://deepmind.com)'s
 Python component of the StarCraft II Learning Environment (SC2LE). It exposes
 [Blizzard Entertainment](http://blizzard.com)'s [StarCraft II Machine Learning
