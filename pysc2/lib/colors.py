@@ -210,7 +210,8 @@ SELECTED_PALETTE = numpy.array([black, green * 0.7])
 
 def unit_type(scale=None):
   """Returns a palette that maps unit types to rgb colors."""
-  return categorical(static_data.UNIT_TYPES, scale)
+  # Leave room for ids missing from static_data, such as 1996 on Persephone AIE.
+  return categorical(static_data.UNIT_TYPES, max(scale or 0, 4096))
 
 
 def buffs(scale=None):

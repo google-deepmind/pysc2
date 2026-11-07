@@ -19,7 +19,7 @@ import os
 from absl import app
 from absl import flags
 from pysc2 import run_configs
-from pysc2.lib import replay
+from pysc2.lib import replay_utils as replay
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
 

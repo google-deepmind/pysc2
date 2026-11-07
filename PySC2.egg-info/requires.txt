@@ -1,0 +1,15 @@
+absl-py>=0.1.0
+deepdiff
+dm_env
+enum34
+mock
+mpyq
+numpy>=1.10
+portpicker>=1.2.0
+protobuf>=2.6
+pygame
+requests
+s2clientprotocol>=4.10.1.75800.0
+s2protocol
+sk-video
+websocket-client

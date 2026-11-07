@@ -26,7 +26,7 @@ from pysc2 import run_configs
 from pysc2.env import sc2_env
 from pysc2.lib import point_flag
 from pysc2.lib import renderer_human
-from pysc2.lib import replay
+from pysc2.lib import replay_utils as replay
 from pysc2.lib import stopwatch
 
 from s2clientprotocol import sc2api_pb2 as sc_pb

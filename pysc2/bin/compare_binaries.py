@@ -23,7 +23,7 @@ from pysc2 import run_configs
 from pysc2.lib import image_differencer
 from pysc2.lib import proto_diff
 from pysc2.lib import remote_controller
-from pysc2.lib import replay
+from pysc2.lib import replay_utils as replay
 from pysc2.lib import stopwatch
 
 from s2clientprotocol import sc2api_pb2 as sc_pb

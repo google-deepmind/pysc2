@@ -265,7 +265,7 @@ pytype_library(
 
 pytype_library(
     name = "replay",
-    srcs = ["replay.py"],
+    srcs = ["replay_utils.py"],
     srcs_version = "PY3",
     deps = [
         requirement("mpyq"),

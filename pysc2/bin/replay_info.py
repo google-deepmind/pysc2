@@ -21,7 +21,7 @@ from absl import flags
 
 from pysc2 import run_configs
 from pysc2.lib import remote_controller
-from pysc2.lib import replay
+from pysc2.lib import replay_utils as replay
 
 from pysc2.lib import gfile
 from s2clientprotocol import common_pb2 as sc_common

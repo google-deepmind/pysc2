@@ -1,3 +1,10 @@
+> **Sam-v6 fork.** Used for human visual review of 4.10 replays, not for training or
+> agent work. Two fixes on top of upstream: `pysc2/lib/replay.py` is renamed
+> `replay_utils.py`, because the `replay/` package hid it and broke `play --replay`, and
+> `colors.unit_type()` sizes its palette for unit ids missing from `static_data`, which
+> otherwise crashed the render thread. On SDL 2, run the viewer with
+> `SDL_FRAMEBUFFER_ACCELERATION=0` or the window stays black.
+
 <div align="center">
   <a href="https://www.youtube.com/watch?v=-fKUyT14G-8"
      target="_blank">

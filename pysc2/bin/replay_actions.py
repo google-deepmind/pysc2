@@ -31,7 +31,7 @@ from pysc2.lib import features
 from pysc2.lib import point
 from pysc2.lib import protocol
 from pysc2.lib import remote_controller
-from pysc2.lib import replay
+from pysc2.lib import replay_utils as replay
 from pysc2.lib import static_data
 
 from pysc2.lib import gfile

@@ -1,0 +1,63 @@
+Metadata-Version: 2.4
+Name: PySC2
+Version: 4.0.0
+Summary: Starcraft II environment and library for training agents.
+Home-page: https://github.com/deepmind/pysc2
+Author: DeepMind
+Author-email: pysc2@deepmind.com
+License: Apache License, Version 2.0
+Keywords: StarCraft AI
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+License-File: LICENSE
+Requires-Dist: absl-py>=0.1.0
+Requires-Dist: deepdiff
+Requires-Dist: dm_env
+Requires-Dist: enum34
+Requires-Dist: mock
+Requires-Dist: mpyq
+Requires-Dist: numpy>=1.10
+Requires-Dist: portpicker>=1.2.0
+Requires-Dist: protobuf>=2.6
+Requires-Dist: pygame
+Requires-Dist: requests
+Requires-Dist: s2clientprotocol>=4.10.1.75800.0
+Requires-Dist: s2protocol
+Requires-Dist: sk-video
+Requires-Dist: websocket-client
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
+
+PySC2 - StarCraft II Learning Environment
+
+PySC2 is DeepMind's Python component of the StarCraft II Learning Environment
+(SC2LE). It exposes Blizzard Entertainment's StarCraft II Machine Learning API
+as a Python RL Environment. This is a collaboration between DeepMind and
+Blizzard to develop StarCraft II into a rich environment for RL research. PySC2
+provides an interface for RL agents to interact with StarCraft 2, getting
+observations and sending actions.
+
+We have published an accompanying blogpost and paper
+https://deepmind.com/blog/deepmind-and-blizzard-open-starcraft-ii-ai-research-environment/
+which outlines our motivation for using StarCraft II for DeepRL research, and
+some initial research results using the environment.
+
+Read the README at https://github.com/deepmind/pysc2 for more information.

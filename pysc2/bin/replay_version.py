@@ -19,7 +19,7 @@ import os
 from absl import app
 
 from pysc2 import run_configs
-from pysc2.lib import replay
+from pysc2.lib import replay_utils as replay
 
 
 def main(argv):
