@@ -285,9 +285,9 @@ class RendererHuman(object):
       ("F12", "Toggle raw/feature layer actions"),
       ("Ctrl++", "Zoom in"),
       ("Ctrl+-", "Zoom out"),
-      ("PgUp/PgDn", "Increase/decrease the max game speed"),
-      ("Ctrl+PgUp/PgDn", "Increase/decrease the step multiplier"),
-      ("Pause", "Pause the game"),
+      ("PgUp/PgDn or ]/[", "Increase/decrease the max game speed"),
+      ("Ctrl+PgUp/PgDn or Ctrl+]/[", "Increase/decrease the step multiplier"),
+      ("Pause or Space", "Pause the game"),
       ("?", "This help screen"),
   ]
 
@@ -765,13 +765,14 @@ class RendererHuman(object):
           self._help = False
         elif event.key in (pygame.K_QUESTION, pygame.K_SLASH):
           self._help = True
-        elif event.key == pygame.K_PAUSE:
+        elif event.key in (pygame.K_PAUSE, pygame.K_SPACE):
           pause = True
           while pause:
             time.sleep(0.1)
             for event2 in pygame.event.get():
               if event2.type == pygame.KEYDOWN:
-                if event2.key in (pygame.K_PAUSE, pygame.K_ESCAPE):
+                if event2.key in (pygame.K_PAUSE, pygame.K_SPACE,
+                                  pygame.K_ESCAPE):
                   pause = False
                 elif event2.key == pygame.K_F4:
                   return ActionCmd.QUIT
@@ -800,15 +801,17 @@ class RendererHuman(object):
           self.zoom(1.1)  # zoom in
         elif event.key in (pygame.K_MINUS, pygame.K_UNDERSCORE) and ctrl:
           self.zoom(1 / 1.1)  # zoom out
-        elif event.key in (pygame.K_PAGEUP, pygame.K_PAGEDOWN):
+        elif event.key in (pygame.K_PAGEUP, pygame.K_PAGEDOWN,
+                           pygame.K_RIGHTBRACKET, pygame.K_LEFTBRACKET):
+          faster = event.key in (pygame.K_PAGEUP, pygame.K_RIGHTBRACKET)
           if ctrl:
-            if event.key == pygame.K_PAGEUP:
+            if faster:
               self._step_mul += 1
             elif self._step_mul > 1:
               self._step_mul -= 1
             print("New step mul:", self._step_mul)
           else:
-            self._fps *= 1.25 if event.key == pygame.K_PAGEUP else 1 / 1.25
+            self._fps *= 1.25 if faster else 1 / 1.25
             print("New max game speed: %.1f" % self._fps)
         elif event.key == pygame.K_F1:
           if self._obs.observation.player_common.idle_worker_count > 0:
